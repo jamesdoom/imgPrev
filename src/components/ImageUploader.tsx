@@ -1,0 +1,204 @@
+import { useCallback, useState } from "react";
+import type { Area } from "react-easy-crop";
+import { resizeImage } from "./utils/resizeImage";
+import { cropImage } from "./utils/cropImage";
+import Dropzone from "./ImageUploader/Dropzone";
+import Spinner from "./ImageUploader/Spinner";
+import UploadInfo from "./ImageUploader/UploadInfo";
+import FileInfo from "./ImageUploader/FileInfo";
+import TransformButtons from "./ImageUploader/Controls/TransformButtons";
+import AspectRatioButtons from "./ImageUploader/Controls/AspectRatioButtons";
+import CropperPreview from "./ImageUploader/CropperPreview";
+import CropButtons from "./ImageUploader/Controls/CropButtons";
+import ImagePreview from "./ImageUploader/ImagePreview";
+
+const MAX_FILE_SIZE = 21 * 1024 * 1024;
+
+export default function ImageUploader() {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [hasCropped, setHasCropped] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<number>(1);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [croppingImageUrl, setCroppingImageUrl] = useState<string | null>(null);
+  const [rotation, setRotation] = useState(0);
+  const [flipX, setFlipX] = useState(false);
+  const [flipY, setFlipY] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+
+  type TransformType = "rotate" | "flipX" | "flipY" | null;
+  const [activeTransform, setActiveTransform] = useState<TransformType>(null);
+
+  const onCropComplete = useCallback((_: Area, croppedArea: Area) => {
+    setCroppedAreaPixels(croppedArea);
+  }, []);
+
+  const handleCrop = async () => {
+    if (!previewUrl || !croppedAreaPixels) return;
+
+    try {
+      setLoading(true);
+      const { url, blob } = await cropImage(previewUrl, croppedAreaPixels);
+      setPreviewUrl(url);
+      setCroppedBlob(blob);
+      setCroppingImageUrl(null);
+      setHasCropped(true);
+    } catch (err) {
+      console.error("Crop error:", err);
+      setError("Failed to crop image");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    setError(null);
+    setPreviewUrl(null);
+    setFile(null);
+    setCroppingImageUrl(null);
+    setHasCropped(false);
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files are allowed.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Image must be 21MB or smaller.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const url = await resizeImage(file, 512, 0, false, false);
+      setPreviewUrl(url);
+      setOriginalUrl(url);
+      setFile(file);
+    } catch (err) {
+      console.error("Error processing image:", err);
+      setError("Something went wrong while processing the image.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return (
+    <div className="max-w-md mx-auto p-4">
+      <Dropzone onDrop={onDrop} disabled={loading} />
+      {loading && <Spinner />}
+      <UploadInfo />
+
+      {error && (
+        <div className="mt-3 text-red-600 font-medium bg-red-100 p-2 rounded">
+          {error}
+        </div>
+      )}
+
+      <TransformButtons
+        file={file}
+        previewUrl={previewUrl}
+        croppingImageUrl={croppingImageUrl}
+        rotation={rotation}
+        flipX={flipX}
+        flipY={flipY}
+        activeTransform={activeTransform}
+        setRotation={setRotation}
+        setFlipX={setFlipX}
+        setFlipY={setFlipY}
+        setActiveTransform={setActiveTransform}
+        setPreviewUrl={setPreviewUrl}
+        setCroppingImageUrl={setCroppingImageUrl}
+        setHasCropped={setHasCropped}
+      />
+
+      {croppingImageUrl && (
+        <AspectRatioButtons
+          aspectRatio={aspectRatio}
+          setAspectRatio={setAspectRatio}
+        />
+      )}
+
+      {previewUrl && croppingImageUrl && (
+        <CropperPreview
+          image={croppingImageUrl}
+          crop={crop}
+          zoom={zoom}
+          aspectRatio={aspectRatio}
+          onCropChange={setCrop}
+          onZoomChange={setZoom}
+          onCropComplete={onCropComplete}
+        />
+      )}
+
+      <ImagePreview
+        previewUrl={previewUrl}
+        hasCropped={hasCropped}
+        croppingImageUrl={croppingImageUrl}
+      />
+
+      <CropButtons
+        previewUrl={previewUrl}
+        croppingImageUrl={croppingImageUrl}
+        croppedBlob={croppedBlob}
+        hasCropped={hasCropped}
+        originalUrl={originalUrl}
+        setCroppingImageUrl={setCroppingImageUrl}
+        setHasCropped={setHasCropped}
+        setPreviewUrl={setPreviewUrl}
+        setCroppedBlob={setCroppedBlob}
+        setShowComparison={setShowComparison}
+        onCrop={handleCrop}
+      />
+
+      {showComparison && previewUrl && originalUrl && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <h3 className="text-sm font-medium mb-1 text-gray-600">
+              Original Image
+            </h3>
+            <img
+              src={originalUrl}
+              alt="Original"
+              className="rounded shadow w-full"
+              loading="lazy"
+            />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium mb-1 text-gray-600">
+              Cropped Image
+            </h3>
+            <img
+              src={previewUrl}
+              alt="Cropped"
+              className="rounded shadow w-full"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
+
+      {file && (
+        <FileInfo
+          file={file}
+          onRemove={() => {
+            setPreviewUrl(null);
+            setError(null);
+            setFile(null);
+            setOriginalUrl(null);
+            setCroppingImageUrl(null);
+            setHasCropped(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}

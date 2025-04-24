@@ -1,7 +1,17 @@
-export default function App() {
+import ImageUploader from "./components/ImageUploader";
+import { Toaster } from "react-hot-toast";
+
+function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-emerald-400 to-blue-600 text-white text-3xl font-bold">
-      Tailwind + TypeScript is working! ⚡
-    </div>
+    <>
+      {/* Toast notifications */}
+      <Toaster position="bottom-center" reverseOrder={false} />
+
+      <main className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <ImageUploader />
+      </main>
+    </>
   );
 }
+
+export default App;
