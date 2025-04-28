@@ -1,6 +1,7 @@
 // components/ImageUploader/FileInfo.tsx
 
 interface Props {
+  file: File;
   onRemove: () => void;
 }
 
