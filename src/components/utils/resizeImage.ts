@@ -1,6 +1,6 @@
 export function resizeImage(
   file: File,
-  maxSize = 512,
+  maxSize = 1024,
   rotation = 0,
   flipX = false,
   flipY = false
@@ -40,7 +40,7 @@ export function resizeImage(
           resolve(url);
         },
         "image/jpeg",
-        0.8
+        0.95
       );
     };
 

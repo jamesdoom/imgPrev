@@ -51,7 +51,7 @@ export default function CropButtons({
             <a
               href={URL.createObjectURL(croppedBlob)}
               download="cropped-image.jpg"
-              className="text-sm text-green-600 underline hover:text-green-800"
+              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors mt-2 inline-block text-center"
             >
               Download Cropped Image
             </a>
@@ -79,7 +79,7 @@ export default function CropButtons({
                 },
               });
             }}
-            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+            className="px-3 py-1 bg-yellow-400 text-white text-sm rounded hover:bg-yellow-500 transition-colors"
           >
             Undo Crop
           </button>

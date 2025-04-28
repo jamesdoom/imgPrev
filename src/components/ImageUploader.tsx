@@ -1,3 +1,5 @@
+// ImageUploader.tsx
+
 import { useCallback, useState } from "react";
 import type { Area } from "react-easy-crop";
 import { resizeImage } from "./utils/resizeImage";
@@ -11,6 +13,8 @@ import AspectRatioButtons from "./ImageUploader/Controls/AspectRatioButtons";
 import CropperPreview from "./ImageUploader/CropperPreview";
 import CropButtons from "./ImageUploader/Controls/CropButtons";
 import ImagePreview from "./ImageUploader/ImagePreview";
+import { getDpi } from "./utils/getDpi";
+import DpiInfo from "./ImageUploader/DpiInfo";
 
 const MAX_FILE_SIZE = 21 * 1024 * 1024;
 
@@ -31,9 +35,7 @@ export default function ImageUploader() {
   const [flipX, setFlipX] = useState(false);
   const [flipY, setFlipY] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
-
-  type TransformType = "rotate" | "flipX" | "flipY" | null;
-  const [activeTransform, setActiveTransform] = useState<TransformType>(null);
+  const [dpi, setDpi] = useState<number | null>(null);
 
   const onCropComplete = useCallback((_: Area, croppedArea: Area) => {
     setCroppedAreaPixels(croppedArea);
@@ -79,10 +81,17 @@ export default function ImageUploader() {
 
     try {
       setLoading(true);
-      const url = await resizeImage(file, 512, 0, false, false);
+
+      // Get both resized image and dpi in parallel
+      const [url, dpiValue] = await Promise.all([
+        resizeImage(file, 512, 0, false, false),
+        getDpi(file),
+      ]);
+
       setPreviewUrl(url);
       setOriginalUrl(url);
       setFile(file);
+      setDpi(dpiValue ?? null);
     } catch (err) {
       console.error("Error processing image:", err);
       setError("Something went wrong while processing the image.");
@@ -97,6 +106,8 @@ export default function ImageUploader() {
       {loading && <Spinner />}
       <UploadInfo />
 
+      <DpiInfo dpi={dpi} />
+
       {error && (
         <div className="mt-3 text-red-600 font-medium bg-red-100 p-2 rounded">
           {error}
@@ -110,11 +121,9 @@ export default function ImageUploader() {
         rotation={rotation}
         flipX={flipX}
         flipY={flipY}
-        activeTransform={activeTransform}
         setRotation={setRotation}
         setFlipX={setFlipX}
         setFlipY={setFlipY}
-        setActiveTransform={setActiveTransform}
         setPreviewUrl={setPreviewUrl}
         setCroppingImageUrl={setCroppingImageUrl}
         setHasCropped={setHasCropped}
@@ -143,6 +152,7 @@ export default function ImageUploader() {
         previewUrl={previewUrl}
         hasCropped={hasCropped}
         croppingImageUrl={croppingImageUrl}
+        file={file}
       />
 
       <CropButtons
