@@ -12,6 +12,8 @@ interface Props {
   setCroppedBlob: (blob: Blob | null) => void;
   setShowComparison: (fn: (prev: boolean) => boolean) => void;
   onCrop: () => void;
+  useServer: boolean;
+  file: File | null;
 }
 
 export default function CropButtons({
@@ -26,12 +28,36 @@ export default function CropButtons({
   setCroppedBlob,
   setShowComparison,
   onCrop,
+  useServer,
+  file,
 }: Props) {
   return (
     <>
       {previewUrl && croppingImageUrl && (
         <button
-          onClick={onCrop}
+          onClick={async () => {
+            if (useServer && file) {
+              const formData = new FormData();
+              formData.append("image", file);
+              try {
+                const res = await fetch("http://localhost:4000/upload", {
+                  method: "POST",
+                  body: formData,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.previewUrl) {
+                  throw new Error(data.error || "Crop failed");
+                }
+                setPreviewUrl(data.previewUrl);
+                setCroppingImageUrl(null);
+                setHasCropped(true);
+              } catch (err) {
+                console.error("Server-side crop failed", err);
+              }
+            } else {
+              onCrop(); // client-side
+            }
+          }}
           className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors mt-4"
         >
           Crop Image
@@ -51,7 +77,7 @@ export default function CropButtons({
             <a
               href={URL.createObjectURL(croppedBlob)}
               download="cropped-image.jpg"
-              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors mt-2 inline-block text-center"
+              className="text-sm text-green-600 underline hover:text-green-800"
             >
               Download Cropped Image
             </a>
@@ -69,17 +95,17 @@ export default function CropButtons({
               toast.success("Crop undone!", {
                 duration: 3000,
                 style: {
-                  border: "1px solid #4ade80",
+                  border: "1px solid #facc15",
                   padding: "10px",
-                  color: "#166534",
+                  color: "#78350f",
                 },
                 iconTheme: {
-                  primary: "#4ade80",
-                  secondary: "#ecfdf5",
+                  primary: "#facc15",
+                  secondary: "#fff7ed",
                 },
               });
             }}
-            className="px-3 py-1 bg-yellow-400 text-white text-sm rounded hover:bg-yellow-500 transition-colors"
+            className="px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600 transition-colors"
           >
             Undo Crop
           </button>

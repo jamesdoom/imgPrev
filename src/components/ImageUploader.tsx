@@ -36,21 +36,50 @@ export default function ImageUploader() {
   const [flipY, setFlipY] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [dpi, setDpi] = useState<number | null>(null);
+  const [useServer, setUseServer] = useState(true); // Toggle state
 
   const onCropComplete = useCallback((_: Area, croppedArea: Area) => {
     setCroppedAreaPixels(croppedArea);
   }, []);
 
   const handleCrop = async () => {
-    if (!previewUrl || !croppedAreaPixels) return;
+    if (!previewUrl || !croppedAreaPixels || !file) return;
 
     try {
       setLoading(true);
-      const { url, blob } = await cropImage(previewUrl, croppedAreaPixels);
-      setPreviewUrl(url);
-      setCroppedBlob(blob);
-      setCroppingImageUrl(null);
-      setHasCropped(true);
+
+      if (useServer) {
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("cropX", Math.round(croppedAreaPixels.x).toString());
+        formData.append("cropY", Math.round(croppedAreaPixels.y).toString());
+        formData.append(
+          "cropWidth",
+          Math.round(croppedAreaPixels.width).toString()
+        );
+        formData.append(
+          "cropHeight",
+          Math.round(croppedAreaPixels.height).toString()
+        );
+
+        const response = await fetch("http://localhost:4000/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.previewUrl) {
+          throw new Error(data.error || "Crop failed on server.");
+        }
+
+        setCroppingImageUrl(null);
+        setHasCropped(true);
+      } else {
+        const { url, blob } = await cropImage(previewUrl, croppedAreaPixels);
+        setPreviewUrl(url);
+        setCroppedBlob(blob);
+        setCroppingImageUrl(null);
+        setHasCropped(true);
+      }
     } catch (err) {
       console.error("Crop error:", err);
       setError("Failed to crop image");
@@ -59,53 +88,85 @@ export default function ImageUploader() {
     }
   };
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    setError(null);
-    setPreviewUrl(null);
-    setFile(null);
-    setCroppingImageUrl(null);
-    setHasCropped(false);
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      const file = acceptedFiles[0];
+      setError(null);
+      setPreviewUrl(null);
+      setFile(null);
+      setCroppingImageUrl(null);
+      setHasCropped(false);
 
-    if (!file) return;
+      if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setError("Only image files are allowed.");
-      return;
-    }
+      if (!file.type.startsWith("image/")) {
+        setError("Only image files are allowed.");
+        return;
+      }
 
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Image must be 21MB or smaller.");
-      return;
-    }
+      if (file.size > MAX_FILE_SIZE) {
+        setError("Image must be 21MB or smaller.");
+        return;
+      }
 
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
+        let url: string;
 
-      // Get both resized image and dpi in parallel
-      const [url, dpiValue] = await Promise.all([
-        resizeImage(file, 512, 0, false, false),
-        getDpi(file),
-      ]);
+        if (useServer) {
+          const formData = new FormData();
+          formData.append("image", file);
 
-      setPreviewUrl(url);
-      setOriginalUrl(url);
-      setFile(file);
-      setDpi(dpiValue ?? null);
-    } catch (err) {
-      console.error("Error processing image:", err);
-      setError("Something went wrong while processing the image.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+          const response = await fetch("http://localhost:4000/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data.previewUrl) {
+            throw new Error(data.error || "Upload failed");
+          }
+
+          url = `http://localhost:4000${data.previewUrl}`;
+        } else {
+          url = await resizeImage(file, 512, 0, false, false);
+        }
+
+        const dpiValue = await getDpi(file);
+        setPreviewUrl(url);
+        setOriginalUrl(url);
+        setFile(file);
+        setDpi(dpiValue ?? null);
+      } catch (err) {
+        console.error("Error processing image:", err);
+        setError("Something went wrong while processing the image.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [useServer]
+  );
 
   return (
     <div className="max-w-md mx-auto p-4">
+      {/* Mode Toggle */}
+      <div className="mb-4">
+        <label className="text-sm font-medium text-gray-700 mr-2">
+          Processing Mode:
+        </label>
+        <select
+          className="border px-2 py-1 text-sm rounded"
+          value={useServer ? "server" : "client"}
+          onChange={(e) => setUseServer(e.target.value === "server")}
+        >
+          <option value="server">Server-side</option>
+          <option value="client">Client-side</option>
+        </select>
+      </div>
+
       <Dropzone onDrop={onDrop} disabled={loading} />
       {loading && <Spinner />}
       <UploadInfo />
-
       <DpiInfo dpi={dpi} />
 
       {error && (
@@ -121,6 +182,7 @@ export default function ImageUploader() {
         rotation={rotation}
         flipX={flipX}
         flipY={flipY}
+        useServer={useServer}
         setRotation={setRotation}
         setFlipX={setFlipX}
         setFlipY={setFlipY}
@@ -167,6 +229,8 @@ export default function ImageUploader() {
         setCroppedBlob={setCroppedBlob}
         setShowComparison={setShowComparison}
         onCrop={handleCrop}
+        useServer={useServer}
+        file={file}
       />
 
       {showComparison && previewUrl && originalUrl && (

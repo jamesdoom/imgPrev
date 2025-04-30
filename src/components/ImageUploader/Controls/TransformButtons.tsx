@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { resizeImage } from "../../utils/resizeImage";
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
   rotation: number;
   flipX: boolean;
   flipY: boolean;
+  useServer: boolean;
   setRotation: (rotation: number) => void;
   setFlipX: (flipX: boolean) => void;
   setFlipY: (flipY: boolean) => void;
@@ -22,6 +24,7 @@ export default function TransformButtons({
   rotation,
   flipX,
   flipY,
+  useServer,
   setRotation,
   setFlipX,
   setFlipY,
@@ -29,50 +32,86 @@ export default function TransformButtons({
   setCroppingImageUrl,
   setHasCropped,
 }: Props) {
+  const [isTransforming, setIsTransforming] = useState(false);
+
   if (!previewUrl || croppingImageUrl || !file) return null;
 
-  const handleTransform = async (type: "rotate" | "flipX" | "flipY") => {
-    let newRotation = rotation;
-    let newFlipX = flipX;
-    let newFlipY = flipY;
+  const applyTransform = async (
+    newRotation: number,
+    newFlipX: boolean,
+    newFlipY: boolean
+  ) => {
+    setIsTransforming(true);
 
-    if (type === "rotate") {
-      newRotation = (rotation + 90) % 360;
-      setRotation(newRotation);
-    }
-    if (type === "flipX") {
-      newFlipX = !flipX;
-      setFlipX(newFlipX);
-    }
-    if (type === "flipY") {
-      newFlipY = !flipY;
-      setFlipY(newFlipY);
-    }
+    try {
+      let url: string;
 
-    // Apply immediately
-    const url = await resizeImage(file, 512, newRotation, newFlipX, newFlipY);
-    setPreviewUrl(url);
-    setCroppingImageUrl(null);
-    setHasCropped(false);
+      if (useServer) {
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("rotation", newRotation.toString());
+        formData.append("flipX", newFlipX.toString());
+        formData.append("flipY", newFlipY.toString());
+
+        const response = await fetch("http://localhost:4000/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.previewUrl) {
+          throw new Error(data.error || "Server transform failed");
+        }
+
+        url = data.previewUrl;
+      } else {
+        url = await resizeImage(file, 512, newRotation, newFlipX, newFlipY);
+      }
+
+      setPreviewUrl(url);
+      setCroppingImageUrl(null);
+      setHasCropped(false);
+    } catch (error) {
+      console.error("Transform error:", error);
+    } finally {
+      setIsTransforming(false);
+    }
   };
 
   return (
     <div className="mt-4 flex flex-wrap gap-3 items-center">
       <button
-        onClick={() => handleTransform("rotate")}
-        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        onClick={() => {
+          const newRotation = (rotation + 90) % 360;
+          setRotation(newRotation);
+          applyTransform(newRotation, flipX, flipY);
+        }}
+        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+        disabled={isTransforming}
       >
         Rotate 90°
       </button>
+
       <button
-        onClick={() => handleTransform("flipX")}
-        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        onClick={() => {
+          const newFlipX = !flipX;
+          setFlipX(newFlipX);
+          applyTransform(rotation, newFlipX, flipY);
+        }}
+        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+        disabled={isTransforming}
       >
         Flip Horizontally
       </button>
+
       <button
-        onClick={() => handleTransform("flipY")}
-        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        onClick={() => {
+          const newFlipY = !flipY;
+          setFlipY(newFlipY);
+          applyTransform(rotation, flipX, newFlipY);
+        }}
+        className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+        disabled={isTransforming}
       >
         Flip Vertically
       </button>
