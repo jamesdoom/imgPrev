@@ -6,6 +6,17 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 
+// Delay-unlink helper to avoid Windows file lock issues
+const safeUnlink = (filePath: string, delay = 500) => {
+  setTimeout(() => {
+    fs.promises.unlink(filePath).catch((err) => {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`Could not delete temp upload file:`, err);
+      }
+    });
+  }, delay);
+};
+
 // Ensure storage folders exist
 const storageDirs = ["storage/uploads", "storage/processed"];
 storageDirs.forEach((dir) => {
@@ -62,18 +73,26 @@ app.post(
         const cropY = parseInt(req.body.cropY);
         const cropWidth = parseInt(req.body.cropWidth);
         const cropHeight = parseInt(req.body.cropHeight);
+        const previewWidth = parseInt(req.body.previewWidth);
+        const previewHeight = parseInt(req.body.previewHeight);
 
         if (
           !isNaN(cropX) &&
           !isNaN(cropY) &&
           !isNaN(cropWidth) &&
-          !isNaN(cropHeight)
+          !isNaN(cropHeight) &&
+          !isNaN(previewWidth) &&
+          !isNaN(previewHeight)
         ) {
+          const metadata = await image.metadata();
+          const scaleX = (metadata.width || 1) / previewWidth;
+          const scaleY = (metadata.height || 1) / previewHeight;
+
           image = image.extract({
-            left: cropX,
-            top: cropY,
-            width: cropWidth,
-            height: cropHeight,
+            left: Math.round(cropX * scaleX),
+            top: Math.round(cropY * scaleY),
+            width: Math.round(cropWidth * scaleX),
+            height: Math.round(cropHeight * scaleY),
           });
         }
 
@@ -87,12 +106,10 @@ app.post(
         return;
       }
 
-      try {
-        await fs.promises.unlink(inputPath);
-      } catch (unlinkErr) {
-        console.warn("Could not delete temp upload file:", unlinkErr);
-      }
+      // Safely clean up temp upload file
+      safeUnlink(inputPath);
 
+      // Respond with processed image path
       res.json({ previewUrl: `/processed/${outputFilename}` });
     })();
   }

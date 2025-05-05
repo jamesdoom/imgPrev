@@ -1,3 +1,5 @@
+// src/components/ImageUploader/Controls/TransformButtons.tsx
+
 import { useState } from "react";
 import { resizeImage } from "../../utils/resizeImage";
 
@@ -53,6 +55,14 @@ export default function TransformButtons({
         formData.append("flipX", newFlipX.toString());
         formData.append("flipY", newFlipY.toString());
 
+        if (previewUrl) {
+          const img = new Image();
+          img.src = previewUrl;
+          await img.decode();
+          formData.append("previewWidth", img.naturalWidth.toString());
+          formData.append("previewHeight", img.naturalHeight.toString());
+        }
+
         const response = await fetch("http://localhost:4000/upload", {
           method: "POST",
           body: formData,
@@ -63,7 +73,8 @@ export default function TransformButtons({
           throw new Error(data.error || "Server transform failed");
         }
 
-        url = data.previewUrl;
+        const origin = window.location.origin.replace("5173", "4000");
+        url = `${origin}${data.previewUrl}`;
       } else {
         url = await resizeImage(file, 512, newRotation, newFlipX, newFlipY);
       }

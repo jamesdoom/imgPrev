@@ -14,7 +14,6 @@ import CropperPreview from "./ImageUploader/CropperPreview";
 import CropButtons from "./ImageUploader/Controls/CropButtons";
 import ImagePreview from "./ImageUploader/ImagePreview";
 import { getDpi } from "./utils/getDpi";
-import DpiInfo from "./ImageUploader/DpiInfo";
 
 const MAX_FILE_SIZE = 21 * 1024 * 1024;
 
@@ -49,7 +48,9 @@ export default function ImageUploader() {
       setLoading(true);
 
       if (useServer) {
+        setCroppingImageUrl(null);
         const formData = new FormData();
+
         formData.append("image", file);
         formData.append("cropX", Math.round(croppedAreaPixels.x).toString());
         formData.append("cropY", Math.round(croppedAreaPixels.y).toString());
@@ -62,15 +63,26 @@ export default function ImageUploader() {
           Math.round(croppedAreaPixels.height).toString()
         );
 
+        const img = new Image();
+        img.src = previewUrl;
+        await img.decode(); // Wait for image to load
+
+        formData.append("previewWidth", img.naturalWidth.toString());
+        formData.append("previewHeight", img.naturalHeight.toString());
+
         const response = await fetch("http://localhost:4000/upload", {
           method: "POST",
           body: formData,
         });
+
         const data = await response.json();
         if (!response.ok || !data.previewUrl) {
           throw new Error(data.error || "Crop failed on server.");
         }
 
+        const origin = window.location.origin.replace("5173", "4000");
+        setPreviewUrl(`${origin}${data.previewUrl}`);
+        console.log("Final previewUrl:", `${origin}${data.previewUrl}`);
         setCroppingImageUrl(null);
         setHasCropped(true);
       } else {
@@ -96,6 +108,7 @@ export default function ImageUploader() {
       setFile(null);
       setCroppingImageUrl(null);
       setHasCropped(false);
+      setShowComparison(false);
 
       if (!file) return;
 
@@ -127,12 +140,14 @@ export default function ImageUploader() {
             throw new Error(data.error || "Upload failed");
           }
 
-          url = `http://localhost:4000${data.previewUrl}`;
+          const origin = window.location.origin.replace("5173", "4000");
+          url = `${origin}${data.previewUrl}`;
         } else {
           url = await resizeImage(file, 512, 0, false, false);
         }
 
         const dpiValue = await getDpi(file);
+        console.log("Detected DPI:", dpiValue);
         setPreviewUrl(url);
         setOriginalUrl(url);
         setFile(file);
@@ -167,7 +182,6 @@ export default function ImageUploader() {
       <Dropzone onDrop={onDrop} disabled={loading} />
       {loading && <Spinner />}
       <UploadInfo />
-      <DpiInfo dpi={dpi} />
 
       {error && (
         <div className="mt-3 text-red-600 font-medium bg-red-100 p-2 rounded">
@@ -215,6 +229,7 @@ export default function ImageUploader() {
         hasCropped={hasCropped}
         croppingImageUrl={croppingImageUrl}
         file={file}
+        dpi={dpi}
       />
 
       <CropButtons
@@ -231,32 +246,20 @@ export default function ImageUploader() {
         onCrop={handleCrop}
         useServer={useServer}
         file={file}
+        croppedAreaPixels={croppedAreaPixels}
       />
 
-      {showComparison && previewUrl && originalUrl && (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <h3 className="text-sm font-medium mb-1 text-gray-600">
-              Original Image
-            </h3>
-            <img
-              src={originalUrl}
-              alt="Original"
-              className="rounded shadow w-full"
-              loading="lazy"
-            />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium mb-1 text-gray-600">
-              Cropped Image
-            </h3>
-            <img
-              src={previewUrl}
-              alt="Cropped"
-              className="rounded shadow w-full"
-              loading="lazy"
-            />
-          </div>
+      {showComparison && originalUrl && (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium mb-1 text-gray-600">
+            Original Image
+          </h3>
+          <img
+            src={originalUrl}
+            alt="Original"
+            className="rounded shadow w-full"
+            loading="lazy"
+          />
         </div>
       )}
 
@@ -270,6 +273,7 @@ export default function ImageUploader() {
             setOriginalUrl(null);
             setCroppingImageUrl(null);
             setHasCropped(false);
+            setShowComparison(false);
           }}
         />
       )}

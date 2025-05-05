@@ -1,3 +1,5 @@
+// \src\components\utils\cropImage.ts
+
 import type { Area } from "react-easy-crop";
 export function cropImage(
   previewUrl: string,
