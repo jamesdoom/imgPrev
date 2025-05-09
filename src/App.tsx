@@ -1,4 +1,5 @@
-import ImageUploader from "./components/ImageUploader";
+import ImageUploader from "./components/ImageUploader/ImageUploader";
+
 import { Toaster } from "react-hot-toast";
 
 function App() {

@@ -1,10 +1,23 @@
 // backend/server.ts
+
+import dotenv from "dotenv";
+dotenv.config();
+
 import express, { Request, Response } from "express";
 import multer from "multer";
 import sharp from "sharp";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
+
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 // Delay-unlink helper to avoid Windows file lock issues
 const safeUnlink = (filePath: string, delay = 500) => {
@@ -65,8 +78,8 @@ app.post(
         const flipY = req.body.flipY === "true";
 
         if (rotation) image = image.rotate(rotation);
-        if (flipX) image = image.flop(); // horizontal
-        if (flipY) image = image.flip(); // vertical
+        if (flipX) image = image.flop();
+        if (flipY) image = image.flip();
 
         // Optional cropping
         const cropX = parseInt(req.body.cropX);
@@ -100,20 +113,53 @@ app.post(
           .resize(1024, 1024, { fit: "inside" })
           .toFormat("webp")
           .toFile(outputPath);
+
+        res.json({ previewUrl: `/processed/${outputFilename}` });
       } catch (err) {
         console.error("Sharp processing error:", err);
         res.status(500).json({ error: "Sharp failed to process image." });
-        return;
+      } finally {
+        safeUnlink(inputPath);
       }
-
-      // Safely clean up temp upload file
-      safeUnlink(inputPath);
-
-      // Respond with processed image path
-      res.json({ previewUrl: `/processed/${outputFilename}` });
     })();
   }
 );
+
+// Endpoint to save processed image to Cloudinary
+app.post("/save-to-cloud", (req: Request, res: Response) => {
+  (async () => {
+    const { filename } = req.body;
+
+    if (!filename) {
+      return res.status(400).json({ error: "Filename is required." });
+    }
+
+    const filePath = path.join(__dirname, "storage/processed", filename);
+
+    try {
+      const buffer = await fs.promises.readFile(filePath);
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { resource_type: "image", format: "webp" },
+        (error, result) => {
+          if (error || !result) {
+            console.error("Cloudinary upload failed:", error);
+            return res
+              .status(500)
+              .json({ error: "Upload to Cloudinary failed." });
+          }
+
+          res.json({ url: result.secure_url });
+        }
+      );
+
+      streamifier.createReadStream(buffer).pipe(uploadStream);
+    } catch (err) {
+      console.error("Failed to read local image:", err);
+      res.status(500).json({ error: "Could not read local file." });
+    }
+  })();
+});
 
 // Serve processed images statically
 app.use(
