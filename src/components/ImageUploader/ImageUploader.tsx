@@ -17,6 +17,7 @@ import UploadInfo from "../ImageUploader/ui/UploadInfo";
 // utils
 import { getDpi } from "../ImageUploader/utils/getDpi";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const MAX_FILE_SIZE = 21 * 1024 * 1024;
 
 export default function ImageUploader() {
@@ -67,7 +68,7 @@ export default function ImageUploader() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch("http://localhost:4000/upload", {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: "POST",
         body: formData,
       });
@@ -77,8 +78,7 @@ export default function ImageUploader() {
         throw new Error(data.error || "Upload failed");
       }
 
-      const origin = window.location.origin.replace("5173", "4000");
-      const url = `${origin}${data.previewUrl}`;
+      const url = `${API_BASE_URL}${data.previewUrl}`;
 
       const dpiValue = await getDpi(file);
       console.log("Detected DPI:", dpiValue);
