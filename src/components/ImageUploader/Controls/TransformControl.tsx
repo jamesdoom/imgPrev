@@ -1,6 +1,7 @@
 // src/components/ImageUploader/Controls/TransformControl.tsx
 
 import { useState } from "react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 interface Props {
   file: File | null;
@@ -57,7 +58,7 @@ export default function TransformButtons({
         formData.append("previewHeight", img.naturalHeight.toString());
       }
 
-      const response = await fetch("http://localhost:4000/upload", {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: "POST",
         body: formData,
       });
@@ -67,8 +68,7 @@ export default function TransformButtons({
         throw new Error(data.error || "Server transform failed");
       }
 
-      const origin = window.location.origin.replace("5173", "4000");
-      const url = `${origin}${data.previewUrl}`;
+      const url = `${API_BASE_URL}${data.previewUrl}`;
 
       setPreviewUrl(url);
       setCroppingImageUrl(null);
