@@ -3,6 +3,8 @@
 import toast from "react-hot-toast";
 import type { Area } from "react-easy-crop";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const isDemo =
   new URLSearchParams(window.location.search).get("demo") === "true";
 
@@ -36,7 +38,7 @@ export default function CropButtons({
     const filename = previewUrl.split("/").pop();
 
     try {
-      const res = await fetch("http://localhost:4000/save-to-cloud", {
+      const res = await fetch(`${API_BASE_URL}/save-to-cloud`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename }),
@@ -98,7 +100,7 @@ export default function CropButtons({
               }
 
               try {
-                const res = await fetch("http://localhost:4000/upload", {
+                const res = await fetch(`${API_BASE_URL}/upload`, {
                   method: "POST",
                   body: formData,
                 });
@@ -106,8 +108,7 @@ export default function CropButtons({
                 if (!res.ok || !data.previewUrl) {
                   throw new Error(data.error || "Crop failed");
                 }
-                const origin = window.location.origin.replace("5173", "4000");
-                setPreviewUrl(`${origin}${data.previewUrl}`);
+                setPreviewUrl(`${API_BASE_URL}${data.previewUrl}`);
                 setCroppingImageUrl(null);
                 setHasCropped(true);
               } catch (err) {
