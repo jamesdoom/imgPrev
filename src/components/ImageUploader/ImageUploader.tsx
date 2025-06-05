@@ -25,11 +25,11 @@ const MAX_FILE_SIZE = 21 * 1024 * 1024;
 export default function ImageUploader() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [_file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasCropped, setHasCropped] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
-  const [dpi, setDpi] = useState<number | null>(null);
+  const [_dpi, setDpi] = useState<number | null>(null);
   const [cropRect, setCropRect] = useState<{
     x: number;
     y: number;
