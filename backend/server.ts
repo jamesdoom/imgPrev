@@ -164,7 +164,11 @@ app.post("/save-to-cloud", (req: Request, res: Response) => {
 // Serve processed images statically
 app.use(
   "/processed",
-  express.static(path.join(__dirname, "storage/processed"))
+  express.static(path.join(__dirname, "storage/processed"), {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    },
+  })
 );
 
 const PORT = process.env.PORT || 4000;
