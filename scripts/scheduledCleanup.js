@@ -1,22 +1,24 @@
 const cron = require("node-cron");
-const { exec } = require("child_process");
+const { execFile } = require("child_process");
+const path = require("path");
 
-console.log("📅 Scheduled cleanup script initialized.");
+console.log("Scheduled cleanup script initialized.");
 
-// For testing: run every minute
-// Change "*/1 * * * *" to "0 * * * *" for once an hour
-cron.schedule("*/1 * * * *", () => {
+const schedule = process.env.CLEANUP_CRON || "0 * * * *";
+const cleanupScript = path.join(__dirname, "cleanupProcessed.js");
+
+cron.schedule(schedule, () => {
   const timestamp = new Date().toLocaleString();
-  console.log(`\n⏰ [${timestamp}] Running scheduled cleanup...`);
+  console.log(`\n[${timestamp}] Running scheduled cleanup...`);
 
-  exec("node scripts/cleanupProcessed.js", (error, stdout, stderr) => {
+  execFile(process.execPath, [cleanupScript], (error, stdout, stderr) => {
     if (error) {
-      console.error(`❌ Cleanup failed: ${error.message}`);
+      console.error(`Cleanup failed: ${error.message}`);
       return;
     }
     if (stderr) {
-      console.warn(`⚠️  stderr: ${stderr}`);
+      console.warn(`stderr: ${stderr}`);
     }
-    console.log(`✅ Cleanup completed:\n${stdout}`);
+    console.log(`Cleanup completed:\n${stdout}`);
   });
 });

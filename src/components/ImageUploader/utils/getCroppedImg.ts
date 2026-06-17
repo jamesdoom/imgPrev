@@ -1,20 +1,12 @@
 // src/components/ImageUploader/utils/getCroppedImg.ts
+import type { CropRect, Transform } from "../../../types";
 
 export async function getCroppedImg(
   imageSrc: string,
-  pixelCrop: { x: number; y: number; width: number; height: number },
-  transform?: {
-    rotation?: number;
-    scaleX?: number;
-    scaleY?: number;
-  }
+  pixelCrop: CropRect,
+  transform?: Transform
 ): Promise<string> {
-  console.log("🪓 getCroppedImg triggered");
-  console.log("Pixel Crop:", pixelCrop);
-  console.log("Transform:", transform);
-
   const image = await createImage(imageSrc);
-  console.log("🖼️ Original image size:", image.width, image.height);
 
   const radians = ((transform?.rotation ?? 0) * Math.PI) / 180;
   const scaleX = transform?.scaleX ?? 1;
@@ -29,7 +21,7 @@ export async function getCroppedImg(
   cropCanvas.width = pixelCrop.width;
   cropCanvas.height = pixelCrop.height;
   const cropCtx = cropCanvas.getContext("2d");
-  if (!cropCtx) throw new Error("❌ Could not get crop canvas context");
+  if (!cropCtx) throw new Error("Could not get crop canvas context");
 
   cropCtx.drawImage(
     image,
@@ -43,16 +35,17 @@ export async function getCroppedImg(
     pixelCrop.height
   );
 
-  console.log("🧩 Cropped size:", cropCanvas.width, cropCanvas.height);
-
   // If no rotation or flip, just return
   const hasTransform =
     (transform?.rotation ?? 0) !== 0 || scaleX !== 1 || scaleY !== 1;
   if (!hasTransform) {
-    console.log("✅ No transform detected, returning raw crop.");
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       cropCanvas.toBlob((blob) => {
-        if (blob) resolve(URL.createObjectURL(blob));
+        if (blob) {
+          resolve(URL.createObjectURL(blob));
+          return;
+        }
+        reject(new Error("Could not create crop blob"));
       }, "image/png");
     });
   }
@@ -67,21 +60,12 @@ export async function getCroppedImg(
   outputCanvas.width = Math.ceil(rotatedWidth * absScaleX);
   outputCanvas.height = Math.ceil(rotatedHeight * absScaleY);
   const outputCtx = outputCanvas.getContext("2d");
-  if (!outputCtx) throw new Error("❌ Could not get output canvas context");
+  if (!outputCtx) throw new Error("Could not get output canvas context");
 
   outputCtx.save();
   outputCtx.translate(outputCanvas.width / 2, outputCanvas.height / 2);
   outputCtx.rotate(radians);
   outputCtx.scale(flipX * absScaleX, flipY * absScaleY);
-
-  console.log("🌀 Drawing with transform:");
-  console.log("  scaleX:", scaleX, "scaleY:", scaleY);
-  console.log("  radians:", radians);
-  console.log(
-    "  drawImage offset:",
-    -cropCanvas.width / 2,
-    -cropCanvas.height / 2
-  );
 
   outputCtx.drawImage(
     cropCanvas,
@@ -91,9 +75,13 @@ export async function getCroppedImg(
 
   outputCtx.restore();
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     outputCanvas.toBlob((blob) => {
-      if (blob) resolve(URL.createObjectURL(blob));
+      if (blob) {
+        resolve(URL.createObjectURL(blob));
+        return;
+      }
+      reject(new Error("Could not create output blob"));
     }, "image/png");
   });
 }

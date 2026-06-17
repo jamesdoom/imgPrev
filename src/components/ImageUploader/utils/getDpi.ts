@@ -10,18 +10,38 @@ export async function getDpi(file: File): Promise<number | null> {
   const view = new DataView(buffer);
 
   // Check JPEG
-  if (view.getUint16(0) === 0xffd8) {
+  if (view.getUint16(0, false) === 0xffd8) {
     let offset = 2;
-    while (offset < view.byteLength) {
+    while (offset + 4 <= view.byteLength) {
       if (view.getUint8(offset) !== 0xff) return null;
+
       const marker = view.getUint8(offset + 1);
-      const size = view.getUint16(offset + 2);
-      if (marker === 0xe0) {
+      const size = view.getUint16(offset + 2, false); // big-endian
+      if (size < 2) return null; // safety
+
+      if (marker === 0xe0 && offset + 2 + size <= view.byteLength) {
         // APP0 (JFIF)
-        const unit = view.getUint8(offset + 9);
-        const xDensity = view.getUint16(offset + 10);
-        if (unit === 1 || unit === 2) return xDensity;
+        const payload = offset + 4; // after marker(2) + length(2)
+
+        // Check "JFIF\0"
+        if (
+          view.getUint8(payload) === 0x4a && // 'J'
+          view.getUint8(payload + 1) === 0x46 && // 'F'
+          view.getUint8(payload + 2) === 0x49 && // 'I'
+          view.getUint8(payload + 3) === 0x46 && // 'F'
+          view.getUint8(payload + 4) === 0x00
+        ) {
+          const units = view.getUint8(payload + 7); // 1 = DPI, 2 = DPCM
+          const xDensity = view.getUint16(payload + 8, false); // big-endian
+          // const yDensity = view.getUint16(payload + 10, false); // not used
+
+          if (units === 1) return xDensity; // DPI
+          if (units === 2) return Math.round(xDensity * 2.54); // DPCM → DPI
+          // units === 0 → no units; fall through to keep scanning
+        }
       }
+
+      // advance to next segment (size includes its own 2-byte length field)
       offset += 2 + size;
     }
     return null;

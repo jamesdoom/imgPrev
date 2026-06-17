@@ -1,6 +1,12 @@
 // src/components/ImageUploader/Controls/GangSheetCanvas.tsx
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+  type ReactElement,
+} from "react";
 import {
   Stage,
   Layer,
@@ -9,20 +15,9 @@ import {
   Line,
   Rect,
 } from "react-konva";
-import Konva from "konva";
+import type Konva from "konva";
 import { useImage } from "../../../hooks/useImage";
-
-interface UploadedImage {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  width: number;
-  height: number;
-  rotation?: number;
-}
+import type { UploadedImage, CropRect } from "../../../types";
 
 const GRID_SIZE = 50;
 
@@ -33,6 +28,8 @@ function DraggableImage({
   onChange,
   showCropper,
   forwardRef,
+  onHover,
+  onUnhover,
 }: {
   image: UploadedImage;
   isSelected: boolean;
@@ -40,6 +37,8 @@ function DraggableImage({
   onChange: (newAttrs: Partial<UploadedImage>) => void;
   showCropper: boolean;
   forwardRef?: (node: Konva.Image | null) => void;
+  onHover?: () => void;
+  onUnhover?: () => void;
 }) {
   const shapeRef = useRef<Konva.Image>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -58,19 +57,6 @@ function DraggableImage({
     }
   }, [isSelected, forwardRef]);
 
-  useEffect(() => {
-    console.log("🖼️ Rendering image:", {
-      id: image.id,
-      x: image.x,
-      y: image.y,
-      width: image.width,
-      height: image.height,
-      scaleX: image.scaleX,
-      scaleY: image.scaleY,
-      rotation: image.rotation ?? 0,
-    });
-  }, [image]);
-
   return (
     <>
       <KonvaImage
@@ -84,6 +70,8 @@ function DraggableImage({
         rotation={image.rotation ?? 0}
         draggable
         ref={shapeRef}
+        onMouseEnter={() => onHover?.()}
+        onMouseLeave={() => onUnhover?.()}
         onClick={() => {
           if (!showCropper) {
             onSelect();
@@ -99,7 +87,6 @@ function DraggableImage({
         onDragEnd={(e) => {
           const newX = e.target.x();
           const newY = e.target.y();
-          console.log("🎯 Image dragged:", { id: image.id, x: newX, y: newY });
           onChange({ x: newX, y: newY });
         }}
         onTransformEnd={() => {
@@ -107,17 +94,13 @@ function DraggableImage({
           if (node) {
             const scaleX = node.scaleX();
             const scaleY = node.scaleY();
-            console.log("🌀 Transform ended for:", {
-              id: image.id,
-              scaleX,
-              scaleY,
-            });
             onChange({ scaleX, scaleY });
             node.scaleX(1);
             node.scaleY(1);
           }
         }}
       />
+
       {isSelected && (
         <Transformer
           ref={trRef}
@@ -134,7 +117,7 @@ function DraggableImage({
 }
 
 function Grid({ width, height }: { width: number; height: number }) {
-  const lines = [];
+  const lines: ReactElement[] = [];
 
   for (let i = 0; i < width / GRID_SIZE; i++) {
     lines.push(
@@ -199,23 +182,28 @@ export default function GangSheetCanvas({
   setCropRect,
   showCropper,
   setImageNodeRef,
+  stageRef,
+  showGrid,
+  setShowGrid,
 }: {
   images: UploadedImage[];
   onUpdateImage: (id: string, updates: Partial<UploadedImage>) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
-  cropRect: { x: number; y: number; width: number; height: number } | null;
-  setCropRect: (
-    rect: { x: number; y: number; width: number; height: number } | null
-  ) => void;
+  cropRect: CropRect | null;
+  setCropRect: (rect: CropRect | null) => void;
   showCropper: boolean;
   setImageNodeRef?: (node: Konva.Image | null) => void;
+  stageRef?: RefObject<Konva.Stage | null>;
+  showGrid: boolean;
+  setShowGrid: (show: boolean) => void;
 }) {
-  const [showGrid, setShowGrid] = useState(true);
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
   const isDrawing = useRef(false);
   const startPoint = useRef({ x: 0, y: 0 });
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -245,13 +233,10 @@ export default function GangSheetCanvas({
 
   const canvasSize = getCanvasBounds(images);
 
-  useEffect(() => {
-    console.log("📐 Canvas bounds:", canvasSize);
-  }, [canvasSize]);
-
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div ref={wrapperRef} className="relative flex flex-col items-center gap-4">
       <Stage
+        ref={stageRef || undefined}
         width={canvasSize.width}
         height={canvasSize.height}
         className="border border-gray-400"
@@ -264,65 +249,36 @@ export default function GangSheetCanvas({
         x={stagePosition.x}
         y={stagePosition.y}
         onMouseDown={(e) => {
-          console.log("👆 onMouseDown triggered");
-          if (!showCropper) {
-            console.log("Cropper is not active");
-            return;
-          }
-
+          if (!showCropper) return;
           const stage = e.target.getStage();
-          if (!stage) {
-            console.warn("No stage found.");
-            return;
-          }
-
+          if (!stage) return;
           const pointer = stage.getPointerPosition();
-          if (!pointer) {
-            console.warn("Pointer is null.");
-            return;
-          }
-
-          console.log("📌 Pointer (screen coords):", pointer);
-          console.log("📐 Stage position:", stage.x(), stage.y());
-          console.log("🔍 Stage scale:", stage.scaleX(), stage.scaleY());
-
+          if (!pointer) return;
           const transform = stage.getAbsoluteTransform().copy().invert();
           const pos = transform.point(pointer);
-
-          console.log("✅ Crop start at:", pos);
-
           isDrawing.current = true;
           startPoint.current = pos;
           setCropRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
         }}
         onMouseMove={(e) => {
           if (!showCropper || !isDrawing.current) return;
-
           const stage = e.target.getStage();
           if (!stage) return;
-
           const pointer = stage.getPointerPosition();
           if (!pointer) return;
-
           const transform = stage.getAbsoluteTransform().copy().invert();
           const pos = transform.point(pointer);
-
           const sx = startPoint.current.x;
           const sy = startPoint.current.y;
           const ex = pos.x;
           const ey = pos.y;
-
           const x = Math.min(sx, ex);
           const y = Math.min(sy, ey);
           const width = Math.abs(ex - sx);
           const height = Math.abs(ey - sy);
-
-          console.log("📏 Crop dragging to:", { x, y, width, height });
-
           setCropRect({ x, y, width, height });
         }}
         onMouseUp={() => {
-          console.log("🖱️ Mouse up – crop complete");
           isDrawing.current = false;
         }}
       >
@@ -341,9 +297,12 @@ export default function GangSheetCanvas({
               onChange={(attrs) => onUpdateImage(img.id, attrs)}
               showCropper={showCropper}
               forwardRef={img.id === selectedId ? setImageNodeRef : undefined}
+              onHover={() => setHoveredImageId(img.id)}
+              onUnhover={() =>
+                setHoveredImageId((prev) => (prev === img.id ? null : prev))
+              }
             />
           ))}
-
           {cropRect && cropRect.width > 0 && cropRect.height > 0 && (
             <Rect
               x={cropRect.x}
@@ -357,11 +316,40 @@ export default function GangSheetCanvas({
         </Layer>
       </Stage>
 
+      {/* DPI Overlay only on hover */}
+      {stageRef?.current &&
+        images.map((img) => {
+          if (!img.dpi || hoveredImageId !== img.id) return null;
+          const scale = stageScale;
+          const pos = stagePosition;
+          const screenX = img.x * scale + pos.x;
+          const screenY = img.y * scale + pos.y;
+          return (
+            <div
+              key={img.id}
+              style={{
+                position: "absolute",
+                left: screenX + 10,
+                top: screenY - 10,
+                background: "#f8f8f8",
+                border: "1px solid #ccc",
+                padding: "2px 6px",
+                fontSize: "12px",
+                borderRadius: "4px",
+                pointerEvents: "none",
+                zIndex: 10,
+              }}
+            >
+              DPI: {img.dpi}
+            </div>
+          );
+        })}
+
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={showGrid}
-          onChange={() => setShowGrid((prev) => !prev)}
+          onChange={() => setShowGrid(!showGrid)}
         />
         Show Grid
       </label>

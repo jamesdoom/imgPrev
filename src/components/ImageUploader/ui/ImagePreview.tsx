@@ -1,11 +1,13 @@
-// /src/components/ImageUploader/ImagePreview.tsx
+// src/components/ImageUploader/ImagePreview.tsx
 
-function DpiLabel({ dpi }: { dpi: number | null }) {
+import type { ReactElement } from "react";
+
+function DpiLabel({ dpi }: { dpi: number | null }): ReactElement | null {
   if (!dpi) return null;
   return <div className="mt-1 text-xs text-gray-500">Detected DPI: {dpi}</div>;
 }
 
-interface Props {
+interface ImagePreviewProps {
   previewUrl: string | null;
   hasCropped: boolean;
   croppingImageUrl: string | null;
@@ -19,9 +21,8 @@ export default function ImagePreview({
   croppingImageUrl,
   file,
   dpi,
-}: Props) {
+}: ImagePreviewProps): ReactElement | null {
   if (!previewUrl || (croppingImageUrl && !hasCropped)) return null;
-  console.log("Rendering ImagePreview with previewUrl:", previewUrl);
 
   return (
     <div className="mt-4">
@@ -39,7 +40,7 @@ export default function ImagePreview({
       {/* File info and DPI */}
       {file && (
         <div className="mt-2 text-sm text-gray-600">
-          {file.name} – {(file.size / 1024 / 1024).toFixed(2)} MB
+          {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
           <DpiLabel dpi={dpi} />
         </div>
       )}

@@ -1,12 +1,18 @@
-// /src/components/ImageUploader/Dropzone.tsx
-import { useDropzone } from "react-dropzone";
+// src/components/ImageUploader/Dropzone.tsx
 
-interface DropzoneProps {
+import type { ReactElement } from "react";
+import { useDropzone } from "react-dropzone";
+import { ArrowUpTrayIcon, PhotoIcon } from "@heroicons/react/24/outline";
+
+export interface DropzoneProps {
   onDrop: (acceptedFiles: File[]) => void;
   disabled?: boolean;
 }
 
-export default function Dropzone({ onDrop, disabled = false }: DropzoneProps) {
+export default function Dropzone({
+  onDrop,
+  disabled = false,
+}: DropzoneProps): ReactElement {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "image/*": [] },
@@ -17,15 +23,26 @@ export default function Dropzone({ onDrop, disabled = false }: DropzoneProps) {
   return (
     <div
       {...getRootProps()}
-      className="border-2 border-dashed border-gray-400 rounded-md p-6 text-center cursor-pointer hover:border-blue-500 transition"
+      data-testid="dropzone"
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      className="flex min-h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-gray-400 bg-white px-4 py-5 text-center transition hover:border-gray-600 hover:bg-gray-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps()} data-testid="file-input" />
       {isDragActive ? (
-        <p className="text-blue-600">Drop your image here...</p>
+        <>
+          <ArrowUpTrayIcon className="h-7 w-7 text-gray-700" aria-hidden />
+          <p className="text-sm font-medium text-gray-800">
+            Drop your image here
+          </p>
+        </>
       ) : (
-        <p className="text-gray-600">
-          Drag & drop an image, or click to upload
-        </p>
+        <>
+          <PhotoIcon className="h-7 w-7 text-gray-500" aria-hidden />
+          <p className="text-sm font-medium text-gray-800">
+            Drag & drop an image, or click to upload
+          </p>
+        </>
       )}
     </div>
   );

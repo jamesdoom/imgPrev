@@ -10,5 +10,6 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["backend/**/*"]
+  "include": ["backend/**/*.ts"],
+  "exclude": ["backend/**/*.test.ts", "backend/dist"]
 }

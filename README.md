@@ -1,54 +1,85 @@
-# React + TypeScript + Vite
+# Image Preview App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React and Express image preview tool for uploading images, arranging them on a Konva canvas, applying basic transforms, cropping, exporting a PNG, and optionally uploading the result to Cloudinary.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 20 or newer
+- npm
+- Optional Cloudinary account for cloud uploads
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Install frontend and shared backend dependencies from the project root:
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```sh
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The backend also has its own package manifest. If you run backend commands from `backend/`, install those dependencies too:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```sh
+cd backend
+npm install
 ```
+
+Create a `.env` file in the project root for local configuration:
+
+```sh
+VITE_API_BASE_URL=http://localhost:4000
+VITE_CLOUDINARY_UPLOAD_PRESET=frontend_unsigned
+VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+CORS_ORIGIN=http://localhost:5173
+```
+
+## Development
+
+Run the frontend:
+
+```sh
+npm run dev
+```
+
+Run the backend:
+
+```sh
+npm run dev:backend
+```
+
+Run both together:
+
+```sh
+npm run dev:all
+```
+
+The frontend defaults to `http://localhost:5173` and the backend defaults to `http://localhost:4000`.
+
+## Validation
+
+```sh
+npm run build
+npm run lint
+npm test
+npm audit --omit=dev
+```
+
+## Runtime Storage
+
+Uploaded and processed files are written under `backend/storage/uploads` and `backend/storage/processed`. These folders are ignored by git except for `.gitkeep` placeholders.
+
+Clean processed files once:
+
+```sh
+npm run cleanup
+```
+
+Run scheduled cleanup:
+
+```sh
+npm run cleanup:watch
+```
+
+Cleanup defaults to files older than 24 hours and runs hourly. Override with `PROCESSED_MAX_AGE_MS` and `CLEANUP_CRON` when needed.

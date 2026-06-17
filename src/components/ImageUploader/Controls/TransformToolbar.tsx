@@ -1,114 +1,79 @@
 // src/components/ImageUploader/Controls/TransformToolbar.tsx
 
-import { toast } from "react-hot-toast";
-
-interface UploadedImage {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  width: number;
-  height: number;
-  rotation?: number;
-}
+import type { ReactElement } from "react";
+import {
+  ArrowPathIcon,
+  ArrowUturnRightIcon,
+  ArrowsRightLeftIcon,
+  ArrowsUpDownIcon,
+} from "@heroicons/react/24/outline";
 
 interface Props {
-  selectedId: string | null;
-  uploadedImages: UploadedImage[];
-  onUpdateImage: (id: string, updates: Partial<UploadedImage>) => void;
+  isImageSelected: boolean;
+  onFlipHorizontal: () => void;
+  onFlipVertical: () => void;
+  onRotate: () => void;
+  onReset: () => void;
 }
 
 export default function TransformToolbar({
-  selectedId,
-  uploadedImages,
-  onUpdateImage,
-}: Props) {
-  const isImageSelected =
-    selectedId !== null && uploadedImages.some((img) => img.id === selectedId);
-
-  const getSelectedImage = () =>
-    uploadedImages.find((img) => img.id === selectedId);
-
-  const handleFlipHorizontal = () => {
-    const image = getSelectedImage();
-    if (!image) return toast.error("Selected image not found.");
-    const newScaleX = image.scaleX * -1;
-    onUpdateImage(image.id, { scaleX: newScaleX });
-    toast("Flipped image horizontally", { icon: "↔️", id: "flip-toast" });
-  };
-
-  const handleFlipVertical = () => {
-    const image = getSelectedImage();
-    if (!image) return toast.error("Selected image not found.");
-    const newScaleY = image.scaleY * -1;
-    onUpdateImage(image.id, { scaleY: newScaleY });
-    toast("Flipped image vertically", {
-      icon: "↕️",
-      id: "flip-vertical-toast",
-    });
-  };
-
-  const handleRotate90 = () => {
-    const image = getSelectedImage();
-    if (!image) return toast.error("Selected image not found.");
-    const currentRotation = image.rotation ?? 0;
-    const newRotation = (currentRotation + 90) % 360;
-    onUpdateImage(image.id, { rotation: newRotation });
-    toast("Rotated image 90°", { icon: "↻", id: "rotate-toast" });
-  };
-
-  const handleResetTransform = () => {
-    const image = getSelectedImage();
-    if (!image) {
-      toast.error("Selected image not found.");
-      return;
-    }
-
-    onUpdateImage(image.id, {
-      scaleX: 0.5,
-      scaleY: 0.5,
-      rotation: 0,
-      x: 400,
-      y: 400,
-    });
-
-    toast("Transform reset", { icon: "🔄", id: "reset-toast" });
-  };
+  isImageSelected,
+  onFlipHorizontal,
+  onFlipVertical,
+  onRotate,
+  onReset,
+}: Props): ReactElement {
+  const buttonClass =
+    "inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <div className="flex justify-center gap-4 mt-4">
+    <div
+      className="flex w-full flex-wrap items-center justify-center gap-2 border-y border-gray-200 bg-white/70 px-3 py-3"
+      role="toolbar"
+      aria-label="Transform controls"
+    >
       <button
-        onClick={handleFlipHorizontal}
+        type="button"
+        onClick={onFlipHorizontal}
         disabled={!isImageSelected}
-        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
+        title="Flip Horizontally (Ctrl+H)"
+        aria-label="Flip Horizontally"
+        className={buttonClass}
       >
-        Flip Horizontally
+        <ArrowsRightLeftIcon className="h-5 w-5" aria-hidden="true" />
       </button>
 
       <button
-        onClick={handleFlipVertical}
+        type="button"
+        onClick={onFlipVertical}
         disabled={!isImageSelected}
-        className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors disabled:opacity-50"
+        title="Flip Vertically (Ctrl+V)"
+        aria-label="Flip Vertically"
+        className={buttonClass}
       >
-        Flip Vertically
+        <ArrowsUpDownIcon className="h-5 w-5" aria-hidden="true" />
       </button>
 
       <button
-        onClick={handleRotate90}
+        type="button"
+        onClick={onRotate}
         disabled={!isImageSelected}
-        className="px-3 py-1 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 transition-colors disabled:opacity-50"
+        title="Rotate 90 deg (Ctrl+R)"
+        aria-label="Rotate 90 deg"
+        className={buttonClass}
       >
-        Rotate 90°
+        <ArrowUturnRightIcon className="h-5 w-5" aria-hidden="true" />
       </button>
 
       <button
-        onClick={handleResetTransform}
+        type="button"
+        onClick={onReset}
         disabled={!isImageSelected}
-        className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+        title="Reset Transform (Ctrl+Shift+R)"
+        aria-label="Reset Transform"
+        className={buttonClass}
       >
-        Reset Transform
+        <ArrowPathIcon className="h-5 w-5" aria-hidden="true" />
       </button>
     </div>
   );

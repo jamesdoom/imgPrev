@@ -1,16 +1,21 @@
-// /src/components/ImageUploader/CropperPreview.tsx
+// src/components/ImageUploader/CropperPreview.tsx
 
+import type { ReactElement } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 
-interface Props {
+type Point = { x: number; y: number };
+// If you prefer a distinct name locally, just alias it:
+// type AreaPixels = Area;
+
+interface CropperPreviewProps {
   image: string;
-  crop: { x: number; y: number };
+  crop: Point;
   zoom: number;
   aspectRatio: number;
-  onCropChange: (crop: { x: number; y: number }) => void;
+  onCropChange: (crop: Point) => void;
   onZoomChange: (zoom: number) => void;
-  onCropComplete: (_: Area, croppedArea: Area) => void;
+  onCropComplete: (croppedArea: Area, croppedAreaPixels: Area) => void;
 }
 
 export default function CropperPreview({
@@ -21,7 +26,7 @@ export default function CropperPreview({
   onCropChange,
   onZoomChange,
   onCropComplete,
-}: Props) {
+}: CropperPreviewProps): ReactElement {
   return (
     <>
       <div className="mt-4 relative w-full aspect-video bg-black rounded-md overflow-hidden">

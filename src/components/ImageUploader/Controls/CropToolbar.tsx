@@ -2,32 +2,24 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import Konva from "konva";
+import type Konva from "konva";
+import {
+  ArrowDownTrayIcon,
+  ArrowUturnLeftIcon,
+  CheckIcon,
+} from "@heroicons/react/24/outline";
 import { getCroppedImg } from "../utils/getCroppedImg";
+import type { UploadedImage, CropRect } from "../../../types";
 
-interface UploadedImage {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  width: number;
-  height: number;
-  rotation?: number;
-}
-
-interface Props {
-  cropRect: { x: number; y: number; width: number; height: number } | null;
+interface CropToolbarProps {
+  cropRect: CropRect | null;
   selectedId: string | null;
   uploadedImages: UploadedImage[];
 
   updateImages: (updater: (prev: UploadedImage[]) => UploadedImage[]) => void;
   setHasCropped: (val: boolean) => void;
   setShowCropper: (val: boolean) => void;
-  setCropRect: (
-    val: { x: number; y: number; width: number; height: number } | null
-  ) => void;
+  setCropRect: (val: CropRect | null) => void;
   hasCropped: boolean;
 
   setSelectedId: (id: string | null) => void;
@@ -45,8 +37,10 @@ export default function CropToolbar({
   hasCropped,
   setSelectedId,
   imageNode,
-}: Props) {
-  const [loading, setLoading] = useState(false);
+}: CropToolbarProps) {
+  const [loading, setLoading] = useState<boolean>(false);
+  const buttonClass =
+    "inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40";
 
   const handleCrop = async () => {
     if (!cropRect || !selectedId || !imageNode) return;
@@ -78,19 +72,12 @@ export default function CropToolbar({
     const y2 = (dx2 * sin + dy2 * cos) / scaleY + imgObj.height / 2;
 
     // Final crop rectangle in image coordinates
-    const finalCrop = {
+    const finalCrop: CropRect = {
       x: Math.min(x1, x2),
       y: Math.min(y1, y2),
       width: Math.abs(x2 - x1),
       height: Math.abs(y2 - y1),
     };
-
-    console.log("📐 Final crop rect in image space:", finalCrop);
-    console.log("🌀 Applied transforms:", {
-      rotation: imgObj.rotation,
-      scaleX: imgObj.scaleX,
-      scaleY: imgObj.scaleY,
-    });
 
     setLoading(true);
 
@@ -125,7 +112,7 @@ export default function CropToolbar({
 
       toast.success("Image cropped successfully!");
     } catch (err) {
-      console.error("🛑 Cropping failed:", err);
+      console.error("Cropping failed:", err);
       toast.error("Cropping failed.");
     } finally {
       setLoading(false);
@@ -157,45 +144,49 @@ export default function CropToolbar({
     }
   };
 
-  console.log("🧪 CropToolbar State:");
-  console.log("  cropRect:", cropRect);
-  console.log("  selectedId:", selectedId);
-  console.log("  loading:", loading);
-
   return (
-    <div className="flex flex-wrap gap-3 mt-4">
+    <div
+      className="flex w-full flex-wrap items-center justify-center gap-2 border-y border-emerald-100 bg-emerald-50/60 px-3 py-3"
+      role="toolbar"
+      aria-label="Crop controls"
+    >
       {!hasCropped && (
         <button
+          type="button"
           onClick={handleCrop}
           disabled={loading || !cropRect || !selectedId}
-          className={`px-3 py-1 text-white text-sm rounded transition-colors ${
-            loading || !cropRect || !selectedId
-              ? "bg-blue-300 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          title={loading ? "Cropping" : "Apply Crop"}
+          aria-label={loading ? "Cropping" : "Apply Crop"}
+          className={buttonClass}
         >
-          {loading ? "Cropping..." : "Apply Crop"}
+          <CheckIcon className="h-5 w-5" aria-hidden="true" />
         </button>
       )}
 
       {hasCropped && (
         <>
           <button
+            type="button"
             onClick={() => {
               setHasCropped(false);
               setShowCropper(false);
               setCropRect(null);
             }}
-            className="px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
+            title="Undo Crop"
+            aria-label="Undo Crop"
+            className={buttonClass}
           >
-            Undo Crop
+            <ArrowUturnLeftIcon className="h-5 w-5" aria-hidden="true" />
           </button>
 
           <button
+            type="button"
             onClick={handleDownload}
-            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+            title="Download Cropped Image"
+            aria-label="Download Cropped Image"
+            className={buttonClass}
           >
-            Download Cropped Image
+            <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" />
           </button>
         </>
       )}

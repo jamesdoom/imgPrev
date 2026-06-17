@@ -5,237 +5,164 @@ import TransformToolbar from "../ImageUploader/Controls/TransformToolbar";
 import CropToolbar from "../ImageUploader/Controls/CropToolbar";
 
 // ui
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import type { ReactElement } from "react";
+import {
+  ArrowDownTrayIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
+  CloudArrowUpIcon,
+  QuestionMarkCircleIcon,
+  ScissorsIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import Dropzone from "../ImageUploader/ui/Dropzone";
 import Spinner from "../ImageUploader/ui/Spinner";
 import UploadInfo from "../ImageUploader/ui/UploadInfo";
 import GangSheetCanvas from "./Controls/GangSheetCanvas";
-import toast from "react-hot-toast";
-import { useHotkeys } from "react-hotkeys-hook";
-
-// utils
-import { getDpi } from "../ImageUploader/utils/getDpi";
+import { showToast } from "../ImageUploader/utils/showToast";
+import { useCanvasExport } from "./hooks/useCanvasExport";
+import { useImageHistory } from "./hooks/useImageHistory";
+import { useImageHotkeys } from "./hooks/useImageHotkeys";
+import { useImageTransforms } from "./hooks/useImageTransforms";
+import { useImageUpload } from "./hooks/useImageUpload";
 
 // Konva
-import Konva from "konva";
+import type Konva from "konva";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const MAX_FILE_SIZE = 21 * 1024 * 1024;
+import ShortcutHelpModal from "../ImageUploader/ui/ShortcutHelpModal";
 
-export default function ImageUploader() {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [_file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+import type { CropRect } from "../../types";
+
+const actionButtonClass =
+  "inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40";
+
+const dangerButtonClass =
+  "inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 shadow-sm transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40";
+
+const primaryButtonClass =
+  "inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-800 bg-gray-900 text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40";
+
+export default function ImageUploader(): ReactElement {
   const [hasCropped, setHasCropped] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
-  const [_dpi, setDpi] = useState<number | null>(null);
-  const [cropRect, setCropRect] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<
-    {
-      id: string;
-      url: string;
-      x: number;
-      y: number;
-      scaleX: number;
-      scaleY: number;
-      width: number;
-      height: number;
-      rotation?: number;
-    }[]
-  >([]);
-  const [history, setHistory] = useState<(typeof uploadedImages)[]>([]);
-  const [redoStack, setRedoStack] = useState<(typeof uploadedImages)[]>([]);
+  const [showGrid, setShowGrid] = useState(true);
+  const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [imageNodeRef, setImageNodeRef] = useState<Konva.Image | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const stageRef = useRef<Konva.Stage | null>(null);
 
-  const updateImages = useCallback(
-    (updater: (prev: typeof uploadedImages) => typeof uploadedImages) => {
-      setUploadedImages((prev) => {
-        const next = updater(prev);
-        setHistory((h) => [...h.slice(-19), prev]);
-        setRedoStack([]);
-        return next;
-      });
-    },
-    []
-  );
+  const {
+    canRedo,
+    canUndo,
+    images: uploadedImages,
+    redo: handleRedo,
+    undo: handleUndo,
+    updateImage: handleUpdateImage,
+    updateImages,
+  } = useImageHistory();
 
-  const handleUpdateImage = useCallback(
-    (
-      id: string,
-      updates: Partial<{
-        id: string;
-        url: string;
-        x: number;
-        y: number;
-        scaleX: number;
-        scaleY: number;
-        rotation?: number;
-      }>
-    ) => {
-      updateImages((prev) =>
-        prev.map((img) => (img.id === id ? { ...img, ...updates } : img))
-      );
-    },
-    [updateImages]
-  );
-
-  const handleUndo = useCallback(() => {
-    setUploadedImages((current) => {
-      if (history.length === 0) return current;
-      const previous = history[history.length - 1];
-      setHistory((h) => h.slice(0, -1));
-      setRedoStack((r) => [current, ...r]);
-      toast("Undo performed", { icon: "↩️", id: "undo-toast" });
-      return previous;
+  const { download: handleDownload, uploadToCloud: handleCloudUpload } =
+    useCanvasExport({
+      stageRef,
+      setShowGrid,
     });
-  }, [history]);
 
-  const handleRedo = useCallback(() => {
-    setUploadedImages((current) => {
-      if (redoStack.length === 0) return current;
-      const next = redoStack[0];
-      setRedoStack((r) => r.slice(1));
-      setHistory((h) => [...h, current]);
-      toast("Redo applied", { icon: "↪️", id: "redo-toast" });
-      return next;
-    });
-  }, [redoStack]);
+  const { error, loading, onDrop, previewUrl } = useImageUpload({
+    updateImages,
+    onUploadStart: () => {
+      setHasCropped(false);
+      setShowCropper(false);
+    },
+  });
 
   const handleDelete = useCallback(() => {
     if (!selectedId) return;
     updateImages((prev) => prev.filter((img) => img.id !== selectedId));
     setSelectedId(null);
-    toast("Image deleted", { icon: "🗑️", id: "delete-toast" });
+    showToast("Image deleted", { id: "delete-toast" });
   }, [selectedId, updateImages]);
 
-  useHotkeys("ctrl+z, cmd+z", handleUndo, [handleUndo]);
-  useHotkeys("ctrl+y, cmd+shift+y", handleRedo, [handleRedo]);
-  useHotkeys("delete, backspace", handleDelete, [handleDelete]);
-  useHotkeys("esc", () => setSelectedId(null), [setSelectedId]);
+  const {
+    flipSelectedHorizontal: handleFlipHorizontal,
+    flipSelectedVertical: handleFlipVertical,
+    resetSelectedTransforms: handleResetTransforms,
+    rotateSelected: handleRotate,
+  } = useImageTransforms({
+    images: uploadedImages,
+    selectedId,
+    updateImage: handleUpdateImage,
+  });
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      setError(null);
-      setPreviewUrl(null);
-      setFile(null);
-      setHasCropped(false);
-      setShowCropper(false);
-
-      if (!file) return;
-
-      if (!file.type.startsWith("image/")) {
-        setError("Only image files are allowed.");
-        return;
-      }
-
-      if (file.size > MAX_FILE_SIZE) {
-        setError("Image must be 21MB or smaller.");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const formData = new FormData();
-        formData.append("image", file);
-
-        const response = await fetch(`${API_BASE_URL}/upload`, {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-        if (!response.ok || !data.previewUrl) {
-          throw new Error(data.error || "Upload failed");
-        }
-
-        const url = `${API_BASE_URL}${data.previewUrl}`;
-
-        const img = new Image();
-        img.src = url;
-        await img.decode();
-
-        const width = img.naturalWidth;
-        const height = img.naturalHeight;
-
-        const dpiValue = await getDpi(file);
-        console.log("Detected DPI:", dpiValue);
-        setPreviewUrl(url);
-        setFile(file);
-        setDpi(dpiValue ?? null);
-        updateImages((prev) => [
-          ...prev,
-          {
-            id: url,
-            url,
-            x: 400,
-            y: 400,
-            scaleX: 0.5,
-            scaleY: 0.5,
-            width,
-            height,
-          },
-        ]);
-      } catch (err) {
-        console.error("Error processing image:", err);
-        setError("Something went wrong while processing the image.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [updateImages]
-  );
+  useImageHotkeys({
+    onDelete: handleDelete,
+    onDeselect: () => setSelectedId(null),
+    onFlipHorizontal: handleFlipHorizontal,
+    onFlipVertical: handleFlipVertical,
+    onHelp: () => setShowHelp(true),
+    onRedo: handleRedo,
+    onResetTransforms: handleResetTransforms,
+    onRotate: handleRotate,
+    onUndo: handleUndo,
+  });
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4">
+    <div className="mx-auto w-full max-w-6xl p-4">
       <div className="flex flex-col items-center gap-4">
-        <Dropzone onDrop={onDrop} disabled={loading} />
-        {loading && <Spinner />}
-        <UploadInfo />
+        <section className="w-full space-y-3" aria-label="Upload image">
+          <Dropzone onDrop={onDrop} disabled={loading} />
+          {loading && <Spinner />}
+          <UploadInfo />
+        </section>
 
         {error && (
-          <div className="mt-3 text-red-600 font-medium bg-red-100 p-2 rounded">
+          <div className="w-full rounded border border-red-200 bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700">
             {error}
           </div>
         )}
 
-        <GangSheetCanvas
-          images={uploadedImages}
-          onUpdateImage={handleUpdateImage}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
-          cropRect={cropRect}
-          setCropRect={setCropRect}
-          showCropper={showCropper}
-          setImageNodeRef={setImageNodeRef}
-        />
+        <section className="w-full overflow-x-auto" aria-label="Canvas">
+          <GangSheetCanvas
+            images={uploadedImages}
+            onUpdateImage={handleUpdateImage}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+            cropRect={cropRect}
+            setCropRect={setCropRect}
+            showCropper={showCropper}
+            setImageNodeRef={setImageNodeRef}
+            stageRef={stageRef}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+          />
+        </section>
 
         <TransformToolbar
-          selectedId={selectedId}
-          uploadedImages={uploadedImages}
-          onUpdateImage={handleUpdateImage}
+          isImageSelected={!!selectedId}
+          onFlipHorizontal={handleFlipHorizontal}
+          onFlipVertical={handleFlipVertical}
+          onRotate={handleRotate}
+          onReset={handleResetTransforms}
         />
 
         {previewUrl && !hasCropped && !showCropper && (
           <button
+            type="button"
             onClick={() => {
               setShowCropper(true);
               setCropRect(null);
               setSelectedId(
-                (prev) => prev ?? uploadedImages.at(-1)?.id ?? null
+                (prev) =>
+                  prev ?? uploadedImages[uploadedImages.length - 1]?.id ?? null
               );
             }}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            title="Crop Image"
+            aria-label="Crop Image"
+            className={primaryButtonClass}
           >
-            Crop Image
+            <ScissorsIcon className="h-5 w-5" aria-hidden="true" />
           </button>
         )}
 
@@ -254,35 +181,76 @@ export default function ImageUploader() {
           />
         )}
 
-        <div className="flex justify-center gap-4 mt-4">
+        <div
+          className="flex w-full flex-wrap items-center justify-center gap-2 border-t border-gray-200 px-3 pt-3"
+          role="toolbar"
+          aria-label="Editor actions"
+        >
           <button
+            type="button"
             onClick={handleUndo}
-            disabled={history.length === 0}
+            disabled={!canUndo}
             title="Undo (Ctrl+Z)"
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50"
+            aria-label="Undo"
+            className={actionButtonClass}
           >
-            Undo
+            <ArrowUturnLeftIcon className="h-5 w-5" aria-hidden="true" />
           </button>
 
           <button
+            type="button"
             onClick={handleRedo}
-            disabled={redoStack.length === 0}
+            disabled={!canRedo}
             title="Redo (Ctrl+Y)"
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50"
+            aria-label="Redo"
+            className={actionButtonClass}
           >
-            Redo
+            <ArrowUturnRightIcon className="h-5 w-5" aria-hidden="true" />
           </button>
 
           <button
+            type="button"
             onClick={handleDelete}
             disabled={!selectedId}
-            title="Remove Image (Delete or Backspace)"
-            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+            title="Remove Image (Delete)"
+            aria-label="Remove Image"
+            className={dangerButtonClass}
           >
-            Remove Image
+            <TrashIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            title="Show Keyboard Shortcuts (?)"
+            aria-label="Show Keyboard Shortcuts"
+            className={actionButtonClass}
+          >
+            <QuestionMarkCircleIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownload}
+            title="Download Final Image"
+            aria-label="Download PNG"
+            className={actionButtonClass}
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCloudUpload}
+            title="Save to Cloud"
+            aria-label="Save to Cloud"
+            className={actionButtonClass}
+          >
+            <CloudArrowUpIcon className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>
+      <ShortcutHelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }
