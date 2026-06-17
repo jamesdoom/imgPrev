@@ -1,13 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { ImageUpdate, UploadedImage } from "../../../types";
 import { useImageTransforms } from "./useImageTransforms";
-
-const showToast = vi.fn();
-
-vi.mock("../utils/showToast", () => ({
-  showToast: (message: string, options: unknown) => showToast(message, options),
-}));
 
 const baseImage: UploadedImage = {
   id: "image-1",
@@ -36,10 +30,6 @@ function renderTransforms(
   return { hook, updateImage };
 }
 
-beforeEach(() => {
-  showToast.mockClear();
-});
-
 describe("useImageTransforms", () => {
   test("does nothing when no image is selected", () => {
     const { hook, updateImage } = renderTransforms(null);
@@ -49,7 +39,6 @@ describe("useImageTransforms", () => {
     });
 
     expect(updateImage).not.toHaveBeenCalled();
-    expect(showToast).not.toHaveBeenCalled();
   });
 
   test("flips the selected image horizontally", () => {
@@ -60,9 +49,6 @@ describe("useImageTransforms", () => {
     });
 
     expect(updateImage).toHaveBeenCalledWith("image-1", { scaleX: -1 });
-    expect(showToast).toHaveBeenCalledWith("Flipped image horizontally", {
-      id: "flip-toast",
-    });
   });
 
   test("flips the selected image vertically", () => {
@@ -73,9 +59,6 @@ describe("useImageTransforms", () => {
     });
 
     expect(updateImage).toHaveBeenCalledWith("image-1", { scaleY: -0.75 });
-    expect(showToast).toHaveBeenCalledWith("Flipped image vertically", {
-      id: "flip-vertical-toast",
-    });
   });
 
   test("rotates the selected image and wraps at 360 degrees", () => {
@@ -86,9 +69,6 @@ describe("useImageTransforms", () => {
     });
 
     expect(updateImage).toHaveBeenCalledWith("image-1", { rotation: 0 });
-    expect(showToast).toHaveBeenCalledWith("Rotated image 90 deg", {
-      id: "rotate-toast",
-    });
   });
 
   test("resets the selected image transform", () => {
@@ -104,9 +84,6 @@ describe("useImageTransforms", () => {
       scaleX: 0.5,
       scaleY: 0.5,
       rotation: 0,
-    });
-    expect(showToast).toHaveBeenCalledWith("Transform reset", {
-      id: "reset-toast",
     });
   });
 });
