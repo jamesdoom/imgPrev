@@ -13,6 +13,7 @@ dist-ssr
 *.local
 backend/storage/uploads/*
 backend/storage/processed/*
+backend/storage/projects/*
 !backend/storage/uploads/.gitkeep
 !backend/storage/processed/.gitkeep
 

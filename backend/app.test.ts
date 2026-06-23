@@ -1,11 +1,68 @@
 import request from "supertest";
-import { describe, expect, test } from "vitest";
+import fs from "fs";
+import path from "path";
+import { afterEach, describe, expect, test } from "vitest";
 import { createApp } from "./app";
 
 const validPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64"
 );
+const submittedProjectIds: string[] = [];
+const projectsDir = path.resolve(__dirname, "storage", "projects");
+
+afterEach(async () => {
+  await Promise.all(
+    submittedProjectIds.splice(0).map((projectId) =>
+      fs.promises.rm(path.join(projectsDir, projectId), {
+        force: true,
+        recursive: true,
+      })
+    )
+  );
+});
+
+function renderManifest() {
+  return {
+    document: {
+      id: "project-1",
+      version: 1,
+      productionProfileId: "sticker-sheet-mvp",
+      sheet: {
+        sizeId: "4x6",
+        widthIn: 4,
+        heightIn: 6,
+        dpi: 300,
+      },
+      assets: [
+        {
+          id: "asset-1",
+          sourceUrl: "blob:asset-1",
+          fileName: "pixel.png",
+          fileType: "image/png",
+        },
+      ],
+      items: [
+        {
+          id: "item-1",
+          assetId: "asset-1",
+          xIn: 0.5,
+          yIn: 0.5,
+          widthIn: 0.75,
+          heightIn: 0.75,
+          rotationDeg: 0,
+          scaleX: 1,
+          scaleY: 1,
+        },
+      ],
+      settings: {
+        background: {
+          type: "transparent",
+        },
+      },
+    },
+  };
+}
 
 describe("backend app", () => {
   test("responds to the health check", async () => {
@@ -94,5 +151,100 @@ describe("backend app", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Cloudinary is not configured." });
+  });
+
+  test("rejects sheet renders without a manifest", async () => {
+    const response = await request(createApp()).post("/render-sheet");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "Missing render manifest." });
+  });
+
+  test("rejects sheet renders with invalid manifest JSON", async () => {
+    const response = await request(createApp())
+      .post("/render-sheet")
+      .field("manifest", "{not-json");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Render manifest must be valid JSON.",
+    });
+  });
+
+  test("rejects sheet renders when a placed asset file is missing", async () => {
+    const response = await request(createApp())
+      .post("/render-sheet")
+      .field("manifest", JSON.stringify(renderManifest()));
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Missing uploaded asset file: pixel.png.",
+    });
+  });
+
+  test("renders a sheet preview PNG and production PDF", async () => {
+    const response = await request(createApp())
+      .post("/render-sheet")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    const previewPng = Buffer.from(response.body.previewPngBase64, "base64");
+    const printPdf = Buffer.from(response.body.printPdfBase64, "base64");
+
+    expect(response.status).toBe(200);
+    expect(response.body.widthPx).toBe(1200);
+    expect(response.body.heightPx).toBe(1800);
+    expect(previewPng.subarray(0, 8)).toEqual(
+      Buffer.from("89504e470d0a1a0a", "hex")
+    );
+    expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
+  test("submits a rendered project for internal review", async () => {
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    const projectDir = path.join(projectsDir, response.body.projectId);
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "project.json"), "utf8")
+    );
+    const previewPng = await fs.promises.readFile(
+      path.join(projectDir, "preview.png")
+    );
+    const printPdf = await fs.promises.readFile(
+      path.join(projectDir, "print.pdf")
+    );
+    const originalAsset = await fs.promises.readFile(
+      path.join(projectDir, "assets", "pixel.png")
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      status: "submitted",
+      files: {
+        projectJson: expect.stringMatching(/^\/projects\/project-/),
+        previewPng: expect.stringMatching(/^\/projects\/project-/),
+        printPdf: expect.stringMatching(/^\/projects\/project-/),
+        assets: expect.stringMatching(/^\/projects\/project-/),
+      },
+    });
+    expect(response.body.projectId).toMatch(/^project-\d+-[a-z0-9]+$/);
+    expect(projectJson.projectId).toBe(response.body.projectId);
+    expect(projectJson.submittedAt).toEqual(expect.any(String));
+    expect(previewPng.subarray(0, 8)).toEqual(
+      Buffer.from("89504e470d0a1a0a", "hex")
+    );
+    expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(originalAsset).toEqual(validPng);
   });
 });

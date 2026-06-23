@@ -9,12 +9,22 @@ import path from "path";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
+import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
 
 const MAX_FILE_SIZE = 21 * 1024 * 1024;
+const MAX_RENDER_FILE_SIZE = 25 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const ALLOWED_RENDER_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "application/pdf",
+]);
 const storageRoot = path.resolve(__dirname, "storage");
 const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
+const projectsDir = path.join(storageRoot, "projects");
 
 const hasCloudinaryConfig =
   !!process.env.CLOUDINARY_CLOUD_NAME &&
@@ -39,7 +49,7 @@ const safeUnlink = (filePath: string, delay = 500) => {
   }, delay);
 };
 
-[uploadsDir, processedDir].forEach((dir) => {
+[uploadsDir, processedDir, projectsDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -53,6 +63,25 @@ const upload = multer({
       callback(new Error("Only PNG, JPEG, and WebP images are allowed."));
       return;
     }
+    callback(null, true);
+  },
+});
+
+const renderUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_RENDER_FILE_SIZE,
+    files: 50,
+    fieldSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!ALLOWED_RENDER_MIME_TYPES.has(file.mimetype)) {
+      callback(
+        new Error("Only PNG, JPEG, WebP, SVG, and PDF render assets are allowed.")
+      );
+      return;
+    }
+
     callback(null, true);
   },
 });
@@ -196,9 +225,114 @@ export function createApp() {
     })();
   });
 
+  app.post(
+    "/render-sheet",
+    renderUpload.array("assets", 50),
+    (req: Request, res: Response): void => {
+      void (async () => {
+        try {
+          const document = parseRenderDocument(req.body.manifest);
+          const files = Array.isArray(req.files)
+            ? req.files.map((file) => ({
+                originalname: file.originalname,
+                mimetype: file.mimetype,
+                buffer: file.buffer,
+              }))
+            : [];
+
+          const result = await renderSheetToFiles(document, files);
+
+          res.json({
+            widthPx: result.widthPx,
+            heightPx: result.heightPx,
+            previewPngBase64: result.previewPng.toString("base64"),
+            printPdfBase64: result.printPdf.toString("base64"),
+          });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Could not render sheet.";
+
+          res.status(400).json({ error: message });
+        }
+      })();
+    }
+  );
+
+  app.post(
+    "/submit-project",
+    renderUpload.array("assets", 50),
+    (req: Request, res: Response): void => {
+      void (async () => {
+        try {
+          const manifest = parseRenderManifest(req.body.manifest);
+          const files = getUploadedRenderFiles(req.files);
+          const renderedFiles = await renderSheetToFiles(manifest.document, files);
+          const projectId = createProjectId();
+          const projectDir = path.join(projectsDir, projectId);
+          const assetsDir = path.join(projectDir, "assets");
+
+          await fs.promises.mkdir(assetsDir, { recursive: true });
+          await Promise.all([
+            fs.promises.writeFile(
+              path.join(projectDir, "project.json"),
+              JSON.stringify(
+                {
+                  ...getRecord(manifest.raw),
+                  submittedAt: new Date().toISOString(),
+                  projectId,
+                },
+                null,
+                2
+              )
+            ),
+            fs.promises.writeFile(
+              path.join(projectDir, "preview.png"),
+              renderedFiles.previewPng
+            ),
+            fs.promises.writeFile(
+              path.join(projectDir, "print.pdf"),
+              renderedFiles.printPdf
+            ),
+            ...files.map((file) =>
+              fs.promises.writeFile(
+                path.join(assetsDir, path.basename(file.originalname)),
+                file.buffer
+              )
+            ),
+          ]);
+
+          res.status(201).json({
+            projectId,
+            status: "submitted",
+            files: {
+              projectJson: `/projects/${projectId}/project.json`,
+              previewPng: `/projects/${projectId}/preview.png`,
+              printPdf: `/projects/${projectId}/print.pdf`,
+              assets: `/projects/${projectId}/assets/`,
+            },
+          });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Could not submit project.";
+
+          res.status(400).json({ error: message });
+        }
+      })();
+    }
+  );
+
   app.use(
     "/processed",
     express.static(processedDir, {
+      setHeaders: (res) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+      },
+    })
+  );
+
+  app.use(
+    "/projects",
+    express.static(projectsDir, {
       setHeaders: (res) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
       },
@@ -226,9 +360,84 @@ export function createApp() {
         return;
       }
 
+      if (
+        err.message ===
+        "Only PNG, JPEG, WebP, SVG, and PDF render assets are allowed."
+      ) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+
       next(err);
     }
   );
 
   return app;
+}
+
+function parseRenderManifest(manifest: unknown): {
+  document: RenderSheetDocument;
+  raw: unknown;
+} {
+  if (typeof manifest !== "string" || manifest.trim().length === 0) {
+    throw new Error("Missing render manifest.");
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(manifest);
+  } catch {
+    throw new Error("Render manifest must be valid JSON.");
+  }
+
+  const candidate = getRecord(parsed);
+  const document = getRecord(candidate.document ?? candidate);
+  const sheet = getRecord(document.sheet);
+  const settings = getRecord(document.settings);
+
+  if (
+    typeof sheet.widthIn !== "number" ||
+    typeof sheet.heightIn !== "number" ||
+    typeof sheet.dpi !== "number" ||
+    !Array.isArray(document.assets) ||
+    !Array.isArray(document.items) ||
+    !settings.background
+  ) {
+    throw new Error("Render manifest is missing required sheet document data.");
+  }
+
+  return {
+    document: document as unknown as RenderSheetDocument,
+    raw: parsed,
+  };
+}
+
+function parseRenderDocument(manifest: unknown): RenderSheetDocument {
+  return parseRenderManifest(manifest).document;
+}
+
+function getUploadedRenderFiles(files: Express.Multer.File[] | unknown) {
+  return Array.isArray(files)
+    ? files.map((file) => ({
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        buffer: file.buffer,
+      }))
+    : [];
+}
+
+function createProjectId(): string {
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+  const suffix = Math.random().toString(36).slice(2, 8);
+
+  return `project-${timestamp}-${suffix}`;
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
 }

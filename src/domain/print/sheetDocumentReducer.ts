@@ -1,0 +1,259 @@
+import { findSheetSize } from "./measurements";
+import { STICKER_SHEET_MVP_PROFILE } from "./productionProfiles";
+import type {
+  ProductionProfile,
+  SheetAsset,
+  SheetBackground,
+  SheetDocument,
+  SheetDocumentSettings,
+  SheetItem,
+  SheetSizeId,
+} from "./types";
+
+export type AddAssetCommand = {
+  type: "asset/add";
+  asset: SheetAsset;
+  now?: string;
+};
+
+export type UpdateAssetCommand = {
+  type: "asset/update";
+  assetId: string;
+  patch: Partial<Omit<SheetAsset, "id">>;
+  now?: string;
+};
+
+export type RemoveAssetCommand = {
+  type: "asset/remove";
+  assetId: string;
+  now?: string;
+};
+
+export type PlaceItemCommand = {
+  type: "item/place";
+  item: SheetItem;
+  now?: string;
+};
+
+export type UpdateItemCommand = {
+  type: "item/update";
+  itemId: string;
+  patch: Partial<Omit<SheetItem, "id">>;
+  now?: string;
+};
+
+export type RemoveItemCommand = {
+  type: "item/remove";
+  itemId: string;
+  now?: string;
+};
+
+export type DuplicateItemCommand = {
+  type: "item/duplicate";
+  itemId: string;
+  newItemId: string;
+  offsetIn?: {
+    x: number;
+    y: number;
+  };
+  now?: string;
+};
+
+export type SetSheetSizeCommand = {
+  type: "sheet/set-size";
+  sheetSizeId: SheetSizeId;
+  profile?: ProductionProfile;
+  now?: string;
+};
+
+export type UpdateSettingsCommand = {
+  type: "settings/update";
+  patch: Partial<SheetDocumentSettings>;
+  now?: string;
+};
+
+export type SetBackgroundCommand = {
+  type: "settings/set-background";
+  background: SheetBackground;
+  now?: string;
+};
+
+export type SheetDocumentCommand =
+  | AddAssetCommand
+  | UpdateAssetCommand
+  | RemoveAssetCommand
+  | PlaceItemCommand
+  | UpdateItemCommand
+  | RemoveItemCommand
+  | DuplicateItemCommand
+  | SetSheetSizeCommand
+  | UpdateSettingsCommand
+  | SetBackgroundCommand;
+
+export function sheetDocumentReducer(
+  document: SheetDocument,
+  command: SheetDocumentCommand
+): SheetDocument {
+  switch (command.type) {
+    case "asset/add":
+      return touch(
+        {
+          ...document,
+          assets: upsertById(document.assets, command.asset),
+        },
+        command.now
+      );
+
+    case "asset/update":
+      return touch(
+        {
+          ...document,
+          assets: document.assets.map((asset) =>
+            asset.id === command.assetId ? { ...asset, ...command.patch } : asset
+          ),
+        },
+        command.now
+      );
+
+    case "asset/remove":
+      return touch(
+        {
+          ...document,
+          assets: document.assets.filter((asset) => asset.id !== command.assetId),
+          items: document.items.filter(
+            (item) => item.assetId !== command.assetId
+          ),
+        },
+        command.now
+      );
+
+    case "item/place":
+      if (!document.assets.some((asset) => asset.id === command.item.assetId)) {
+        throw new Error(`Cannot place item for missing asset: ${command.item.assetId}`);
+      }
+
+      return touch(
+        {
+          ...document,
+          items: upsertById(document.items, command.item),
+        },
+        command.now
+      );
+
+    case "item/update":
+      return touch(
+        {
+          ...document,
+          items: document.items.map((item) =>
+            item.id === command.itemId ? { ...item, ...command.patch } : item
+          ),
+        },
+        command.now
+      );
+
+    case "item/remove":
+      return touch(
+        {
+          ...document,
+          items: document.items.filter((item) => item.id !== command.itemId),
+        },
+        command.now
+      );
+
+    case "item/duplicate":
+      return duplicateItem(document, command);
+
+    case "sheet/set-size": {
+      const profile = command.profile ?? STICKER_SHEET_MVP_PROFILE;
+      const sheetSize = findSheetSize(command.sheetSizeId, profile);
+
+      return touch(
+        {
+          ...document,
+          productionProfileId: profile.id,
+          sheet: {
+            sizeId: sheetSize.id,
+            widthIn: sheetSize.widthIn,
+            heightIn: sheetSize.heightIn,
+            dpi: profile.requiredDpi,
+          },
+        },
+        command.now
+      );
+    }
+
+    case "settings/update":
+      return touch(
+        {
+          ...document,
+          settings: {
+            ...document.settings,
+            ...command.patch,
+          },
+        },
+        command.now
+      );
+
+    case "settings/set-background":
+      return touch(
+        {
+          ...document,
+          settings: {
+            ...document.settings,
+            background: command.background,
+          },
+        },
+        command.now
+      );
+  }
+}
+
+function upsertById<T extends { id: string }>(items: T[], item: T): T[] {
+  const existingIndex = items.findIndex((candidate) => candidate.id === item.id);
+
+  if (existingIndex === -1) {
+    return [...items, item];
+  }
+
+  return items.map((candidate) =>
+    candidate.id === item.id ? item : candidate
+  );
+}
+
+function duplicateItem(
+  document: SheetDocument,
+  command: DuplicateItemCommand
+): SheetDocument {
+  const sourceItem = document.items.find((item) => item.id === command.itemId);
+
+  if (!sourceItem) {
+    return document;
+  }
+
+  const offset = command.offsetIn ?? { x: 0.25, y: 0.25 };
+  const duplicate: SheetItem = {
+    ...sourceItem,
+    id: command.newItemId,
+    xIn: sourceItem.xIn + offset.x,
+    yIn: sourceItem.yIn + offset.y,
+  };
+
+  return touch(
+    {
+      ...document,
+      items: [...document.items, duplicate],
+    },
+    command.now
+  );
+}
+
+function touch(document: SheetDocument, now?: string): SheetDocument {
+  if (!now) {
+    return document;
+  }
+
+  return {
+    ...document,
+    updatedAt: now,
+  };
+}

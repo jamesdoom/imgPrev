@@ -1,0 +1,77 @@
+import { STICKER_SHEET_MVP_PROFILE } from "./productionProfiles";
+import type {
+  ProductionProfile,
+  SheetAsset,
+  SheetDocument,
+  SheetItem,
+} from "./types";
+
+export interface CreateSheetItemFromAssetInput {
+  id: string;
+  asset: SheetAsset;
+  document: SheetDocument;
+  profile?: ProductionProfile;
+}
+
+export function createSheetItemFromAsset({
+  id,
+  asset,
+  document,
+  profile = STICKER_SHEET_MVP_PROFILE,
+}: CreateSheetItemFromAssetInput): SheetItem {
+  const { sheetEdgeMarginIn, minStickerSizeIn } = profile.printRules;
+  const maxWidthIn = Math.max(
+    minStickerSizeIn,
+    document.sheet.widthIn - sheetEdgeMarginIn * 2
+  );
+  const maxHeightIn = Math.max(
+    minStickerSizeIn,
+    document.sheet.heightIn - sheetEdgeMarginIn * 2
+  );
+  const naturalSize = getNaturalAssetSizeIn(asset, profile.requiredDpi);
+  const fitScale = Math.min(
+    1,
+    maxWidthIn / naturalSize.widthIn,
+    maxHeightIn / naturalSize.heightIn
+  );
+
+  return {
+    id,
+    assetId: asset.id,
+    name: asset.fileName,
+    xIn: sheetEdgeMarginIn,
+    yIn: sheetEdgeMarginIn,
+    widthIn: roundToThousandth(
+      Math.max(minStickerSizeIn, naturalSize.widthIn * fitScale)
+    ),
+    heightIn: roundToThousandth(
+      Math.max(minStickerSizeIn, naturalSize.heightIn * fitScale)
+    ),
+    rotationDeg: 0,
+    scaleX: 1,
+    scaleY: 1,
+  };
+}
+
+function getNaturalAssetSizeIn(
+  asset: SheetAsset,
+  fallbackDpi: number
+): { widthIn: number; heightIn: number } {
+  if (asset.widthPx && asset.heightPx) {
+    const dpi = asset.dpi ?? fallbackDpi;
+
+    return {
+      widthIn: asset.widthPx / dpi,
+      heightIn: asset.heightPx / dpi,
+    };
+  }
+
+  return {
+    widthIn: 1.5,
+    heightIn: 1.5,
+  };
+}
+
+function roundToThousandth(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
