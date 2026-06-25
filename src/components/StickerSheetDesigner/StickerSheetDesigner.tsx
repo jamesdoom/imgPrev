@@ -360,6 +360,20 @@ export default function StickerSheetDesigner() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+            <PhotoIcon className="h-5 w-5" />
+            Upload artwork
+            <input
+              className="sr-only"
+              type="file"
+              multiple
+              accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
+              onChange={(event) => {
+                void handleFiles(event.target.files);
+                event.target.value = "";
+              }}
+            />
+          </label>
           <PreflightBadge
             errorCount={preflightErrorCount}
             warningCount={preflightWarningCount}
@@ -379,20 +393,6 @@ export default function StickerSheetDesigner() {
             <ArrowUturnRightIcon className="h-5 w-5" />
           </IconButton>
           <div className="mx-1 h-7 w-px bg-neutral-300" />
-          <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded border border-neutral-300 bg-white px-3 text-sm font-medium hover:bg-neutral-50">
-            <PhotoIcon className="h-5 w-5" />
-            Upload
-            <input
-              className="sr-only"
-              type="file"
-              multiple
-              accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
-              onChange={(event) => {
-                void handleFiles(event.target.files);
-                event.target.value = "";
-              }}
-            />
-          </label>
         </div>
       </header>
 
@@ -681,27 +681,6 @@ function ExportPanel({
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
-      <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50">
-        <FolderOpenIcon className="h-5 w-5" />
-        Load JSON
-        <input
-          className="sr-only"
-          type="file"
-          accept="application/json,.json"
-          onChange={(event) => {
-            void onImportProjectJson(event.target.files?.[0]);
-            event.target.value = "";
-          }}
-        />
-      </label>
-      <button
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
-        type="button"
-        onClick={onDownloadProjectJson}
-      >
-        <ArrowDownTrayIcon className="h-5 w-5" />
-        Project JSON
-      </button>
       <button
         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={documentItemCount === 0}
@@ -734,6 +713,35 @@ function ExportPanel({
           Submitted as {submittedProjectId}
         </div>
       )}
+
+      <details className="rounded border border-neutral-200 bg-neutral-50">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
+          Project tools
+        </summary>
+        <div className="space-y-2 border-t border-neutral-200 p-2">
+          <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50">
+            <FolderOpenIcon className="h-5 w-5" />
+            Open project JSON
+            <input
+              className="sr-only"
+              type="file"
+              accept="application/json,.json"
+              onChange={(event) => {
+                void onImportProjectJson(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+          </label>
+          <button
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
+            type="button"
+            onClick={onDownloadProjectJson}
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            Download project JSON
+          </button>
+        </div>
+      </details>
     </div>
   );
 }
@@ -993,7 +1001,9 @@ function NumberField({
 
 async function createAssetFromFile(file: File): Promise<SheetAsset> {
   const isImage = file.type.startsWith("image/");
-  const sourceUrl = isImage ? await readFileAsDataUrl(file) : URL.createObjectURL(file);
+  const sourceUrl = isImage
+    ? await readFileAsDataUrl(file)
+    : URL.createObjectURL(file);
   const dimensions = isImage
     ? await loadImageDimensions(sourceUrl)
     : {};
