@@ -3,6 +3,7 @@ import {
   fetchAdminProjectDetail,
   fetchAdminProjects,
   getAdminFileUrl,
+  updateAdminProjectReview,
 } from "./adminReviewApi";
 
 afterEach(() => {
@@ -22,6 +23,11 @@ describe("adminReviewApi", () => {
               sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
               counts: { assets: 2, items: 5 },
               files: { projectJson: "/projects/project-1/project.json" },
+              review: {
+                status: "submitted",
+                updatedAt: "2026-06-25T12:00:00.000Z",
+                history: [],
+              },
             },
           ],
         }),
@@ -48,6 +54,11 @@ describe("adminReviewApi", () => {
               sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
               counts: { assets: 1, items: 1 },
               files: {},
+              review: {
+                status: "submitted",
+                updatedAt: "2026-06-25T12:00:00.000Z",
+                history: [],
+              },
               manifest: {
                 document: {
                   settings: { background: { type: "transparent" } },
@@ -68,6 +79,61 @@ describe("adminReviewApi", () => {
         },
       },
     });
+  });
+
+  test("updates project review status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          project: {
+            projectId: "project-20260625120000-abc123",
+            submittedAt: "2026-06-25T12:00:00.000Z",
+            sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
+            counts: { assets: 1, items: 1 },
+            files: {},
+            review: {
+              status: "approved",
+              updatedAt: "2026-06-25T13:00:00.000Z",
+              history: [
+                {
+                  status: "approved",
+                  note: "Ready for production.",
+                  reviewer: "admin",
+                  reviewedAt: "2026-06-25T13:00:00.000Z",
+                },
+              ],
+            },
+            manifest: {},
+          },
+        }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      updateAdminProjectReview("project-20260625120000-abc123", {
+        status: "approved",
+        note: "Ready for production.",
+      })
+    ).resolves.toMatchObject({
+      review: {
+        status: "approved",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/admin/projects/project-20260625120000-abc123/review",
+      {
+        body: JSON.stringify({
+          status: "approved",
+          note: "Ready for production.",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      }
+    );
   });
 
   test("throws backend errors", async () => {

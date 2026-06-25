@@ -227,6 +227,9 @@ describe("backend app", () => {
     const manifestJson = JSON.parse(
       await fs.promises.readFile(path.join(projectDir, "manifest.json"), "utf8")
     );
+    const reviewJson = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "review.json"), "utf8")
+    );
     const originalAsset = await fs.promises.readFile(
       path.join(projectDir, "assets", "pixel.png")
     );
@@ -250,6 +253,11 @@ describe("backend app", () => {
     );
     expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(manifestJson.document.id).toBe("project-1");
+    expect(reviewJson).toMatchObject({
+      status: "submitted",
+      updatedAt: projectJson.submittedAt,
+      history: [],
+    });
     expect(originalAsset).toEqual(validPng);
   });
 
@@ -281,6 +289,11 @@ describe("backend app", () => {
           printPdf: `/projects/${submitResponse.body.projectId}/print.pdf`,
           manifestJson: `/projects/${submitResponse.body.projectId}/manifest.json`,
         }),
+        review: {
+          status: "submitted",
+          updatedAt: expect.any(String),
+          history: [],
+        },
       })
     );
   });
@@ -304,6 +317,10 @@ describe("backend app", () => {
     expect(response.status).toBe(200);
     expect(response.body.project).toMatchObject({
       projectId: submitResponse.body.projectId,
+      review: {
+        status: "submitted",
+        history: [],
+      },
       manifest: {
         document: {
           id: "project-1",
@@ -317,5 +334,68 @@ describe("backend app", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: "Invalid project id." });
+  });
+
+  test("updates review status and appends admin review history", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+
+    const response = await request(app)
+      .patch(`/admin/projects/${submitResponse.body.projectId}/review`)
+      .send({
+        status: "approved",
+        note: "Ready for production.",
+        reviewer: "Production lead",
+      });
+
+    const reviewJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, submitResponse.body.projectId, "review.json"),
+        "utf8"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.project.review).toMatchObject({
+      status: "approved",
+      updatedAt: expect.any(String),
+      history: [
+        {
+          status: "approved",
+          note: "Ready for production.",
+          reviewer: "Production lead",
+          reviewedAt: expect.any(String),
+        },
+      ],
+    });
+    expect(reviewJson).toEqual(response.body.project.review);
+  });
+
+  test("rejects invalid admin review statuses", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+
+    const response = await request(app)
+      .patch(`/admin/projects/${submitResponse.body.projectId}/review`)
+      .send({ status: "submitted" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "Invalid review status." });
   });
 });

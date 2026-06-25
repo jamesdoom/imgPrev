@@ -21,6 +21,12 @@ const ALLOWED_RENDER_MIME_TYPES = new Set([
   "image/svg+xml",
   "application/pdf",
 ]);
+const REVIEW_STATUSES = new Set([
+  "submitted",
+  "approved",
+  "rejected",
+  "changes-requested",
+]);
 const storageRoot = path.resolve(__dirname, "storage");
 const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
@@ -268,6 +274,7 @@ export function createApp() {
           const files = getUploadedRenderFiles(req.files);
           const renderedFiles = await renderSheetToFiles(manifest.document, files);
           const projectId = createProjectId();
+          const submittedAt = new Date().toISOString();
           const projectDir = path.join(projectsDir, projectId);
           const assetsDir = path.join(projectDir, "assets");
 
@@ -278,12 +285,16 @@ export function createApp() {
               JSON.stringify(
                 {
                   ...getRecord(manifest.raw),
-                  submittedAt: new Date().toISOString(),
+                  submittedAt,
                   projectId,
                 },
                 null,
                 2
               )
+            ),
+            fs.promises.writeFile(
+              path.join(projectDir, "review.json"),
+              JSON.stringify(createInitialProjectReview(submittedAt), null, 2)
             ),
             fs.promises.writeFile(
               path.join(projectDir, "manifest.json"),
@@ -353,6 +364,47 @@ export function createApp() {
       res.json({ project });
     })();
   });
+
+  app.patch(
+    "/admin/projects/:projectId/review",
+    (req: Request, res: Response): void => {
+      void (async () => {
+        const projectId = getSafeProjectId(req.params.projectId);
+
+        if (!projectId) {
+          res.status(400).json({ error: "Invalid project id." });
+          return;
+        }
+
+        const status = getReviewStatus(req.body.status);
+
+        if (!status || status === "submitted") {
+          res.status(400).json({ error: "Invalid review status." });
+          return;
+        }
+
+        const note = getReviewNote(req.body.note);
+
+        if (note === null) {
+          res.status(400).json({ error: "Review note is too long." });
+          return;
+        }
+
+        const project = await updateProjectReview(projectId, {
+          note,
+          reviewer: getReviewer(req.body.reviewer),
+          status,
+        });
+
+        if (!project) {
+          res.status(404).json({ error: "Project not found." });
+          return;
+        }
+
+        res.json({ project });
+      })();
+    }
+  );
 
   app.use(
     "/processed",
@@ -488,6 +540,7 @@ async function listSubmittedProjects() {
       sheet: project.sheet,
       counts: project.counts,
       files: project.files,
+      review: project.review,
     }));
 }
 
@@ -513,6 +566,7 @@ async function readSubmittedProject(projectId: string) {
       typeof manifest.submittedAt === "string" ? manifest.submittedAt : "";
 
     const files = await getSubmittedProjectFiles(safeProjectId, projectDir);
+    const review = await readProjectReview(projectDir, submittedAt);
 
     return {
       projectId: safeProjectId,
@@ -527,11 +581,114 @@ async function readSubmittedProject(projectId: string) {
         items: items.length,
       },
       files,
+      review,
       manifest,
     };
   } catch {
     return null;
   }
+}
+
+async function updateProjectReview(
+  projectId: string,
+  {
+    note,
+    reviewer,
+    status,
+  }: {
+    note: string;
+    reviewer: string;
+    status: ProjectReviewStatus;
+  }
+) {
+  const projectDir = path.join(projectsDir, projectId);
+  const currentProject = await readSubmittedProject(projectId);
+
+  if (!currentProject) {
+    return null;
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const review = {
+    status,
+    updatedAt: reviewedAt,
+    history: [
+      ...currentProject.review.history,
+      {
+        status,
+        note,
+        reviewer,
+        reviewedAt,
+      },
+    ],
+  };
+
+  await fs.promises.writeFile(
+    path.join(projectDir, "review.json"),
+    JSON.stringify(review, null, 2)
+  );
+
+  return readSubmittedProject(projectId);
+}
+
+function createInitialProjectReview(submittedAt: string): ProjectReview {
+  return {
+    status: "submitted",
+    updatedAt: submittedAt,
+    history: [],
+  };
+}
+
+async function readProjectReview(
+  projectDir: string,
+  submittedAt: string
+): Promise<ProjectReview> {
+  const fallbackReview = createInitialProjectReview(submittedAt);
+
+  try {
+    const review = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "review.json"), "utf8")
+    );
+    const record = getRecord(review);
+    const status = getReviewStatus(record.status);
+    const updatedAt =
+      typeof record.updatedAt === "string" ? record.updatedAt : submittedAt;
+    const history = Array.isArray(record.history)
+      ? record.history
+          .map(readProjectReviewEvent)
+          .filter((event): event is ProjectReviewEvent => !!event)
+      : [];
+
+    if (!status) {
+      return fallbackReview;
+    }
+
+    return {
+      status,
+      updatedAt,
+      history,
+    };
+  } catch {
+    return fallbackReview;
+  }
+}
+
+function readProjectReviewEvent(value: unknown): ProjectReviewEvent | null {
+  const record = getRecord(value);
+  const status = getReviewStatus(record.status);
+  const reviewedAt =
+    typeof record.reviewedAt === "string" ? record.reviewedAt : "";
+
+  if (!status || !reviewedAt) {
+    return null;
+  }
+
+  return {
+    status,
+    note: typeof record.note === "string" ? record.note : "",
+    reviewer: typeof record.reviewer === "string" ? record.reviewer : "admin",
+    reviewedAt,
+  };
 }
 
 async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
@@ -575,6 +732,51 @@ function getSafeProjectId(projectId: unknown): string | null {
   }
 
   return /^project-\d+-[a-z0-9]+$/.test(projectId) ? projectId : null;
+}
+
+type ProjectReviewStatus =
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "changes-requested";
+
+interface ProjectReview {
+  status: ProjectReviewStatus;
+  updatedAt: string;
+  history: ProjectReviewEvent[];
+}
+
+interface ProjectReviewEvent {
+  status: ProjectReviewStatus;
+  note: string;
+  reviewer: string;
+  reviewedAt: string;
+}
+
+function getReviewStatus(status: unknown): ProjectReviewStatus | null {
+  if (typeof status !== "string" || !REVIEW_STATUSES.has(status)) {
+    return null;
+  }
+
+  return status as ProjectReviewStatus;
+}
+
+function getReviewNote(note: unknown): string | null {
+  if (typeof note !== "string") {
+    return "";
+  }
+
+  const normalizedNote = note.trim();
+
+  return normalizedNote.length > 1000 ? null : normalizedNote;
+}
+
+function getReviewer(reviewer: unknown): string {
+  if (typeof reviewer !== "string" || reviewer.trim().length === 0) {
+    return "admin";
+  }
+
+  return reviewer.trim().slice(0, 80);
 }
 
 function getRecord(value: unknown): Record<string, unknown> {

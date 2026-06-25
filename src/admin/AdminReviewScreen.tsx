@@ -5,11 +5,14 @@ import {
   CheckCircleIcon,
   DocumentTextIcon,
   ExclamationTriangleIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import {
   fetchAdminProjectDetail,
   fetchAdminProjects,
   getAdminFileUrl,
+  updateAdminProjectReview,
+  type AdminProjectReviewStatus,
   type AdminReviewProjectDetail,
   type AdminReviewProjectFiles,
   type AdminReviewProjectSummary,
@@ -29,6 +32,11 @@ export default function AdminReviewScreen() {
   const [detailState, setDetailState] = useState<LoadState>("idle");
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [savingReviewStatus, setSavingReviewStatus] = useState<
+    Exclude<AdminProjectReviewStatus, "submitted"> | null
+  >(null);
 
   const loadProjects = async () => {
     setListState("loading");
@@ -67,11 +75,15 @@ export default function AdminReviewScreen() {
     if (!selectedProjectId) {
       setSelectedProject(null);
       setDetailState("idle");
+      setReviewNote("");
+      setReviewError(null);
       return;
     }
 
     setDetailState("loading");
     setDetailError(null);
+    setReviewNote("");
+    setReviewError(null);
 
     void fetchAdminProjectDetail(selectedProjectId)
       .then((project) => {
@@ -96,6 +108,42 @@ export default function AdminReviewScreen() {
       didCancel = true;
     };
   }, [selectedProjectId]);
+
+  const handleReviewUpdate = async (
+    status: Exclude<AdminProjectReviewStatus, "submitted">
+  ) => {
+    if (!selectedProjectId) {
+      return;
+    }
+
+    setSavingReviewStatus(status);
+    setReviewError(null);
+
+    try {
+      const updatedProject = await updateAdminProjectReview(selectedProjectId, {
+        status,
+        note: reviewNote,
+      });
+
+      setSelectedProject(updatedProject);
+      setProjects((currentProjects) =>
+        currentProjects.map((project) =>
+          project.projectId === updatedProject.projectId
+            ? updatedProject
+            : project
+        )
+      );
+      setReviewNote("");
+    } catch (error) {
+      setReviewError(
+        error instanceof Error
+          ? error.message
+          : "Could not update project review."
+      );
+    } finally {
+      setSavingReviewStatus(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-950">
@@ -141,7 +189,12 @@ export default function AdminReviewScreen() {
           <ProjectDetail
             error={detailError}
             project={selectedProject}
+            reviewError={reviewError}
+            reviewNote={reviewNote}
+            savingReviewStatus={savingReviewStatus}
             state={detailState}
+            onChangeReviewNote={setReviewNote}
+            onUpdateReview={handleReviewUpdate}
           />
         </section>
       </main>
@@ -202,6 +255,9 @@ function SubmissionList({
           <span className="mt-1 block text-xs text-neutral-500">
             {formatDateTime(project.submittedAt)}
           </span>
+          <span className="mt-2 block">
+            <ReviewStatusBadge status={project.review.status} />
+          </span>
           <span className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-700 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
             <Metric label="Sheet" value={formatSheet(project.sheet)} />
             <Metric label="Assets" value={project.counts.assets} />
@@ -220,11 +276,23 @@ function SubmissionList({
 function ProjectDetail({
   error,
   project,
+  reviewError,
+  reviewNote,
+  savingReviewStatus,
   state,
+  onChangeReviewNote,
+  onUpdateReview,
 }: {
   error: string | null;
   project: AdminReviewProjectDetail | null;
+  reviewError: string | null;
+  reviewNote: string;
+  savingReviewStatus: Exclude<AdminProjectReviewStatus, "submitted"> | null;
   state: LoadState;
+  onChangeReviewNote: (note: string) => void;
+  onUpdateReview: (
+    status: Exclude<AdminProjectReviewStatus, "submitted">
+  ) => void;
 }) {
   const metadata = useMemo(() => {
     if (!project) {
@@ -276,11 +344,14 @@ function ProjectDetail({
             Submitted {formatDateTime(project.submittedAt)}
           </p>
         </div>
-        <PreflightBadge
-          errorCount={metadata.errorCount}
-          issueCount={metadata.issueCount}
-          warningCount={metadata.warningCount}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <ReviewStatusBadge status={project.review.status} />
+          <PreflightBadge
+            errorCount={metadata.errorCount}
+            issueCount={metadata.issueCount}
+            warningCount={metadata.warningCount}
+          />
+        </div>
       </div>
 
       {project.files.previewPng && (
@@ -300,6 +371,10 @@ function ProjectDetail({
             <MetadataItem label="Sheet" value={formatSheet(project.sheet)} />
             <MetadataItem label="DPI" value={project.sheet.dpi ?? "Unknown"} />
             <MetadataItem label="Background" value={metadata.background} />
+            <MetadataItem
+              label="Review"
+              value={formatReviewStatus(project.review.status)}
+            />
             <MetadataItem label="Preflight issues" value={metadata.issueCount} />
             <MetadataItem label="Assets" value={project.counts.assets} />
             <MetadataItem label="Decals" value={project.counts.items} />
@@ -309,6 +384,24 @@ function ProjectDetail({
         <div className="rounded border border-neutral-300 bg-white">
           <SectionTitle title="Export files" />
           <FileLinks files={project.files} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded border border-neutral-300 bg-white">
+          <SectionTitle title="Review decision" />
+          <ReviewDecisionPanel
+            note={reviewNote}
+            savingStatus={savingReviewStatus}
+            error={reviewError}
+            onChangeNote={onChangeReviewNote}
+            onUpdateReview={onUpdateReview}
+          />
+        </div>
+
+        <div className="rounded border border-neutral-300 bg-white">
+          <SectionTitle title="Review history" />
+          <ReviewHistory project={project} />
         </div>
       </div>
 
@@ -337,6 +430,135 @@ function ProjectDetail({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ReviewDecisionPanel({
+  error,
+  note,
+  savingStatus,
+  onChangeNote,
+  onUpdateReview,
+}: {
+  error: string | null;
+  note: string;
+  savingStatus: Exclude<AdminProjectReviewStatus, "submitted"> | null;
+  onChangeNote: (note: string) => void;
+  onUpdateReview: (
+    status: Exclude<AdminProjectReviewStatus, "submitted">
+  ) => void;
+}) {
+  const isSaving = savingStatus !== null;
+
+  return (
+    <div className="space-y-3 p-3">
+      <label className="block text-xs font-semibold uppercase text-neutral-500">
+        Note
+        <textarea
+          className="mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950"
+          maxLength={1000}
+          placeholder="Decision note"
+          value={note}
+          onChange={(event) => onChangeNote(event.target.value)}
+        />
+      </label>
+
+      {error && (
+        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <ReviewActionButton
+          disabled={isSaving}
+          label={savingStatus === "approved" ? "Saving..." : "Approve"}
+          tone="approve"
+          onClick={() => onUpdateReview("approved")}
+        />
+        <ReviewActionButton
+          disabled={isSaving}
+          label={
+            savingStatus === "changes-requested"
+              ? "Saving..."
+              : "Needs changes"
+          }
+          tone="changes"
+          onClick={() => onUpdateReview("changes-requested")}
+        />
+        <ReviewActionButton
+          disabled={isSaving}
+          label={savingStatus === "rejected" ? "Saving..." : "Reject"}
+          tone="reject"
+          onClick={() => onUpdateReview("rejected")}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ReviewActionButton({
+  disabled,
+  label,
+  tone,
+  onClick,
+}: {
+  disabled: boolean;
+  label: string;
+  tone: "approve" | "changes" | "reject";
+  onClick: () => void;
+}) {
+  const iconClassName = "h-5 w-5";
+  const className =
+    tone === "approve"
+      ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+      : tone === "changes"
+        ? "border-amber-500 bg-amber-50 text-amber-950 hover:bg-amber-100"
+        : "border-red-700 bg-red-700 text-white hover:bg-red-800";
+
+  return (
+    <button
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${className}`}
+      disabled={disabled}
+      type="button"
+      onClick={onClick}
+    >
+      {tone === "approve" ? (
+        <CheckCircleIcon className={iconClassName} />
+      ) : tone === "changes" ? (
+        <ExclamationTriangleIcon className={iconClassName} />
+      ) : (
+        <XCircleIcon className={iconClassName} />
+      )}
+      {label}
+    </button>
+  );
+}
+
+function ReviewHistory({ project }: { project: AdminReviewProjectDetail }) {
+  if (project.review.history.length === 0) {
+    return (
+      <div className="p-3 text-sm text-neutral-500">
+        No review decisions yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-neutral-200">
+      {project.review.history.map((event) => (
+        <div key={`${event.reviewedAt}-${event.status}`} className="p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <ReviewStatusBadge status={event.status} />
+            <span className="text-xs text-neutral-500">
+              {formatDateTime(event.reviewedAt)}
+            </span>
+          </div>
+          {event.note && <p className="mt-2 text-neutral-800">{event.note}</p>}
+          <p className="mt-1 text-xs text-neutral-500">{event.reviewer}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -403,6 +625,43 @@ function PreflightBadge({
     <span className="inline-flex h-9 items-center gap-2 rounded border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900">
       <ExclamationTriangleIcon className="h-5 w-5" />
       {errorCount} errors | {warningCount} warnings
+    </span>
+  );
+}
+
+function ReviewStatusBadge({ status }: { status: AdminProjectReviewStatus }) {
+  const label = formatReviewStatus(status);
+
+  if (status === "approved") {
+    return (
+      <span className="inline-flex h-8 items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-semibold text-emerald-800">
+        <CheckCircleIcon className="h-4 w-4" />
+        {label}
+      </span>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex h-8 items-center gap-2 rounded border border-red-200 bg-red-50 px-2 text-xs font-semibold text-red-800">
+        <XCircleIcon className="h-4 w-4" />
+        {label}
+      </span>
+    );
+  }
+
+  if (status === "changes-requested") {
+    return (
+      <span className="inline-flex h-8 items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-900">
+        <ExclamationTriangleIcon className="h-4 w-4" />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex h-8 items-center rounded border border-neutral-200 bg-neutral-50 px-2 text-xs font-semibold text-neutral-700">
+      {label}
     </span>
   );
 }
@@ -508,6 +767,14 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatReviewStatus(status: AdminProjectReviewStatus) {
+  if (status === "changes-requested") {
+    return "Needs changes";
+  }
+
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function formatBackground(background: SheetBackground | undefined) {

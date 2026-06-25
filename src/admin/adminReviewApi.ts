@@ -15,6 +15,7 @@ export interface AdminReviewProjectSummary {
     items: number;
   };
   files: AdminReviewProjectFiles;
+  review: AdminProjectReview;
 }
 
 export interface AdminReviewProjectDetail extends AdminReviewProjectSummary {
@@ -40,6 +41,31 @@ export interface AdminReviewManifest {
     warningCount?: number;
     issues?: PreflightIssue[];
   };
+}
+
+export type AdminProjectReviewStatus =
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "changes-requested";
+
+export interface AdminProjectReview {
+  status: AdminProjectReviewStatus;
+  updatedAt: string;
+  history: AdminProjectReviewEvent[];
+}
+
+export interface AdminProjectReviewEvent {
+  status: AdminProjectReviewStatus;
+  note: string;
+  reviewer: string;
+  reviewedAt: string;
+}
+
+export interface UpdateAdminProjectReviewInput {
+  note: string;
+  reviewer?: string;
+  status: Exclude<AdminProjectReviewStatus, "submitted">;
 }
 
 export async function fetchAdminProjects(): Promise<
@@ -68,6 +94,29 @@ export async function fetchAdminProjectDetail(
   return payload.project;
 }
 
+export async function updateAdminProjectReview(
+  projectId: string,
+  input: UpdateAdminProjectReviewInput
+): Promise<AdminReviewProjectDetail> {
+  const payload = await requestJson<{ project?: AdminReviewProjectDetail }>(
+    `/admin/projects/${encodeURIComponent(projectId)}/review`,
+    "Could not update project review.",
+    {
+      body: JSON.stringify(input),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PATCH",
+    }
+  );
+
+  if (!payload.project) {
+    throw new Error("Project review was not returned.");
+  }
+
+  return payload.project;
+}
+
 export function getAdminFileUrl(filePath: string): string {
   if (/^https?:\/\//.test(filePath)) {
     return filePath;
@@ -80,7 +129,16 @@ async function getJson<T extends object>(
   path: string,
   fallbackMessage: string
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  return requestJson(path, fallbackMessage);
+}
+
+async function requestJson<T extends object>(
+  path: string,
+  fallbackMessage: string,
+  init?: RequestInit
+): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+  const response = init ? await fetch(url, init) : await fetch(url);
   const payload = (await response.json().catch(() => ({}))) as
     | T
     | { error?: string };
