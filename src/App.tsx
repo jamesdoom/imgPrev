@@ -3,11 +3,14 @@
 import { lazy, Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 
+const AdminReviewScreen = lazy(() => import("./admin/AdminReviewScreen"));
 const StickerSheetDesigner = lazy(
   () => import("./components/StickerSheetDesigner/StickerSheetDesigner")
 );
 
 function App() {
+  const isAdminRoute = window.location.pathname.startsWith("/admin");
+
   return (
     <>
       <Toaster
@@ -25,11 +28,11 @@ function App() {
         <Suspense
           fallback={
             <div className="text-sm font-medium text-gray-600">
-              Loading editor...
+              {isAdminRoute ? "Loading admin..." : "Loading editor..."}
             </div>
           }
         >
-          <StickerSheetDesigner />
+          {isAdminRoute ? <AdminReviewScreen /> : <StickerSheetDesigner />}
         </Suspense>
       </main>
     </>

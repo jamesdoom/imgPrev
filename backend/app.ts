@@ -286,6 +286,10 @@ export function createApp() {
               )
             ),
             fs.promises.writeFile(
+              path.join(projectDir, "manifest.json"),
+              JSON.stringify(manifest.raw, null, 2)
+            ),
+            fs.promises.writeFile(
               path.join(projectDir, "preview.png"),
               renderedFiles.previewPng
             ),
@@ -308,6 +312,7 @@ export function createApp() {
               projectJson: `/projects/${projectId}/project.json`,
               previewPng: `/projects/${projectId}/preview.png`,
               printPdf: `/projects/${projectId}/print.pdf`,
+              manifestJson: `/projects/${projectId}/manifest.json`,
               assets: `/projects/${projectId}/assets/`,
             },
           });
@@ -507,6 +512,8 @@ async function readSubmittedProject(projectId: string) {
     const submittedAt =
       typeof manifest.submittedAt === "string" ? manifest.submittedAt : "";
 
+    const files = await getSubmittedProjectFiles(safeProjectId, projectDir);
+
     return {
       projectId: safeProjectId,
       submittedAt,
@@ -519,17 +526,47 @@ async function readSubmittedProject(projectId: string) {
         assets: assets.length,
         items: items.length,
       },
-      files: {
-        projectJson: `/projects/${safeProjectId}/project.json`,
-        previewPng: `/projects/${safeProjectId}/preview.png`,
-        printPdf: `/projects/${safeProjectId}/print.pdf`,
-        assets: `/projects/${safeProjectId}/assets/`,
-      },
+      files,
       manifest,
     };
   } catch {
     return null;
   }
+}
+
+async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
+  const [projectJson, previewPng, printPdf, manifestJson, assets] =
+    await Promise.all([
+      getProjectFileUrl(projectId, projectDir, "project.json"),
+      getProjectFileUrl(projectId, projectDir, "preview.png"),
+      getProjectFileUrl(projectId, projectDir, "print.pdf"),
+      getProjectFileUrl(projectId, projectDir, "manifest.json"),
+      getProjectFileUrl(projectId, projectDir, "assets"),
+    ]);
+
+  return {
+    projectJson,
+    previewPng,
+    printPdf,
+    manifestJson,
+    assets,
+  };
+}
+
+async function getProjectFileUrl(
+  projectId: string,
+  projectDir: string,
+  filename: string
+) {
+  const filePath = path.join(projectDir, filename);
+
+  try {
+    await fs.promises.access(filePath);
+  } catch {
+    return undefined;
+  }
+
+  return `/projects/${projectId}/${filename}${filename === "assets" ? "/" : ""}`;
 }
 
 function getSafeProjectId(projectId: unknown): string | null {

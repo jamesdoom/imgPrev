@@ -19,6 +19,7 @@ export interface SubmitProjectForReviewResult {
     projectJson: string;
     previewPng: string;
     printPdf: string;
+    manifestJson?: string;
     assets: string;
   };
 }

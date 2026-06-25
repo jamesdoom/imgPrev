@@ -224,6 +224,9 @@ describe("backend app", () => {
     const printPdf = await fs.promises.readFile(
       path.join(projectDir, "print.pdf")
     );
+    const manifestJson = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "manifest.json"), "utf8")
+    );
     const originalAsset = await fs.promises.readFile(
       path.join(projectDir, "assets", "pixel.png")
     );
@@ -235,6 +238,7 @@ describe("backend app", () => {
         projectJson: expect.stringMatching(/^\/projects\/project-/),
         previewPng: expect.stringMatching(/^\/projects\/project-/),
         printPdf: expect.stringMatching(/^\/projects\/project-/),
+        manifestJson: expect.stringMatching(/^\/projects\/project-/),
         assets: expect.stringMatching(/^\/projects\/project-/),
       },
     });
@@ -245,6 +249,7 @@ describe("backend app", () => {
       Buffer.from("89504e470d0a1a0a", "hex")
     );
     expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(manifestJson.document.id).toBe("project-1");
     expect(originalAsset).toEqual(validPng);
   });
 
@@ -274,6 +279,7 @@ describe("backend app", () => {
           projectJson: `/projects/${submitResponse.body.projectId}/project.json`,
           previewPng: `/projects/${submitResponse.body.projectId}/preview.png`,
           printPdf: `/projects/${submitResponse.body.projectId}/print.pdf`,
+          manifestJson: `/projects/${submitResponse.body.projectId}/manifest.json`,
         }),
       })
     );
