@@ -85,6 +85,26 @@ describe("runPreflight", () => {
     ]);
   });
 
+  test("errors when a PDF asset is used for production export", () => {
+    const document = addAsset(
+      createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }),
+      {
+        ...asset,
+        fileName: "vector.pdf",
+        fileType: "application/pdf",
+        dpi: undefined,
+      }
+    );
+
+    expect(runPreflight(document)).toEqual([
+      expect.objectContaining({
+        severity: "error",
+        code: "unsupported-production-asset",
+        assetId: "asset-1",
+      }),
+    ]);
+  });
+
   test("errors when a sticker is smaller than the minimum print size", () => {
     const document = addItem(
       addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "4x6" })),

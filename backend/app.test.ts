@@ -247,4 +247,69 @@ describe("backend app", () => {
     expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(originalAsset).toEqual(validPng);
   });
+
+  test("lists submitted projects for admin review", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+
+    const response = await request(app).get("/admin/projects");
+
+    expect(response.status).toBe(200);
+    expect(response.body.projects).toContainEqual(
+      expect.objectContaining({
+        projectId: submitResponse.body.projectId,
+        counts: {
+          assets: 1,
+          items: 1,
+        },
+        files: expect.objectContaining({
+          projectJson: `/projects/${submitResponse.body.projectId}/project.json`,
+          previewPng: `/projects/${submitResponse.body.projectId}/preview.png`,
+          printPdf: `/projects/${submitResponse.body.projectId}/print.pdf`,
+        }),
+      })
+    );
+  });
+
+  test("returns submitted project details for admin review", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+
+    const response = await request(app).get(
+      `/admin/projects/${submitResponse.body.projectId}`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.project).toMatchObject({
+      projectId: submitResponse.body.projectId,
+      manifest: {
+        document: {
+          id: "project-1",
+        },
+      },
+    });
+  });
+
+  test("rejects invalid admin project ids", async () => {
+    const response = await request(createApp()).get("/admin/projects/not-safe");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "Invalid project id." });
+  });
 });

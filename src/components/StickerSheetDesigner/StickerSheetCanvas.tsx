@@ -108,7 +108,7 @@ export const StickerSheetCanvas = forwardRef<
   );
 
   return (
-    <div className="h-full overflow-auto bg-neutral-200 p-6">
+    <div className="h-full overflow-auto bg-neutral-200 p-3 sm:p-6">
       <div className="mx-auto w-fit rounded-sm border border-neutral-300 bg-white shadow-sm">
         <Stage
           ref={stageRef}

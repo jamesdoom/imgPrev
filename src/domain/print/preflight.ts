@@ -85,6 +85,18 @@ function preflightAsset(
   asset: SheetAsset,
   profile: ProductionProfile
 ): PreflightIssue[] {
+  if (asset.fileType === "application/pdf") {
+    return [
+      {
+        id: `${asset.id}:unsupported-production-asset`,
+        severity: "error",
+        code: "unsupported-production-asset",
+        assetId: asset.id,
+        message: `${asset.fileName} must be converted to PNG, JPG, WebP, or SVG before production export.`,
+      },
+    ];
+  }
+
   if (!asset.dpi) {
     return [];
   }

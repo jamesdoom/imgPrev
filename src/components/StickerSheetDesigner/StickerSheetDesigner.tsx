@@ -331,8 +331,8 @@ export default function StickerSheetDesigner() {
   };
 
   return (
-    <div className="flex h-screen w-full flex-col bg-neutral-100 text-neutral-950">
-      <header className="flex min-h-16 items-center justify-between border-b border-neutral-300 bg-white px-5">
+    <div className="flex min-h-screen w-full flex-col bg-neutral-100 text-neutral-950 lg:h-screen">
+      <header className="flex flex-col gap-3 border-b border-neutral-300 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between lg:min-h-16 lg:px-5 lg:py-0">
         <div>
           <h1 className="text-lg font-semibold tracking-normal">
             Custom decal sheet
@@ -343,7 +343,7 @@ export default function StickerSheetDesigner() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PreflightBadge
             errorCount={preflightErrorCount}
             warningCount={preflightWarningCount}
@@ -380,8 +380,8 @@ export default function StickerSheetDesigner() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_300px]">
-        <aside className="min-h-0 border-r border-neutral-300 bg-white">
+      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
+        <aside className="border-b border-neutral-300 bg-white lg:min-h-0 lg:border-b-0 lg:border-r">
           <PanelTitle title="Sheet" />
           <div className="space-y-3 px-4 pb-4">
             <label className="block text-xs font-semibold uppercase text-neutral-500">
@@ -457,7 +457,7 @@ export default function StickerSheetDesigner() {
           </div>
         </aside>
 
-        <main className="min-w-0">
+        <main className="min-h-[480px] min-w-0 lg:min-h-0">
           <StickerSheetCanvas
             ref={canvasRef}
             document={document}
@@ -477,7 +477,7 @@ export default function StickerSheetDesigner() {
           />
         </main>
 
-        <aside className="min-h-0 border-l border-neutral-300 bg-white">
+        <aside className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0">
           <PanelTitle title="View" />
           <div className="space-y-3 px-4 pb-4">
             <label className="flex items-center justify-between gap-3 text-sm">

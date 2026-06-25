@@ -321,6 +321,34 @@ export function createApp() {
     }
   );
 
+  app.get("/admin/projects", (_req: Request, res: Response): void => {
+    void (async () => {
+      const projects = await listSubmittedProjects();
+
+      res.json({ projects });
+    })();
+  });
+
+  app.get("/admin/projects/:projectId", (req: Request, res: Response): void => {
+    void (async () => {
+      const projectId = getSafeProjectId(req.params.projectId);
+
+      if (!projectId) {
+        res.status(400).json({ error: "Invalid project id." });
+        return;
+      }
+
+      const project = await readSubmittedProject(projectId);
+
+      if (!project) {
+        res.status(404).json({ error: "Project not found." });
+        return;
+      }
+
+      res.json({ project });
+    })();
+  });
+
   app.use(
     "/processed",
     express.static(processedDir, {
@@ -432,6 +460,84 @@ function createProjectId(): string {
   const suffix = Math.random().toString(36).slice(2, 8);
 
   return `project-${timestamp}-${suffix}`;
+}
+
+async function listSubmittedProjects() {
+  const entries = await fs.promises.readdir(projectsDir, {
+    withFileTypes: true,
+  });
+  const projects = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => readSubmittedProject(entry.name))
+  );
+
+  return projects
+    .filter((project): project is NonNullable<typeof project> => !!project)
+    .sort((first, second) =>
+      second.submittedAt.localeCompare(first.submittedAt)
+    )
+    .map((project) => ({
+      projectId: project.projectId,
+      submittedAt: project.submittedAt,
+      sheet: project.sheet,
+      counts: project.counts,
+      files: project.files,
+    }));
+}
+
+async function readSubmittedProject(projectId: string) {
+  const safeProjectId = getSafeProjectId(projectId);
+
+  if (!safeProjectId) {
+    return null;
+  }
+
+  const projectDir = path.join(projectsDir, safeProjectId);
+  const projectJsonPath = path.join(projectDir, "project.json");
+
+  try {
+    const manifest = JSON.parse(
+      await fs.promises.readFile(projectJsonPath, "utf8")
+    );
+    const document = getRecord(manifest.document);
+    const sheet = getRecord(document.sheet);
+    const assets = Array.isArray(document.assets) ? document.assets : [];
+    const items = Array.isArray(document.items) ? document.items : [];
+    const submittedAt =
+      typeof manifest.submittedAt === "string" ? manifest.submittedAt : "";
+
+    return {
+      projectId: safeProjectId,
+      submittedAt,
+      sheet: {
+        widthIn: sheet.widthIn,
+        heightIn: sheet.heightIn,
+        dpi: sheet.dpi,
+      },
+      counts: {
+        assets: assets.length,
+        items: items.length,
+      },
+      files: {
+        projectJson: `/projects/${safeProjectId}/project.json`,
+        previewPng: `/projects/${safeProjectId}/preview.png`,
+        printPdf: `/projects/${safeProjectId}/print.pdf`,
+        assets: `/projects/${safeProjectId}/assets/`,
+      },
+      manifest,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getSafeProjectId(projectId: unknown): string | null {
+  if (typeof projectId !== "string") {
+    return null;
+  }
+
+  return /^project-\d+-[a-z0-9]+$/.test(projectId) ? projectId : null;
 }
 
 function getRecord(value: unknown): Record<string, unknown> {

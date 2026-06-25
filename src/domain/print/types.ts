@@ -140,6 +140,7 @@ export interface PreflightIssue {
     | "item-too-small"
     | "item-outside-safe-area"
     | "item-spacing-too-tight"
+    | "unsupported-production-asset"
     | "unsupported-upload"
     | "upload-too-large";
   message: string;
