@@ -26,6 +26,7 @@ import {
   BASELINE_SHEET_SIZES,
   DEFAULT_SHEET_VIEW_STATE,
   buildExportBundleManifest,
+  buildProofGuidance,
   canExportProductionBundle,
   createSheetDocument,
   createSheetDocumentHistory,
@@ -41,6 +42,7 @@ import {
   type SheetItem,
   type SheetSizeId,
   type PreflightIssue,
+  type ProofGuidance,
 } from "../../domain/print";
 import {
   StickerSheetCanvas,
@@ -127,6 +129,7 @@ export default function StickerSheetDesigner() {
     decalCount: document.items.length,
     isSubmitted: submittedProjectId !== null,
   });
+  const proofGuidance = useMemo(() => buildProofGuidance(), []);
 
   const assetCountText = useMemo(() => {
     if (document.assets.length === 1) {
@@ -624,26 +627,30 @@ export default function StickerSheetDesigner() {
               }
             />
             <OverlayToggle
-              label="Bleed"
+              description={proofGuidance.bleed.description}
+              label={proofGuidance.bleed.label}
               checked={viewState.showBleed}
               onChange={(visible) =>
                 dispatchView({ type: "overlay/set-bleed", visible })
               }
             />
             <OverlayToggle
-              label="Safe area"
+              description={proofGuidance.safeArea.description}
+              label={proofGuidance.safeArea.label}
               checked={viewState.showSafeArea}
               onChange={(visible) =>
                 dispatchView({ type: "overlay/set-safe-area", visible })
               }
             />
             <OverlayToggle
-              label="Cutlines"
+              description={proofGuidance.cutlines.description}
+              label={proofGuidance.cutlines.label}
               checked={viewState.showCutlines}
               onChange={(visible) =>
                 dispatchView({ type: "overlay/set-cutlines", visible })
               }
             />
+            <ProofGuideLegend guidance={proofGuidance} />
           </div>
 
           <PanelTitle title="Preflight" />
@@ -676,6 +683,7 @@ export default function StickerSheetDesigner() {
             preflightWarningCount={preflightWarningCount}
             isExporting={isExporting}
             isSubmitting={isSubmitting}
+            proofGuidance={proofGuidance}
             submittedProjectId={submittedProjectId}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
@@ -918,6 +926,7 @@ function ExportPanel({
   preflightWarningCount,
   isExporting,
   isSubmitting,
+  proofGuidance,
   sheetLabel,
   submittedProjectId,
   onCustomerNoteChange,
@@ -935,6 +944,7 @@ function ExportPanel({
   preflightWarningCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
+  proofGuidance: ProofGuidance;
   sheetLabel: string;
   submittedProjectId: string | null;
   onCustomerNoteChange: (note: string) => void;
@@ -961,6 +971,7 @@ function ExportPanel({
           />
         </div>
       </div>
+      <ProofChecklist guidance={proofGuidance} />
       <label className="block text-xs font-semibold uppercase text-neutral-500">
         Production note
         <textarea
@@ -1032,6 +1043,56 @@ function ExportPanel({
           </button>
         </div>
       </details>
+    </div>
+  );
+}
+
+function ProofGuideLegend({ guidance }: { guidance: ProofGuidance }) {
+  return (
+    <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
+      <p className="font-semibold text-neutral-800">Preview guide colors</p>
+      <div className="mt-2 space-y-2">
+        <GuideLegendItem
+          className="border-orange-500"
+          label={guidance.bleed.label}
+        />
+        <GuideLegendItem
+          className="border-blue-600"
+          label={guidance.safeArea.label}
+        />
+        <GuideLegendItem
+          className="border-teal-700 border-dashed"
+          label={guidance.cutlines.label}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GuideLegendItem({
+  className,
+  label,
+}: {
+  className: string;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className={`h-0 w-8 border-t-2 ${className}`} />
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function ProofChecklist({ guidance }: { guidance: ProofGuidance }) {
+  return (
+    <div className="rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+      <p className="font-semibold">Proof checklist</p>
+      <ul className="mt-2 space-y-1">
+        <li>{guidance.bleed.checklist}</li>
+        <li>{guidance.safeArea.checklist}</li>
+        <li>{guidance.cutlines.checklist}</li>
+      </ul>
     </div>
   );
 }
@@ -1365,18 +1426,27 @@ function AssetThumbnail({ asset }: { asset: SheetAsset }) {
 
 function OverlayToggle({
   checked,
+  description,
   label,
   onChange,
 }: {
   checked: boolean;
+  description?: string;
   label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-sm">
-      <span>{label}</span>
+    <label className="flex items-start justify-between gap-3 text-sm">
+      <span className="min-w-0">
+        <span className="block font-medium text-neutral-800">{label}</span>
+        {description && (
+          <span className="mt-1 block text-xs leading-5 text-neutral-500">
+            {description}
+          </span>
+        )}
+      </span>
       <input
-        className="h-4 w-4 accent-teal-700"
+        className="mt-1 h-4 w-4 shrink-0 accent-teal-700"
         checked={checked}
         type="checkbox"
         onChange={(event) => onChange(event.target.checked)}

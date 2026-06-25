@@ -2,6 +2,7 @@ export * from "./exportBundle";
 export * from "./measurements";
 export * from "./placement";
 export * from "./preflight";
+export * from "./proofGuidance";
 export * from "./productionProfiles";
 export * from "./sheetDocument";
 export * from "./sheetDocumentHistory";
