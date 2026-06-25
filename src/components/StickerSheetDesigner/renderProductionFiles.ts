@@ -26,16 +26,23 @@ export interface SubmitProjectForReviewResult {
 
 export async function renderProductionFiles({
   assetFiles,
+  customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
 }): Promise<RenderProductionFilesResult> {
   const response = await fetch(`${API_BASE_URL}/render-sheet`, {
     method: "POST",
-    body: buildProductionFormData({ assetFiles, document, preflightIssues }),
+    body: buildProductionFormData({
+      assetFiles,
+      customerNote,
+      document,
+      preflightIssues,
+    }),
   });
   const payload = (await response.json()) as
     | RenderProductionFilesResult
@@ -54,16 +61,23 @@ export async function renderProductionFiles({
 
 export async function submitProjectForReview({
   assetFiles,
+  customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
 }): Promise<SubmitProjectForReviewResult> {
   const response = await fetch(`${API_BASE_URL}/submit-project`, {
     method: "POST",
-    body: buildProductionFormData({ assetFiles, document, preflightIssues }),
+    body: buildProductionFormData({
+      assetFiles,
+      customerNote,
+      document,
+      preflightIssues,
+    }),
   });
   const payload = (await response.json()) as
     | SubmitProjectForReviewResult
@@ -82,15 +96,18 @@ export async function submitProjectForReview({
 
 function buildProductionFormData({
   assetFiles,
+  customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
 }) {
   const formData = new FormData();
   const manifest = buildExportBundleManifest({
+    customerNote,
     document,
     exportedAt: new Date().toISOString(),
     preflightIssues,

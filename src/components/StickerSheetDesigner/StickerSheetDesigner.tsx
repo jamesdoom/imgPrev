@@ -81,6 +81,7 @@ export default function StickerSheetDesigner() {
   const [assetFiles, setAssetFiles] = useState<Record<string, File>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customerNote, setCustomerNote] = useState("");
   const [submittedProjectId, setSubmittedProjectId] = useState<string | null>(
     null
   );
@@ -308,6 +309,7 @@ export default function StickerSheetDesigner() {
     try {
       const renderedFiles = await renderProductionFiles({
         assetFiles,
+        customerNote,
         document,
         preflightIssues,
       });
@@ -344,6 +346,7 @@ export default function StickerSheetDesigner() {
     try {
       const result = await submitProjectForReview({
         assetFiles,
+        customerNote,
         document,
         preflightIssues,
       });
@@ -617,13 +620,19 @@ export default function StickerSheetDesigner() {
           <PanelTitle title="Export" />
           <ExportPanel
             canExport={canExport}
+            customerNote={customerNote}
             documentItemCount={document.items.length}
+            preflightErrorCount={preflightErrorCount}
+            preflightWarningCount={preflightWarningCount}
             isExporting={isExporting}
             isSubmitting={isSubmitting}
             submittedProjectId={submittedProjectId}
+            sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
+            assetCount={document.assets.length}
             onDownloadBundle={downloadAvailableBundleFiles}
             onDownloadPreviewPng={downloadPreviewPng}
             onDownloadProjectJson={downloadProjectJson}
+            onCustomerNoteChange={setCustomerNote}
             onImportProjectJson={importProjectJson}
             onSubmitForReview={submitForReview}
           />
@@ -706,10 +715,16 @@ export default function StickerSheetDesigner() {
 
 function ExportPanel({
   canExport,
+  assetCount,
+  customerNote,
   documentItemCount,
+  preflightErrorCount,
+  preflightWarningCount,
   isExporting,
   isSubmitting,
+  sheetLabel,
   submittedProjectId,
+  onCustomerNoteChange,
   onDownloadBundle,
   onDownloadPreviewPng,
   onDownloadProjectJson,
@@ -717,10 +732,16 @@ function ExportPanel({
   onSubmitForReview,
 }: {
   canExport: boolean;
+  assetCount: number;
+  customerNote: string;
   documentItemCount: number;
+  preflightErrorCount: number;
+  preflightWarningCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
+  sheetLabel: string;
   submittedProjectId: string | null;
+  onCustomerNoteChange: (note: string) => void;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
   onDownloadProjectJson: () => void;
@@ -729,6 +750,31 @@ function ExportPanel({
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
+      <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <ProofMetric label="Sheet" value={sheetLabel} />
+          <ProofMetric label="Artwork" value={assetCount} />
+          <ProofMetric label="Decals" value={documentItemCount} />
+          <ProofMetric
+            label="Preflight"
+            value={
+              preflightErrorCount === 0 && preflightWarningCount === 0
+                ? "Ready"
+                : `${preflightErrorCount} errors | ${preflightWarningCount} warnings`
+            }
+          />
+        </div>
+      </div>
+      <label className="block text-xs font-semibold uppercase text-neutral-500">
+        Production note
+        <textarea
+          className="mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950"
+          maxLength={1000}
+          placeholder="Special requests for proofing"
+          value={customerNote}
+          onChange={(event) => onCustomerNoteChange(event.target.value)}
+        />
+      </label>
       <button
         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={documentItemCount === 0}
@@ -754,7 +800,7 @@ function ExportPanel({
         onClick={onSubmitForReview}
       >
         <CloudArrowUpIcon className="h-5 w-5" />
-        {isSubmitting ? "Submitting..." : "Submit Review"}
+        {isSubmitting ? "Submitting..." : "Submit Proof Request"}
       </button>
       {submittedProjectId && (
         <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
@@ -791,6 +837,23 @@ function ExportPanel({
         </div>
       </details>
     </div>
+  );
+}
+
+function ProofMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <span>
+      <span className="block text-xs font-semibold uppercase text-neutral-500">
+        {label}
+      </span>
+      <span className="mt-1 block font-medium text-neutral-950">{value}</span>
+    </span>
   );
 }
 

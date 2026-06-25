@@ -26,6 +26,9 @@ export interface ExportBundleManifest {
     heightPx: number;
     dpi: number;
   };
+  customer: {
+    note: string;
+  };
   document: SheetDocument;
   assets: ExportBundleAsset[];
   preflight: {
@@ -48,11 +51,13 @@ export interface ExportBundleAsset {
 export function buildExportBundleManifest({
   document,
   exportedAt,
+  customerNote = "",
   preflightIssues,
   profile = STICKER_SHEET_MVP_PROFILE,
 }: {
   document: SheetDocument;
   exportedAt: string;
+  customerNote?: string;
   preflightIssues: PreflightIssue[];
   profile?: ProductionProfile;
 }): ExportBundleManifest {
@@ -79,6 +84,9 @@ export function buildExportBundleManifest({
       widthPx: printCanvas.widthPx,
       heightPx: printCanvas.heightPx,
       dpi: document.sheet.dpi,
+    },
+    customer: {
+      note: customerNote.trim(),
     },
     document,
     assets: document.assets.map(toExportBundleAsset),

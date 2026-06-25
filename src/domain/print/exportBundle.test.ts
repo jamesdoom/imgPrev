@@ -47,6 +47,7 @@ describe("buildExportBundleManifest", () => {
       buildExportBundleManifest({
         document,
         exportedAt: "2026-06-23T12:00:00.000Z",
+        customerNote: " Keep decals grouped by design. ",
         preflightIssues: [warning],
       })
     ).toMatchObject({
@@ -66,6 +67,9 @@ describe("buildExportBundleManifest", () => {
         widthPx: 2550,
         heightPx: 3300,
         dpi: 300,
+      },
+      customer: {
+        note: "Keep decals grouped by design.",
       },
       assets: [
         {

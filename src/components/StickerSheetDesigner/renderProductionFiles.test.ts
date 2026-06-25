@@ -44,6 +44,7 @@ describe("renderProductionFiles", () => {
     await expect(
       renderProductionFiles({
         document: documentWithAsset(),
+        customerNote: "Please keep the blue decal near the top.",
         preflightIssues: [],
         assetFiles: {
           "asset-1": new File(["asset"], "decal.png", { type: "image/png" }),
@@ -62,6 +63,14 @@ describe("renderProductionFiles", () => {
         method: "POST",
         body: expect.any(FormData),
       })
+    );
+    const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    const manifest = JSON.parse(String(body.get("manifest"))) as {
+      customer: { note: string };
+    };
+
+    expect(manifest.customer.note).toBe(
+      "Please keep the blue decal near the top."
     );
   });
 
