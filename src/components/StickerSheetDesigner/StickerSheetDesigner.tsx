@@ -54,6 +54,8 @@ import { getWorkflowSteps, type WorkflowStep } from "./workflowProgress";
 
 const PROJECT_ID = "local-sticker-sheet";
 const LOCAL_PROJECT_STORAGE_KEY = "sticker-sheet-designer:autosave";
+const ARTWORK_FILE_ACCEPT =
+  ".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf";
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -414,7 +416,7 @@ export default function StickerSheetDesigner() {
                 className="sr-only"
                 type="file"
                 multiple
-                accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
+                accept={ARTWORK_FILE_ACCEPT}
                 onChange={(event) => {
                   void handleFiles(event.target.files);
                   event.target.value = "";
@@ -499,39 +501,41 @@ export default function StickerSheetDesigner() {
 
           <PanelTitle title="Artwork" />
           <div className="flex min-h-0 flex-col gap-3 px-4 pb-4">
-            <button
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={document.assets.length === 0}
-              type="button"
-              onClick={autoArrangeArtwork}
-            >
-              <SparklesIcon className="h-5 w-5" />
-              Auto-arrange
-            </button>
             {document.assets.length === 0 ? (
-              <div className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
-                Upload PNG, JPG, WebP, SVG, or PDF artwork to start placing
-                decals.
-              </div>
+              <ArtworkUploadDropZone
+                onFiles={(files) => {
+                  void handleFiles(files);
+                }}
+              />
             ) : (
-              document.assets.map((asset) => (
-                <AssetRow
-                  key={asset.id}
-                  asset={asset}
-                  isSelected={asset.id === viewState.selectedAssetId}
-                  onSelect={() =>
-                    dispatchView({
-                      type: "selection/select-asset",
-                      assetId: asset.id,
-                    })
-                  }
-                  onPlace={() => placeAsset(asset)}
-                  onRemove={() => removeAsset(asset.id)}
-                  preflightIssues={preflightIssues.filter(
-                    (issue) => issue.assetId === asset.id
-                  )}
-                />
-              ))
+              <>
+                <button
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
+                  type="button"
+                  onClick={autoArrangeArtwork}
+                >
+                  <SparklesIcon className="h-5 w-5" />
+                  Auto-arrange
+                </button>
+                {document.assets.map((asset) => (
+                  <AssetRow
+                    key={asset.id}
+                    asset={asset}
+                    isSelected={asset.id === viewState.selectedAssetId}
+                    onSelect={() =>
+                      dispatchView({
+                        type: "selection/select-asset",
+                        assetId: asset.id,
+                      })
+                    }
+                    onPlace={() => placeAsset(asset)}
+                    onRemove={() => removeAsset(asset.id)}
+                    preflightIssues={preflightIssues.filter(
+                      (issue) => issue.assetId === asset.id
+                    )}
+                  />
+                ))}
+              </>
             )}
           </div>
         </aside>
@@ -792,6 +796,46 @@ function WorkflowProgressStep({
         </span>
       </span>
     </div>
+  );
+}
+
+function ArtworkUploadDropZone({
+  onFiles,
+}: {
+  onFiles: (files: FileList | null) => void;
+}) {
+  return (
+    <label
+      className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-teal-300 bg-teal-50/60 px-4 py-6 text-center hover:border-teal-600 hover:bg-teal-50"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault();
+        onFiles(event.dataTransfer.files);
+      }}
+    >
+      <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-teal-700 text-white">
+        <PhotoIcon className="h-6 w-6" />
+      </span>
+      <span className="mt-3 text-sm font-semibold text-neutral-950">
+        Upload artwork
+      </span>
+      <span className="mt-1 max-w-48 text-xs leading-5 text-neutral-600">
+        Drag files here or choose PNG, JPG, WebP, SVG, or PDF files.
+      </span>
+      <span className="mt-4 inline-flex h-10 items-center justify-center rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white">
+        Choose files
+      </span>
+      <input
+        className="sr-only"
+        type="file"
+        multiple
+        accept={ARTWORK_FILE_ACCEPT}
+        onChange={(event) => {
+          onFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+    </label>
   );
 }
 
