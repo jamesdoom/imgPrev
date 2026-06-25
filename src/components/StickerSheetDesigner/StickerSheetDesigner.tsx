@@ -50,6 +50,7 @@ import {
   renderProductionFiles,
   submitProjectForReview,
 } from "./renderProductionFiles";
+import { getWorkflowSteps, type WorkflowStep } from "./workflowProgress";
 
 const PROJECT_ID = "local-sticker-sheet";
 const LOCAL_PROJECT_STORAGE_KEY = "sticker-sheet-designer:autosave";
@@ -112,6 +113,12 @@ export default function StickerSheetDesigner() {
   const preflightWarningCount =
     preflightIssues.length - preflightErrorCount;
   const canExport = canExportProductionBundle(preflightIssues);
+  const workflowSteps = getWorkflowSteps({
+    assetCount: document.assets.length,
+    canExport,
+    decalCount: document.items.length,
+    isSubmitted: submittedProjectId !== null,
+  });
 
   const assetCountText = useMemo(() => {
     if (document.assets.length === 1) {
@@ -387,52 +394,56 @@ export default function StickerSheetDesigner() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-neutral-100 text-neutral-950 lg:h-screen">
-      <header className="flex flex-col gap-3 border-b border-neutral-300 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between lg:min-h-16 lg:px-5 lg:py-0">
-        <div>
-          <h1 className="text-lg font-semibold tracking-normal">
-            Custom decal sheet
-          </h1>
-          <p className="text-xs text-neutral-500">
-            {document.sheet.widthIn}" x {document.sheet.heightIn}" at{" "}
-            {document.sheet.dpi} DPI | {assetCountText} | Autosaved
-          </p>
+      <header className="flex flex-col gap-3 border-b border-neutral-300 bg-white px-4 py-3 lg:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-lg font-semibold tracking-normal">
+              Custom decal sheet
+            </h1>
+            <p className="text-xs text-neutral-500">
+              {document.sheet.widthIn}" x {document.sheet.heightIn}" at{" "}
+              {document.sheet.dpi} DPI | {assetCountText} | Autosaved
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+              <PhotoIcon className="h-5 w-5" />
+              Upload artwork
+              <input
+                className="sr-only"
+                type="file"
+                multiple
+                accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
+                onChange={(event) => {
+                  void handleFiles(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+            <PreflightBadge
+              errorCount={preflightErrorCount}
+              warningCount={preflightWarningCount}
+            />
+            <IconButton
+              label="Undo"
+              disabled={history.past.length === 0}
+              onClick={() => dispatchDocument({ type: "history/undo" })}
+            >
+              <ArrowUturnLeftIcon className="h-5 w-5" />
+            </IconButton>
+            <IconButton
+              label="Redo"
+              disabled={history.future.length === 0}
+              onClick={() => dispatchDocument({ type: "history/redo" })}
+            >
+              <ArrowUturnRightIcon className="h-5 w-5" />
+            </IconButton>
+            <div className="mx-1 hidden h-7 w-px bg-neutral-300 sm:block" />
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
-            <PhotoIcon className="h-5 w-5" />
-            Upload artwork
-            <input
-              className="sr-only"
-              type="file"
-              multiple
-              accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
-              onChange={(event) => {
-                void handleFiles(event.target.files);
-                event.target.value = "";
-              }}
-            />
-          </label>
-          <PreflightBadge
-            errorCount={preflightErrorCount}
-            warningCount={preflightWarningCount}
-          />
-          <IconButton
-            label="Undo"
-            disabled={history.past.length === 0}
-            onClick={() => dispatchDocument({ type: "history/undo" })}
-          >
-            <ArrowUturnLeftIcon className="h-5 w-5" />
-          </IconButton>
-          <IconButton
-            label="Redo"
-            disabled={history.future.length === 0}
-            onClick={() => dispatchDocument({ type: "history/redo" })}
-          >
-            <ArrowUturnRightIcon className="h-5 w-5" />
-          </IconButton>
-          <div className="mx-1 h-7 w-px bg-neutral-300" />
-        </div>
+        <WorkflowProgress steps={workflowSteps} />
       </header>
 
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
@@ -709,6 +720,77 @@ export default function StickerSheetDesigner() {
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function WorkflowProgress({ steps }: { steps: WorkflowStep[] }) {
+  return (
+    <nav aria-label="Sticker sheet progress">
+      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {steps.map((step, index) => (
+          <li key={step.label}>
+            <WorkflowProgressStep step={step} stepNumber={index + 1} />
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function WorkflowProgressStep({
+  step,
+  stepNumber,
+}: {
+  step: WorkflowStep;
+  stepNumber: number;
+}) {
+  const Icon =
+    step.label === "Upload"
+      ? PhotoIcon
+      : step.label === "Arrange"
+        ? SparklesIcon
+        : step.label === "Proof"
+          ? CheckCircleIcon
+          : CloudArrowUpIcon;
+  const isComplete = step.status === "complete";
+  const isCurrent = step.status === "current";
+  const itemClassName = isComplete
+    ? "border-teal-200 bg-teal-50 text-teal-950"
+    : isCurrent
+      ? "border-teal-700 bg-white text-neutral-950 shadow-sm"
+      : "border-neutral-200 bg-neutral-50 text-neutral-500";
+  const markerClassName = isComplete
+    ? "bg-teal-700 text-white"
+    : isCurrent
+      ? "bg-neutral-950 text-white"
+      : "bg-neutral-200 text-neutral-600";
+
+  return (
+    <div
+      aria-current={isCurrent ? "step" : undefined}
+      className={`flex min-h-16 items-center gap-3 rounded border px-3 py-2 ${itemClassName}`}
+    >
+      <span
+        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${markerClassName}`}
+      >
+        {isComplete ? (
+          <CheckCircleIcon className="h-5 w-5" />
+        ) : (
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        )}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[11px] font-semibold uppercase text-inherit opacity-70">
+          Step {stepNumber}
+        </span>
+        <span className="block truncate text-sm font-semibold">
+          {step.label}
+        </span>
+        <span className="block truncate text-xs text-inherit opacity-75">
+          {step.description}
+        </span>
+      </span>
     </div>
   );
 }
