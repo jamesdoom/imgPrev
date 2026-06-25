@@ -48,6 +48,12 @@ export type RemoveItemCommand = {
   now?: string;
 };
 
+export type ReplaceItemsCommand = {
+  type: "items/replace";
+  items: SheetItem[];
+  now?: string;
+};
+
 export type DuplicateItemCommand = {
   type: "item/duplicate";
   itemId: string;
@@ -85,6 +91,7 @@ export type SheetDocumentCommand =
   | PlaceItemCommand
   | UpdateItemCommand
   | RemoveItemCommand
+  | ReplaceItemsCommand
   | DuplicateItemCommand
   | SetSheetSizeCommand
   | UpdateSettingsCommand
@@ -160,6 +167,17 @@ export function sheetDocumentReducer(
         command.now
       );
 
+    case "items/replace":
+      assertItemsReferenceExistingAssets(document, command.items);
+
+      return touch(
+        {
+          ...document,
+          items: command.items,
+        },
+        command.now
+      );
+
     case "item/duplicate":
       return duplicateItem(document, command);
 
@@ -205,6 +223,20 @@ export function sheetDocumentReducer(
         },
         command.now
       );
+  }
+}
+
+function assertItemsReferenceExistingAssets(
+  document: SheetDocument,
+  items: SheetItem[]
+) {
+  const assetIds = new Set(document.assets.map((asset) => asset.id));
+  const missingItem = items.find((item) => !assetIds.has(item.assetId));
+
+  if (missingItem) {
+    throw new Error(
+      `Cannot replace items with missing asset: ${missingItem.assetId}`
+    );
   }
 }
 

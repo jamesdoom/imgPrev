@@ -16,11 +16,13 @@ import {
   ExclamationTriangleIcon,
   FolderOpenIcon,
   PhotoIcon,
+  SparklesIcon,
   Squares2X2Icon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import {
+  autoArrangeSheetItems,
   BASELINE_SHEET_SIZES,
   DEFAULT_SHEET_VIEW_STATE,
   buildExportBundleManifest,
@@ -214,6 +216,40 @@ export default function StickerSheetDesigner() {
       return remainingFiles;
     });
     dispatchView({ type: "selection/clear" });
+  };
+
+  const autoArrangeArtwork = () => {
+    if (document.assets.length === 0) {
+      toast.error("Upload artwork before arranging the sheet.");
+      return;
+    }
+
+    const result = autoArrangeSheetItems({
+      document,
+      idFactory: () => createId("item"),
+    });
+
+    dispatchDocument({
+      type: "items/replace",
+      items: result.items,
+      now: new Date().toISOString(),
+    });
+    dispatchView(
+      result.items[0]
+        ? { type: "selection/select-item", itemId: result.items[0].id }
+        : { type: "selection/clear" }
+    );
+
+    if (result.unplacedAssetIds.length > 0) {
+      toast.error(
+        `${result.unplacedAssetIds.length} artwork item${
+          result.unplacedAssetIds.length === 1 ? "" : "s"
+        } did not fit.`
+      );
+      return;
+    }
+
+    toast.success("Artwork arranged on the sheet.");
   };
 
   const updateSelectedItem = (patch: Partial<Omit<SheetItem, "id">>) => {
@@ -449,6 +485,15 @@ export default function StickerSheetDesigner() {
 
           <PanelTitle title="Artwork" />
           <div className="flex min-h-0 flex-col gap-3 px-4 pb-4">
+            <button
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={document.assets.length === 0}
+              type="button"
+              onClick={autoArrangeArtwork}
+            >
+              <SparklesIcon className="h-5 w-5" />
+              Auto-arrange
+            </button>
             {document.assets.length === 0 ? (
               <div className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
                 Upload PNG, JPG, WebP, SVG, or PDF artwork to start placing
@@ -468,6 +513,9 @@ export default function StickerSheetDesigner() {
                   }
                   onPlace={() => placeAsset(asset)}
                   onRemove={() => removeAsset(asset.id)}
+                  preflightIssues={preflightIssues.filter(
+                    (issue) => issue.assetId === asset.id
+                  )}
                 />
               ))
             )}
@@ -873,13 +921,17 @@ function AssetRow({
   onPlace,
   onRemove,
   onSelect,
+  preflightIssues,
 }: {
   asset: SheetAsset;
   isSelected: boolean;
   onPlace: () => void;
   onRemove: () => void;
   onSelect: () => void;
+  preflightIssues: PreflightIssue[];
 }) {
+  const readiness = getArtworkReadiness(asset, preflightIssues);
+
   return (
     <div
       className={`grid w-full grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded border p-2 text-left ${
@@ -898,13 +950,17 @@ function AssetRow({
     >
       <AssetThumbnail asset={asset} />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-medium">
-          {asset.fileName}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium">{asset.fileName}</span>
+          <ArtworkReadinessBadge readiness={readiness} />
         </span>
         <span className="block text-xs text-neutral-500">
           {asset.widthPx && asset.heightPx
             ? `${asset.widthPx} x ${asset.heightPx}px`
-          : asset.fileType}
+            : asset.fileType}
+        </span>
+        <span className="mt-1 block text-xs text-neutral-500">
+          {readiness.detail}
         </span>
       </span>
       <span className="flex flex-wrap justify-end gap-2">
@@ -930,6 +986,84 @@ function AssetRow({
         </button>
       </span>
     </div>
+  );
+}
+
+type ArtworkReadiness = {
+  detail: string;
+  label: string;
+  tone: "ready" | "warning" | "error";
+};
+
+function getArtworkReadiness(
+  asset: SheetAsset,
+  preflightIssues: PreflightIssue[]
+): ArtworkReadiness {
+  if (preflightIssues.some((issue) => issue.severity === "error")) {
+    return {
+      detail: preflightIssues[0]?.message ?? "Needs attention before export.",
+      label: "Needs attention",
+      tone: "error",
+    };
+  }
+
+  if (preflightIssues.length > 0) {
+    return {
+      detail: preflightIssues[0].message,
+      label: "Warning",
+      tone: "warning",
+    };
+  }
+
+  if (asset.dpi) {
+    return {
+      detail: `${asset.dpi} DPI artwork`,
+      label: "Ready",
+      tone: "ready",
+    };
+  }
+
+  if (asset.fileType === "image/svg+xml") {
+    return {
+      detail: "Vector artwork",
+      label: "Ready",
+      tone: "ready",
+    };
+  }
+
+  if (asset.widthPx && asset.heightPx) {
+    return {
+      detail: "Resolution detected",
+      label: "Ready",
+      tone: "ready",
+    };
+  }
+
+  return {
+    detail: "Dimensions will be checked during proofing",
+    label: "Check",
+    tone: "warning",
+  };
+}
+
+function ArtworkReadinessBadge({
+  readiness,
+}: {
+  readiness: ArtworkReadiness;
+}) {
+  const className =
+    readiness.tone === "ready"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : readiness.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-red-200 bg-red-50 text-red-800";
+
+  return (
+    <span
+      className={`shrink-0 rounded border px-2 py-0.5 text-[11px] font-semibold ${className}`}
+    >
+      {readiness.label}
+    </span>
   );
 }
 

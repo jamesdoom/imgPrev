@@ -121,6 +121,42 @@ describe("sheetDocumentReducer", () => {
     expect(removed.items.map((placedItem) => placedItem.id)).toEqual(["item-2"]);
   });
 
+  test("replaces all sticker items in one document update", () => {
+    const withItem = sheetDocumentReducer(documentWithAsset(), {
+      type: "item/place",
+      item,
+    });
+    const arrangedItem: SheetItem = {
+      ...item,
+      id: "item-arranged",
+      xIn: 1,
+      yIn: 1,
+    };
+
+    const arranged = sheetDocumentReducer(withItem, {
+      type: "items/replace",
+      items: [arrangedItem],
+      now: "2026-06-25T12:00:00.000Z",
+    });
+
+    expect(arranged.items).toEqual([arrangedItem]);
+    expect(arranged.updatedAt).toBe("2026-06-25T12:00:00.000Z");
+  });
+
+  test("rejects replacement items for missing assets", () => {
+    expect(() =>
+      sheetDocumentReducer(documentWithAsset(), {
+        type: "items/replace",
+        items: [
+          {
+            ...item,
+            assetId: "missing-asset",
+          },
+        ],
+      })
+    ).toThrow("Cannot replace items with missing asset: missing-asset");
+  });
+
   test("removing an asset removes its placed sticker items", () => {
     const withItem = sheetDocumentReducer(documentWithAsset(), {
       type: "item/place",
