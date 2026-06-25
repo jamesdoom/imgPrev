@@ -200,6 +200,22 @@ export default function StickerSheetDesigner() {
     dispatchView({ type: "selection/clear" });
   };
 
+  const removeAsset = (assetId: string) => {
+    dispatchDocument({
+      type: "asset/remove",
+      assetId,
+      now: new Date().toISOString(),
+    });
+    setAssetFiles((current) => {
+      const remainingFiles = { ...current };
+
+      delete remainingFiles[assetId];
+
+      return remainingFiles;
+    });
+    dispatchView({ type: "selection/clear" });
+  };
+
   const updateSelectedItem = (patch: Partial<Omit<SheetItem, "id">>) => {
     if (!selectedItem) {
       return;
@@ -451,6 +467,7 @@ export default function StickerSheetDesigner() {
                     })
                   }
                   onPlace={() => placeAsset(asset)}
+                  onRemove={() => removeAsset(asset.id)}
                 />
               ))
             )}
@@ -846,11 +863,13 @@ function AssetRow({
   asset,
   isSelected,
   onPlace,
+  onRemove,
   onSelect,
 }: {
   asset: SheetAsset;
   isSelected: boolean;
   onPlace: () => void;
+  onRemove: () => void;
   onSelect: () => void;
 }) {
   return (
@@ -880,16 +899,28 @@ function AssetRow({
           : asset.fileType}
         </span>
       </span>
-      <button
-        className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-neutral-50"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onPlace();
-        }}
-      >
-        Place
-      </button>
+      <span className="flex flex-wrap justify-end gap-2">
+        <button
+          className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-neutral-50"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPlace();
+          }}
+        >
+          Place
+        </button>
+        <button
+          className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+        >
+          Remove
+        </button>
+      </span>
     </div>
   );
 }
@@ -961,8 +992,9 @@ function NumberField({
 }
 
 async function createAssetFromFile(file: File): Promise<SheetAsset> {
-  const sourceUrl = URL.createObjectURL(file);
-  const dimensions = file.type.startsWith("image/")
+  const isImage = file.type.startsWith("image/");
+  const sourceUrl = isImage ? await readFileAsDataUrl(file) : URL.createObjectURL(file);
+  const dimensions = isImage
     ? await loadImageDimensions(sourceUrl)
     : {};
 
@@ -975,6 +1007,18 @@ async function createAssetFromFile(file: File): Promise<SheetAsset> {
     uploadedAt: new Date().toISOString(),
     ...dimensions,
   };
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 async function loadImageDimensions(
@@ -1069,10 +1113,24 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
     throw new Error("Project JSON does not contain a valid sheet document.");
   }
 
+  const durableAssetIds = new Set(
+    candidate.assets
+      .filter((asset) => hasDurableAssetUrl(asset))
+      .map((asset) => asset.id)
+  );
+
   return {
     ...candidate,
+    assets: candidate.assets.filter((asset) => durableAssetIds.has(asset.id)),
+    items: candidate.items.filter((item) => durableAssetIds.has(item.assetId)),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function hasDurableAssetUrl(asset: SheetAsset): boolean {
+  const previewUrl = asset.previewUrl ?? asset.sourceUrl;
+
+  return !previewUrl.startsWith("blob:") && !asset.sourceUrl.startsWith("blob:");
 }
 
 function isSheetDocument(value: unknown): value is SheetDocument {

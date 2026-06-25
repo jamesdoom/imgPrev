@@ -99,7 +99,9 @@ function buildProductionFormData({
   formData.append("manifest", JSON.stringify(manifest));
 
   for (const asset of document.assets) {
-    const file = assetFiles[asset.id];
+    const file =
+      assetFiles[asset.id] ??
+      dataUrlToFile(asset.sourceUrl, asset.fileName, asset.fileType);
 
     if (file) {
       formData.append("assets", file, asset.fileName);
@@ -107,4 +109,27 @@ function buildProductionFormData({
   }
 
   return formData;
+}
+
+function dataUrlToFile(
+  dataUrl: string,
+  fileName: string,
+  fileType: string
+): File | null {
+  if (!dataUrl.startsWith("data:")) {
+    return null;
+  }
+
+  const [header, base64] = dataUrl.split(",");
+
+  if (!base64 || !header.includes(";base64")) {
+    return null;
+  }
+
+  const mimeType = header.slice(5, header.indexOf(";")) || fileType;
+  const bytes = Uint8Array.from(atob(base64), (character) =>
+    character.charCodeAt(0)
+  );
+
+  return new File([bytes], fileName, { type: mimeType || fileType });
 }

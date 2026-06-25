@@ -65,6 +65,46 @@ describe("renderProductionFiles", () => {
     );
   });
 
+  test("rebuilds uploaded assets from persisted data URLs", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          widthPx: 1200,
+          heightPx: 1800,
+          previewPngBase64: "png",
+          printPdfBase64: "pdf",
+        }),
+    });
+    const document = {
+      ...documentWithAsset(),
+      assets: [
+        {
+          id: "asset-1",
+          sourceUrl: "data:image/png;base64,YXNzZXQ=",
+          previewUrl: "data:image/png;base64,YXNzZXQ=",
+          fileName: "decal.png",
+          fileType: "image/png",
+        },
+      ],
+    };
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderProductionFiles({
+      document,
+      preflightIssues: [],
+      assetFiles: {},
+    });
+
+    const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    const rebuiltAsset = body.getAll("assets")[0];
+
+    expect(rebuiltAsset).toBeInstanceOf(File);
+    expect((rebuiltAsset as File).name).toBe("decal.png");
+    expect((rebuiltAsset as File).type).toBe("image/png");
+  });
+
   test("throws backend renderer errors", async () => {
     vi.stubGlobal(
       "fetch",
