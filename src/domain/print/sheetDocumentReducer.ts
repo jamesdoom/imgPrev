@@ -35,6 +35,12 @@ export type PlaceItemCommand = {
   now?: string;
 };
 
+export type PlaceItemsCommand = {
+  type: "items/place";
+  items: SheetItem[];
+  now?: string;
+};
+
 export type UpdateItemCommand = {
   type: "item/update";
   itemId: string;
@@ -89,6 +95,7 @@ export type SheetDocumentCommand =
   | UpdateAssetCommand
   | RemoveAssetCommand
   | PlaceItemCommand
+  | PlaceItemsCommand
   | UpdateItemCommand
   | RemoveItemCommand
   | ReplaceItemsCommand
@@ -147,6 +154,20 @@ export function sheetDocumentReducer(
         command.now
       );
 
+    case "items/place":
+      assertItemsReferenceExistingAssets(document, command.items, "place items");
+
+      return touch(
+        {
+          ...document,
+          items: command.items.reduce(
+            (items, item) => upsertById(items, item),
+            document.items
+          ),
+        },
+        command.now
+      );
+
     case "item/update":
       return touch(
         {
@@ -168,7 +189,11 @@ export function sheetDocumentReducer(
       );
 
     case "items/replace":
-      assertItemsReferenceExistingAssets(document, command.items);
+      assertItemsReferenceExistingAssets(
+        document,
+        command.items,
+        "replace items"
+      );
 
       return touch(
         {
@@ -228,14 +253,15 @@ export function sheetDocumentReducer(
 
 function assertItemsReferenceExistingAssets(
   document: SheetDocument,
-  items: SheetItem[]
+  items: SheetItem[],
+  actionLabel: string
 ) {
   const assetIds = new Set(document.assets.map((asset) => asset.id));
   const missingItem = items.find((item) => !assetIds.has(item.assetId));
 
   if (missingItem) {
     throw new Error(
-      `Cannot replace items with missing asset: ${missingItem.assetId}`
+      `Cannot ${actionLabel} with missing asset: ${missingItem.assetId}`
     );
   }
 }

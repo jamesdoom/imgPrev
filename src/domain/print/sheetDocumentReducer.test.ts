@@ -143,6 +143,24 @@ describe("sheetDocumentReducer", () => {
     expect(arranged.updatedAt).toBe("2026-06-25T12:00:00.000Z");
   });
 
+  test("places multiple sticker items in one document update", () => {
+    const secondItem: SheetItem = {
+      ...item,
+      id: "item-2",
+      xIn: 0.75,
+      yIn: 0.75,
+    };
+
+    const withItems = sheetDocumentReducer(documentWithAsset(), {
+      type: "items/place",
+      items: [item, secondItem],
+      now: "2026-06-25T12:30:00.000Z",
+    });
+
+    expect(withItems.items).toEqual([item, secondItem]);
+    expect(withItems.updatedAt).toBe("2026-06-25T12:30:00.000Z");
+  });
+
   test("rejects replacement items for missing assets", () => {
     expect(() =>
       sheetDocumentReducer(documentWithAsset(), {
@@ -155,6 +173,20 @@ describe("sheetDocumentReducer", () => {
         ],
       })
     ).toThrow("Cannot replace items with missing asset: missing-asset");
+  });
+
+  test("rejects batch placed items for missing assets", () => {
+    expect(() =>
+      sheetDocumentReducer(documentWithAsset(), {
+        type: "items/place",
+        items: [
+          {
+            ...item,
+            assetId: "missing-asset",
+          },
+        ],
+      })
+    ).toThrow("Cannot place items with missing asset: missing-asset");
   });
 
   test("removing an asset removes its placed sticker items", () => {

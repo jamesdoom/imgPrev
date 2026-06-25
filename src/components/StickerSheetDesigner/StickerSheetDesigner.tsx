@@ -56,6 +56,9 @@ const PROJECT_ID = "local-sticker-sheet";
 const LOCAL_PROJECT_STORAGE_KEY = "sticker-sheet-designer:autosave";
 const ARTWORK_FILE_ACCEPT =
   ".png,.jpg,.jpeg,.webp,.svg,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,application/pdf";
+const MIN_ARTWORK_QUANTITY = 1;
+const MAX_ARTWORK_QUANTITY = 99;
+const PLACED_ITEM_STAGGER_IN = 0.12;
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -85,6 +88,9 @@ export default function StickerSheetDesigner() {
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customerNote, setCustomerNote] = useState("");
+  const [assetQuantities, setAssetQuantities] = useState<
+    Record<string, number>
+  >({});
   const [submittedProjectId, setSubmittedProjectId] = useState<string | null>(
     null
   );
@@ -164,22 +170,37 @@ export default function StickerSheetDesigner() {
     }
   };
 
-  const placeAsset = (asset: SheetAsset) => {
-    const item = createSheetItemFromAsset({
-      id: createId("item"),
-      asset,
-      document,
-    });
+  const placeAsset = (asset: SheetAsset, quantity: number) => {
+    const items = Array.from(
+      { length: clampArtworkQuantity(quantity) },
+      (_, index) =>
+        staggerPlacedItem(
+          createSheetItemFromAsset({
+            id: createId("item"),
+            asset,
+            document,
+          }),
+          index,
+          document
+        )
+    );
 
     dispatchDocument({
-      type: "item/place",
-      item,
+      type: "items/place",
+      items,
       now: new Date().toISOString(),
     });
     dispatchView({
       type: "selection/select-item",
-      itemId: item.id,
+      itemId: items[0].id,
     });
+  };
+
+  const updateAssetQuantity = (assetId: string, quantity: number) => {
+    setAssetQuantities((current) => ({
+      ...current,
+      [assetId]: clampArtworkQuantity(quantity),
+    }));
   };
 
   const duplicateSelectedItem = () => {
@@ -224,6 +245,13 @@ export default function StickerSheetDesigner() {
       delete remainingFiles[assetId];
 
       return remainingFiles;
+    });
+    setAssetQuantities((current) => {
+      const remainingQuantities = { ...current };
+
+      delete remainingQuantities[assetId];
+
+      return remainingQuantities;
     });
     dispatchView({ type: "selection/clear" });
   };
@@ -384,6 +412,7 @@ export default function StickerSheetDesigner() {
         document: loadedDocument,
       });
       setAssetFiles({});
+      setAssetQuantities({});
       setSubmittedProjectId(null);
       dispatchView({ type: "selection/clear" });
       toast.success("Project JSON loaded");
@@ -522,13 +551,19 @@ export default function StickerSheetDesigner() {
                     key={asset.id}
                     asset={asset}
                     isSelected={asset.id === viewState.selectedAssetId}
+                    quantity={assetQuantities[asset.id] ?? 1}
                     onSelect={() =>
                       dispatchView({
                         type: "selection/select-asset",
                         assetId: asset.id,
                       })
                     }
-                    onPlace={() => placeAsset(asset)}
+                    onPlace={() =>
+                      placeAsset(asset, assetQuantities[asset.id] ?? 1)
+                    }
+                    onQuantityChange={(quantity) =>
+                      updateAssetQuantity(asset.id, quantity)
+                    }
                     onRemove={() => removeAsset(asset.id)}
                     preflightIssues={preflightIssues.filter(
                       (issue) => issue.assetId === asset.id
@@ -839,6 +874,41 @@ function ArtworkUploadDropZone({
   );
 }
 
+function clampArtworkQuantity(quantity: number): number {
+  if (!Number.isFinite(quantity)) {
+    return MIN_ARTWORK_QUANTITY;
+  }
+
+  return Math.min(
+    MAX_ARTWORK_QUANTITY,
+    Math.max(MIN_ARTWORK_QUANTITY, Math.round(quantity))
+  );
+}
+
+function staggerPlacedItem(
+  item: SheetItem,
+  index: number,
+  document: SheetDocument
+): SheetItem {
+  if (index === 0) {
+    return item;
+  }
+
+  const offsetIn = index * PLACED_ITEM_STAGGER_IN;
+  const maxXIn = Math.max(0, document.sheet.widthIn - item.widthIn);
+  const maxYIn = Math.max(0, document.sheet.heightIn - item.heightIn);
+
+  return {
+    ...item,
+    xIn: roundToHundredth(Math.min(maxXIn, item.xIn + offsetIn)),
+    yIn: roundToHundredth(Math.min(maxYIn, item.yIn + offsetIn)),
+  };
+}
+
+function roundToHundredth(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function ExportPanel({
   canExport,
   assetCount,
@@ -1108,22 +1178,26 @@ function AssetRow({
   asset,
   isSelected,
   onPlace,
+  onQuantityChange,
   onRemove,
   onSelect,
   preflightIssues,
+  quantity,
 }: {
   asset: SheetAsset;
   isSelected: boolean;
   onPlace: () => void;
+  onQuantityChange: (quantity: number) => void;
   onRemove: () => void;
   onSelect: () => void;
   preflightIssues: PreflightIssue[];
+  quantity: number;
 }) {
   const readiness = getArtworkReadiness(asset, preflightIssues);
 
   return (
     <div
-      className={`grid w-full grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded border p-2 text-left ${
+      className={`grid w-full grid-cols-[48px_minmax(0,1fr)] gap-3 rounded border p-2 text-left ${
         isSelected
           ? "border-teal-700 bg-teal-50"
           : "border-neutral-200 bg-white hover:bg-neutral-50"
@@ -1152,19 +1226,34 @@ function AssetRow({
           {readiness.detail}
         </span>
       </span>
-      <span className="flex flex-wrap justify-end gap-2">
+      <span className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
+        <label className="block text-xs font-semibold uppercase text-neutral-500">
+          Qty
+          <input
+            aria-label={`Quantity for ${asset.fileName}`}
+            className="mt-1 h-9 w-full min-w-0 rounded border border-neutral-300 bg-white px-2 text-sm font-normal normal-case text-neutral-950"
+            max={MAX_ARTWORK_QUANTITY}
+            min={MIN_ARTWORK_QUANTITY}
+            step="1"
+            type="number"
+            value={quantity}
+            onChange={(event) => onQuantityChange(Number(event.target.value))}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          />
+        </label>
         <button
-          className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-neutral-50"
+          className="inline-flex h-9 items-center rounded border border-neutral-300 bg-white px-3 text-xs font-semibold hover:bg-neutral-50"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onPlace();
           }}
         >
-          Place
+          Place {quantity}
         </button>
         <button
-          className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          className="inline-flex h-9 items-center rounded border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
           type="button"
           onClick={(event) => {
             event.stopPropagation();
