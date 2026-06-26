@@ -607,59 +607,63 @@ export default function StickerSheetDesigner() {
         </main>
 
         <aside className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0">
-          <PanelTitle title="View" />
-          <div className="space-y-3 px-4 pb-4">
-            <label className="flex items-center justify-between gap-3 text-sm">
-              <span>Zoom</span>
-              <input
-                className="w-36 accent-teal-700"
-                type="range"
-                min="0.4"
-                max="1.5"
-                step="0.1"
-                value={viewState.zoom}
-                onChange={(event) =>
-                  dispatchView({
-                    type: "viewport/set-zoom",
-                    zoom: Number(event.target.value),
-                  })
+          <details>
+            <summary className="flex h-12 cursor-pointer items-center border-b border-neutral-200 px-4 text-sm font-semibold">
+              View
+            </summary>
+            <div className="space-y-3 px-4 pb-4 pt-3">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>Zoom</span>
+                <input
+                  className="w-36 accent-teal-700"
+                  type="range"
+                  min="0.4"
+                  max="1.5"
+                  step="0.1"
+                  value={viewState.zoom}
+                  onChange={(event) =>
+                    dispatchView({
+                      type: "viewport/set-zoom",
+                      zoom: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+
+              <OverlayToggle
+                label="Grid"
+                checked={viewState.showGrid}
+                onChange={(visible) =>
+                  dispatchView({ type: "overlay/set-grid", visible })
                 }
               />
-            </label>
-
-            <OverlayToggle
-              label="Grid"
-              checked={viewState.showGrid}
-              onChange={(visible) =>
-                dispatchView({ type: "overlay/set-grid", visible })
-              }
-            />
-            <OverlayToggle
-              description={proofGuidance.bleed.description}
-              label={proofGuidance.bleed.label}
-              checked={viewState.showBleed}
-              onChange={(visible) =>
-                dispatchView({ type: "overlay/set-bleed", visible })
-              }
-            />
-            <OverlayToggle
-              description={proofGuidance.safeArea.description}
-              label={proofGuidance.safeArea.label}
-              checked={viewState.showSafeArea}
-              onChange={(visible) =>
-                dispatchView({ type: "overlay/set-safe-area", visible })
-              }
-            />
-            <OverlayToggle
-              description={proofGuidance.cutlines.description}
-              label={proofGuidance.cutlines.label}
-              checked={viewState.showCutlines}
-              onChange={(visible) =>
-                dispatchView({ type: "overlay/set-cutlines", visible })
-              }
-            />
-            <ProofGuideLegend guidance={proofGuidance} />
-          </div>
+              <OverlayToggle
+                description={proofGuidance.bleed.description}
+                label={proofGuidance.bleed.label}
+                checked={viewState.showBleed}
+                onChange={(visible) =>
+                  dispatchView({ type: "overlay/set-bleed", visible })
+                }
+              />
+              <OverlayToggle
+                description={proofGuidance.safeArea.description}
+                label={proofGuidance.safeArea.label}
+                checked={viewState.showSafeArea}
+                onChange={(visible) =>
+                  dispatchView({ type: "overlay/set-safe-area", visible })
+                }
+              />
+              <OverlayToggle
+                description={proofGuidance.cutlines.description}
+                label={proofGuidance.cutlines.label}
+                checked={viewState.showCutlines}
+                onChange={(visible) =>
+                  dispatchView({ type: "overlay/set-cutlines", visible })
+                }
+              />
+              <ProofGuideLegend guidance={proofGuidance} />
+            </div>
+          </details>
 
           <PanelTitle title="Preflight" />
           <PreflightPanel
