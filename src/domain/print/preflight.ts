@@ -14,6 +14,8 @@ interface Bounds {
   maxY: number;
 }
 
+const MEASUREMENT_EPSILON_IN = 0.000001;
+
 export function runPreflight(
   document: SheetDocument,
   profile: ProductionProfile = STICKER_SHEET_MVP_PROFILE
@@ -192,7 +194,7 @@ function preflightItemSpacing(
   );
   const distance = Math.sqrt(xGap * xGap + yGap * yGap);
 
-  if (distance >= requiredSpacingIn) {
+  if (distance + MEASUREMENT_EPSILON_IN >= requiredSpacingIn) {
     return null;
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { createSheetDocument } from "./sheetDocument";
 import { autoArrangeSheetItems, createSheetItemFromAsset } from "./placement";
+import { runPreflight } from "./preflight";
 import type { SheetAsset } from "./types";
 
 describe("createSheetItemFromAsset", () => {
@@ -155,5 +156,31 @@ describe("autoArrangeSheetItems", () => {
 
     expect(result.items.length).toBeLessThan(document.assets.length);
     expect(result.unplacedAssetIds.length).toBeGreaterThan(0);
+  });
+
+  test("does not create false spacing issues from rounded positions", () => {
+    const document = {
+      ...createSheetDocument({
+        id: "project-1",
+        sheetSizeId: "11x17",
+      }),
+      assets: Array.from({ length: 5 }, (_, index): SheetAsset => ({
+        id: `asset-${index + 1}`,
+        sourceUrl: `/uploads/${index + 1}.png`,
+        fileName: `${index + 1}.png`,
+        fileType: "image/png",
+        widthPx: 751,
+        heightPx: 750,
+        dpi: 1000,
+      })),
+    };
+
+    const result = autoArrangeSheetItems({
+      document,
+      idFactory: (_asset, index) => `item-${index + 1}`,
+    });
+
+    expect(result.unplacedAssetIds).toEqual([]);
+    expect(runPreflight({ ...document, items: result.items })).toEqual([]);
   });
 });
