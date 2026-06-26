@@ -607,11 +607,11 @@ export default function StickerSheetDesigner() {
         </main>
 
         <aside className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0">
-          <details>
-            <summary className="flex h-12 cursor-pointer items-center border-b border-neutral-200 px-4 text-sm font-semibold">
+          <details className="m-4 rounded border border-neutral-200 bg-neutral-50">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
               View
             </summary>
-            <div className="space-y-3 px-4 pb-4 pt-3">
+            <div className="space-y-3 border-t border-neutral-200 p-3">
               <label className="flex items-center justify-between gap-3 text-sm">
                 <span>Zoom</span>
                 <input
