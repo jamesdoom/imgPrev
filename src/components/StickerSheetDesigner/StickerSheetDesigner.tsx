@@ -582,6 +582,10 @@ export default function StickerSheetDesigner() {
             )}
           </div>
 
+          <div className="px-4 pb-4">
+            <ProofChecklist guidance={proofGuidance} />
+          </div>
+
           <PanelTitle title="Proof" />
           <ProductionActionsPanel
             canExport={canExport}
@@ -674,6 +678,11 @@ export default function StickerSheetDesigner() {
             </div>
           </details>
 
+          <ProjectToolsPanel
+            onDownloadProjectJson={downloadProjectJson}
+            onImportProjectJson={importProjectJson}
+          />
+
           <PanelTitle title="Preflight" />
           <PreflightPanel
             issues={preflightIssues}
@@ -700,12 +709,9 @@ export default function StickerSheetDesigner() {
             documentItemCount={document.items.length}
             preflightErrorCount={preflightErrorCount}
             preflightWarningCount={preflightWarningCount}
-            proofGuidance={proofGuidance}
             orderEstimate={orderEstimate}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
-            onDownloadProjectJson={downloadProjectJson}
-            onImportProjectJson={importProjectJson}
           />
 
           <PanelTitle title="Selection" />
@@ -993,20 +999,14 @@ function ExportPanel({
   preflightErrorCount,
   preflightWarningCount,
   orderEstimate,
-  proofGuidance,
   sheetLabel,
-  onDownloadProjectJson,
-  onImportProjectJson,
 }: {
   assetCount: number;
   documentItemCount: number;
   preflightErrorCount: number;
   preflightWarningCount: number;
   orderEstimate: SheetOrderEstimate;
-  proofGuidance: ProofGuidance;
   sheetLabel: string;
-  onDownloadProjectJson: () => void;
-  onImportProjectJson: (file: File | undefined) => void;
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
@@ -1025,38 +1025,47 @@ function ExportPanel({
           />
         </div>
       </div>
-      <ProofChecklist guidance={proofGuidance} />
       <PricingSummary estimate={orderEstimate} />
-
-      <details className="rounded border border-neutral-200 bg-neutral-50">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
-          Project tools
-        </summary>
-        <div className="space-y-2 border-t border-neutral-200 p-2">
-          <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50">
-            <FolderOpenIcon className="h-5 w-5" />
-            Open project JSON
-            <input
-              className="sr-only"
-              type="file"
-              accept="application/json,.json"
-              onChange={(event) => {
-                void onImportProjectJson(event.target.files?.[0]);
-                event.target.value = "";
-              }}
-            />
-          </label>
-          <button
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
-            type="button"
-            onClick={onDownloadProjectJson}
-          >
-            <ArrowDownTrayIcon className="h-5 w-5" />
-            Download project JSON
-          </button>
-        </div>
-      </details>
     </div>
+  );
+}
+
+function ProjectToolsPanel({
+  onDownloadProjectJson,
+  onImportProjectJson,
+}: {
+  onDownloadProjectJson: () => void;
+  onImportProjectJson: (file: File | undefined) => void;
+}) {
+  return (
+    <details className="mx-4 mb-4 rounded border border-neutral-200 bg-neutral-50">
+      <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
+        Project tools
+      </summary>
+      <div className="space-y-2 border-t border-neutral-200 p-2">
+        <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50">
+          <FolderOpenIcon className="h-5 w-5" />
+          Open project JSON
+          <input
+            className="sr-only"
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => {
+              void onImportProjectJson(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+        </label>
+        <button
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
+          type="button"
+          onClick={onDownloadProjectJson}
+        >
+          <ArrowDownTrayIcon className="h-5 w-5" />
+          Download project JSON
+        </button>
+      </div>
+    </details>
   );
 }
 
