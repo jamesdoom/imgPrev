@@ -1,6 +1,6 @@
 export type PrintUnit = "in";
 
-export type SheetSizeId = "4x6" | "6x4" | "8.5x11" | "11x8.5";
+export type SheetSizeId = "11x17";
 
 export type SheetBackground =
   | { type: "transparent" }
@@ -42,6 +42,12 @@ export interface CutlineRuleSet {
   storeVectorPaths: boolean;
 }
 
+export interface PricingRuleSet {
+  pricePerSheetCents: number;
+  minimumOrderCents: number;
+  freeShippingThresholdCents: number;
+}
+
 export interface ProductionProfile {
   id: string;
   name: string;
@@ -54,6 +60,7 @@ export interface ProductionProfile {
   uploadRules: UploadRuleSet;
   exportBundle: ExportBundleRuleSet;
   cutlines: CutlineRuleSet;
+  pricing: PricingRuleSet;
   defaultBackground: SheetBackground;
 }
 

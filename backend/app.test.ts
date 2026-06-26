@@ -29,9 +29,9 @@ function renderManifest() {
       version: 1,
       productionProfileId: "sticker-sheet-mvp",
       sheet: {
-        sizeId: "4x6",
-        widthIn: 4,
-        heightIn: 6,
+        sizeId: "11x17",
+        widthIn: 11,
+        heightIn: 17,
         dpi: 300,
       },
       assets: [
@@ -195,8 +195,8 @@ describe("backend app", () => {
     const printPdf = Buffer.from(response.body.printPdfBase64, "base64");
 
     expect(response.status).toBe(200);
-    expect(response.body.widthPx).toBe(1200);
-    expect(response.body.heightPx).toBe(1800);
+    expect(response.body.widthPx).toBe(3300);
+    expect(response.body.heightPx).toBe(5100);
     expect(previewPng.subarray(0, 8)).toEqual(
       Buffer.from("89504e470d0a1a0a", "hex")
     );

@@ -17,7 +17,7 @@ describe("sheetDocumentHistoryReducer", () => {
   test("tracks undo and redo over full sheet documents", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
     const history = createSheetDocumentHistory(document);
 
@@ -66,7 +66,7 @@ describe("sheetDocumentHistoryReducer", () => {
     const history = createSheetDocumentHistory(
       createSheetDocument({
         id: "project-1",
-        sheetSizeId: "4x6",
+        sheetSizeId: "11x17",
       })
     );
 
@@ -79,11 +79,11 @@ describe("sheetDocumentHistoryReducer", () => {
     });
     const changed = sheetDocumentHistoryReducer(undone, {
       type: "sheet/set-size",
-      sheetSizeId: "8.5x11",
+      sheetSizeId: "11x17",
     });
 
     expect(changed.present.assets).toEqual([]);
-    expect(changed.present.sheet.sizeId).toBe("8.5x11");
+    expect(changed.present.sheet.sizeId).toBe("11x17");
     expect(changed.future).toEqual([]);
   });
 
@@ -91,7 +91,7 @@ describe("sheetDocumentHistoryReducer", () => {
     let history = createSheetDocumentHistory(
       createSheetDocument({
         id: "project-1",
-        sheetSizeId: "4x6",
+        sheetSizeId: "11x17",
       })
     );
 

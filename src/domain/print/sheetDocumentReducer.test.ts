@@ -29,7 +29,7 @@ const item: SheetItem = {
 
 function documentWithAsset() {
   return sheetDocumentReducer(
-    createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }),
+    createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
     { type: "asset/add", asset }
   );
 }
@@ -38,7 +38,7 @@ describe("sheetDocumentReducer", () => {
   test("adds, updates, and removes assets", () => {
     const initialDocument = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
 
     const withAsset = sheetDocumentReducer(initialDocument, {
@@ -207,7 +207,7 @@ describe("sheetDocumentReducer", () => {
   test("rejects placing an item for a missing asset", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
 
     expect(() =>
@@ -221,18 +221,18 @@ describe("sheetDocumentReducer", () => {
   test("updates sheet size and background settings", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
 
     const resized = sheetDocumentReducer(document, {
       type: "sheet/set-size",
-      sheetSizeId: "11x8.5",
+      sheetSizeId: "11x17",
     });
 
     expect(resized.sheet).toEqual({
-      sizeId: "11x8.5",
+      sizeId: "11x17",
       widthIn: 11,
-      heightIn: 8.5,
+      heightIn: 17,
       dpi: 300,
     });
 

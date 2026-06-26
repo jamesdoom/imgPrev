@@ -7,7 +7,7 @@ describe("createSheetItemFromAsset", () => {
   test("uses asset pixels at 300 DPI for the initial print size", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
     const asset: SheetAsset = {
       id: "asset-1",
@@ -37,7 +37,7 @@ describe("createSheetItemFromAsset", () => {
   test("fits oversized assets inside the printable sheet area", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     });
     const asset: SheetAsset = {
       id: "asset-1",
@@ -55,14 +55,14 @@ describe("createSheetItemFromAsset", () => {
       document,
     });
 
-    expect(item.widthIn).toBe(3.5);
-    expect(item.heightIn).toBe(3.5);
+    expect(item.widthIn).toBe(10);
+    expect(item.heightIn).toBe(10);
   });
 
   test("uses a practical fallback size for assets without dimensions", () => {
     const document = createSheetDocument({
       id: "project-1",
-      sheetSizeId: "8.5x11",
+      sheetSizeId: "11x17",
     });
     const asset: SheetAsset = {
       id: "asset-1",
@@ -89,7 +89,7 @@ describe("autoArrangeSheetItems", () => {
     const document = {
       ...createSheetDocument({
         id: "project-1",
-        sheetSizeId: "4x6",
+        sheetSizeId: "11x17",
       }),
       assets: [
         {
@@ -127,8 +127,8 @@ describe("autoArrangeSheetItems", () => {
     expect(result.unplacedAssetIds).toEqual([]);
     expect(result.items).toMatchObject([
       { id: "item-1", assetId: "asset-1", xIn: 0.25, yIn: 0.25 },
-      { id: "item-2", assetId: "asset-2", xIn: 1.5, yIn: 0.25 },
-      { id: "item-3", assetId: "asset-3", xIn: 2.75, yIn: 0.25 },
+      { id: "item-2", assetId: "asset-2", xIn: 2.25, yIn: 0.25 },
+      { id: "item-3", assetId: "asset-3", xIn: 4.25, yIn: 0.25 },
     ]);
   });
 
@@ -136,7 +136,7 @@ describe("autoArrangeSheetItems", () => {
     const document = {
       ...createSheetDocument({
         id: "project-1",
-        sheetSizeId: "4x6",
+        sheetSizeId: "11x17",
       }),
       assets: Array.from({ length: 12 }, (_, index): SheetAsset => ({
         id: `asset-${index + 1}`,

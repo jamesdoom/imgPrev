@@ -43,7 +43,7 @@ function addItem(document: SheetDocument, nextItem = item): SheetDocument {
 describe("runPreflight", () => {
   test("returns no issues for a valid placed sticker", () => {
     const document = addItem(
-      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }))
+      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }))
     );
 
     expect(runPreflight(document)).toEqual([]);
@@ -51,7 +51,7 @@ describe("runPreflight", () => {
 
   test("warns when an asset is below recommended DPI", () => {
     const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }),
+      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
       {
         ...asset,
         dpi: 240,
@@ -69,7 +69,7 @@ describe("runPreflight", () => {
 
   test("errors when an asset is below rejection DPI", () => {
     const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }),
+      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
       {
         ...asset,
         dpi: 120,
@@ -87,7 +87,7 @@ describe("runPreflight", () => {
 
   test("errors when a PDF asset is used for production export", () => {
     const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }),
+      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
       {
         ...asset,
         fileName: "vector.pdf",
@@ -107,7 +107,7 @@ describe("runPreflight", () => {
 
   test("errors when a sticker is smaller than the minimum print size", () => {
     const document = addItem(
-      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "4x6" })),
+      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "11x17" })),
       {
         ...item,
         widthIn: 0.7,
@@ -125,7 +125,7 @@ describe("runPreflight", () => {
 
   test("errors when a sticker crosses the sheet edge margin", () => {
     const document = addItem(
-      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "4x6" })),
+      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "11x17" })),
       {
         ...item,
         xIn: 0.1,
@@ -143,7 +143,7 @@ describe("runPreflight", () => {
 
   test("errors when two stickers are too close together", () => {
     const documentWithFirstItem = addItem(
-      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "4x6" }))
+      addAsset(createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }))
     );
     const document = sheetDocumentReducer(documentWithFirstItem, {
       type: "item/place",

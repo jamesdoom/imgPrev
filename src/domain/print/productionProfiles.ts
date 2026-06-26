@@ -4,28 +4,10 @@ export const DEFAULT_PRINT_DPI = 300;
 
 export const BASELINE_SHEET_SIZES: readonly SheetSize[] = [
   {
-    id: "4x6",
-    label: '4" x 6"',
-    widthIn: 4,
-    heightIn: 6,
-  },
-  {
-    id: "6x4",
-    label: '6" x 4"',
-    widthIn: 6,
-    heightIn: 4,
-  },
-  {
-    id: "8.5x11",
-    label: '8.5" x 11"',
-    widthIn: 8.5,
-    heightIn: 11,
-  },
-  {
-    id: "11x8.5",
-    label: '11" x 8.5"',
+    id: "11x17",
+    label: '11" x 17"',
     widthIn: 11,
-    heightIn: 8.5,
+    heightIn: 17,
   },
 ];
 
@@ -39,7 +21,7 @@ export const STICKER_SHEET_MVP_PROFILE: ProductionProfile = {
   sheetSizes: BASELINE_SHEET_SIZES,
   printRules: {
     sheetEdgeMarginIn: 0.25,
-    stickerSpacingIn: 0.25,
+    stickerSpacingIn: 1,
     minStickerSizeIn: 0.75,
     bleedIn: 0.125,
     safeMarginIn: 0.125,
@@ -65,6 +47,11 @@ export const STICKER_SHEET_MVP_PROFILE: ProductionProfile = {
     required: true,
     defaultMode: "auto-contour",
     storeVectorPaths: true,
+  },
+  pricing: {
+    pricePerSheetCents: 750,
+    minimumOrderCents: 1000,
+    freeShippingThresholdCents: 2500,
   },
   defaultBackground: {
     type: "transparent",

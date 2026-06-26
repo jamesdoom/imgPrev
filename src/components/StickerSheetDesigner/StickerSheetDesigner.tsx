@@ -31,9 +31,12 @@ import {
   createSheetDocument,
   createSheetDocumentHistory,
   createSheetItemFromAsset,
+  estimateSheetOrder,
+  formatCurrency,
   runPreflight,
   sheetDocumentHistoryReducer,
   sheetViewStateReducer,
+  STICKER_SHEET_MVP_PROFILE,
   validateUploadCandidate,
   type SheetDocumentHistoryAction,
   type SheetDocumentHistoryState,
@@ -43,6 +46,7 @@ import {
   type SheetSizeId,
   type PreflightIssue,
   type ProofGuidance,
+  type SheetOrderEstimate,
 } from "../../domain/print";
 import {
   StickerSheetCanvas,
@@ -79,7 +83,7 @@ function createInitialDocument() {
 
   return createSheetDocument({
     id: PROJECT_ID,
-    sheetSizeId: "4x6",
+    sheetSizeId: "11x17",
     now: new Date().toISOString(),
   });
 }
@@ -130,6 +134,10 @@ export default function StickerSheetDesigner() {
     isSubmitted: submittedProjectId !== null,
   });
   const proofGuidance = useMemo(() => buildProofGuidance(), []);
+  const orderEstimate = useMemo(
+    () => estimateSheetOrder({ sheetCount: 1 }),
+    []
+  );
 
   const assetCountText = useMemo(() => {
     if (document.assets.length === 1) {
@@ -684,6 +692,7 @@ export default function StickerSheetDesigner() {
             isExporting={isExporting}
             isSubmitting={isSubmitting}
             proofGuidance={proofGuidance}
+            orderEstimate={orderEstimate}
             submittedProjectId={submittedProjectId}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
@@ -926,6 +935,7 @@ function ExportPanel({
   preflightWarningCount,
   isExporting,
   isSubmitting,
+  orderEstimate,
   proofGuidance,
   sheetLabel,
   submittedProjectId,
@@ -944,6 +954,7 @@ function ExportPanel({
   preflightWarningCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
+  orderEstimate: SheetOrderEstimate;
   proofGuidance: ProofGuidance;
   sheetLabel: string;
   submittedProjectId: string | null;
@@ -972,6 +983,7 @@ function ExportPanel({
         </div>
       </div>
       <ProofChecklist guidance={proofGuidance} />
+      <PricingSummary estimate={orderEstimate} />
       <label className="block text-xs font-semibold uppercase text-neutral-500">
         Production note
         <textarea
@@ -1043,6 +1055,35 @@ function ExportPanel({
           </button>
         </div>
       </details>
+    </div>
+  );
+}
+
+function PricingSummary({ estimate }: { estimate: SheetOrderEstimate }) {
+  return (
+    <div className="rounded border border-neutral-200 bg-white p-3 text-xs text-neutral-700">
+      <p className="font-semibold text-neutral-900">Sheet pricing</p>
+      <div className="mt-2 space-y-1">
+        <p>
+          {estimate.sheetCount} sheet x{" "}
+          {formatCurrency(
+            estimate.subtotalCents / estimate.sheetCount
+          )}{" "}
+          per sheet
+        </p>
+        <p>
+          {estimate.estimatedOrderCents > estimate.subtotalCents
+            ? `${formatCurrency(estimate.minimumOrderCents)} minimum order applies.`
+            : `Estimated sheet total ${formatCurrency(estimate.estimatedOrderCents)}.`}
+        </p>
+        <p>
+          {estimate.freeShippingEligible
+            ? "This order qualifies for free shipping."
+            : `Free shipping at ${formatCurrency(
+                estimate.freeShippingThresholdCents
+              )} or more.`}
+        </p>
+      </div>
     </div>
   );
 }
@@ -1611,8 +1652,17 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
       .map((asset) => asset.id)
   );
 
+  const activeSheetSize = BASELINE_SHEET_SIZES[0];
+
   return {
     ...candidate,
+    productionProfileId: STICKER_SHEET_MVP_PROFILE.id,
+    sheet: {
+      sizeId: activeSheetSize.id,
+      widthIn: activeSheetSize.widthIn,
+      heightIn: activeSheetSize.heightIn,
+      dpi: STICKER_SHEET_MVP_PROFILE.requiredDpi,
+    },
     assets: candidate.assets.filter((asset) => durableAssetIds.has(asset.id)),
     items: candidate.items.filter((item) => durableAssetIds.has(item.assetId)),
     updatedAt: new Date().toISOString(),

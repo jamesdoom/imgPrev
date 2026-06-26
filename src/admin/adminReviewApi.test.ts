@@ -20,7 +20,7 @@ describe("adminReviewApi", () => {
             {
               projectId: "project-20260625120000-abc123",
               submittedAt: "2026-06-25T12:00:00.000Z",
-              sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
+              sheet: { widthIn: 11, heightIn: 17, dpi: 300 },
               counts: { assets: 2, items: 5 },
               files: { projectJson: "/projects/project-1/project.json" },
               review: {
@@ -51,7 +51,7 @@ describe("adminReviewApi", () => {
             project: {
               projectId: "project-20260625120000-abc123",
               submittedAt: "2026-06-25T12:00:00.000Z",
-              sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
+              sheet: { widthIn: 11, heightIn: 17, dpi: 300 },
               counts: { assets: 1, items: 1 },
               files: {},
               review: {
@@ -89,7 +89,7 @@ describe("adminReviewApi", () => {
           project: {
             projectId: "project-20260625120000-abc123",
             submittedAt: "2026-06-25T12:00:00.000Z",
-            sheet: { widthIn: 4, heightIn: 6, dpi: 300 },
+            sheet: { widthIn: 11, heightIn: 17, dpi: 300 },
             counts: { assets: 1, items: 1 },
             files: {},
             review: {

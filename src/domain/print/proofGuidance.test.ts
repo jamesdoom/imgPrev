@@ -8,7 +8,7 @@ describe("buildProofGuidance", () => {
 
     expect(guidance.bleed.description).toContain("1/8");
     expect(guidance.safeArea.description).toContain("1/4");
-    expect(guidance.cutlines.description).toContain("1/4");
+    expect(guidance.cutlines.description).toContain('1"');
   });
 
   it("provides customer-facing proof checklist copy", () => {

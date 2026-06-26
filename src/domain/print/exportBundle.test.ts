@@ -27,7 +27,7 @@ describe("buildExportBundleManifest", () => {
     const document = {
       ...createSheetDocument({
         id: "project-1",
-        sheetSizeId: "8.5x11",
+        sheetSizeId: "11x17",
       }),
       assets: [
         {
@@ -64,8 +64,8 @@ describe("buildExportBundleManifest", () => {
         assetsDirectory: "assets/",
       },
       printCanvas: {
-        widthPx: 2550,
-        heightPx: 3300,
+        widthPx: 3300,
+        heightPx: 5100,
         dpi: 300,
       },
       customer: {

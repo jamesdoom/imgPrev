@@ -6,7 +6,7 @@ describe("createSheetDocument", () => {
     expect(
       createSheetDocument({
         id: "project-1",
-        sheetSizeId: "8.5x11",
+        sheetSizeId: "11x17",
         now: "2026-06-23T12:00:00.000Z",
       })
     ).toEqual({
@@ -14,9 +14,9 @@ describe("createSheetDocument", () => {
       version: 1,
       productionProfileId: "sticker-sheet-mvp",
       sheet: {
-        sizeId: "8.5x11",
-        widthIn: 8.5,
-        heightIn: 11,
+        sizeId: "11x17",
+        widthIn: 11,
+        heightIn: 17,
         dpi: 300,
       },
       assets: [],
@@ -34,7 +34,7 @@ describe("createSheetDocument", () => {
   test("allows a solid sheet background when the project needs one", () => {
     const document = createSheetDocument({
       id: "project-2",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
       background: {
         type: "solid",
         color: "#ffffff",

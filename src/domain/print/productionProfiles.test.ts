@@ -16,7 +16,7 @@ describe("sticker sheet production profile", () => {
       rejectBelowDpi: 150,
       printRules: {
         sheetEdgeMarginIn: 0.25,
-        stickerSpacingIn: 0.25,
+        stickerSpacingIn: 1,
         minStickerSizeIn: 0.75,
         bleedIn: 0.125,
         safeMarginIn: 0.125,
@@ -29,28 +29,28 @@ describe("sticker sheet production profile", () => {
         defaultMode: "auto-contour",
         storeVectorPaths: true,
       },
+      pricing: {
+        pricePerSheetCents: 750,
+        minimumOrderCents: 1000,
+        freeShippingThresholdCents: 2500,
+      },
     });
   });
 
-  test.each([
-    ["4x6", 1200, 1800],
-    ["6x4", 1800, 1200],
-    ["8.5x11", 2550, 3300],
-    ["11x8.5", 3300, 2550],
-  ] as const)(
-    "converts %s inches to the expected 300 DPI canvas",
-    (sheetSizeId, widthPx, heightPx) => {
-      const sheetSize = findSheetSize(sheetSizeId);
+  test("converts the active 11x17 sheet to the expected 300 DPI canvas", () => {
+    const sheetSize = findSheetSize("11x17");
 
-      expect(sheetSizeToPixels(sheetSize)).toEqual({ widthPx, heightPx });
-    }
-  );
+    expect(sheetSizeToPixels(sheetSize)).toEqual({
+      widthPx: 3300,
+      heightPx: 5100,
+    });
+  });
 
   test("converts print rule distances to pixels at 300 DPI", () => {
     const { printRules, requiredDpi } = STICKER_SHEET_MVP_PROFILE;
 
     expect(inchesToPixels(printRules.sheetEdgeMarginIn, requiredDpi)).toBe(75);
-    expect(inchesToPixels(printRules.stickerSpacingIn, requiredDpi)).toBe(75);
+    expect(inchesToPixels(printRules.stickerSpacingIn, requiredDpi)).toBe(300);
     expect(inchesToPixels(printRules.minStickerSizeIn, requiredDpi)).toBe(225);
     expect(inchesToPixels(printRules.bleedIn, requiredDpi)).toBe(37.5);
     expect(inchesToPixels(printRules.safeMarginIn, requiredDpi)).toBe(37.5);

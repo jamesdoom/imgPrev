@@ -9,7 +9,7 @@ function documentWithAsset() {
   return {
     ...createSheetDocument({
       id: "project-1",
-      sheetSizeId: "4x6",
+      sheetSizeId: "11x17",
     }),
     assets: [
       {
@@ -32,8 +32,8 @@ describe("renderProductionFiles", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          widthPx: 1200,
-          heightPx: 1800,
+          widthPx: 3300,
+          heightPx: 5100,
           previewPngBase64: "png",
           printPdfBase64: "pdf",
         }),
@@ -51,8 +51,8 @@ describe("renderProductionFiles", () => {
         },
       })
     ).resolves.toMatchObject({
-      widthPx: 1200,
-      heightPx: 1800,
+      widthPx: 3300,
+      heightPx: 5100,
       previewPngBase64: "png",
       printPdfBase64: "pdf",
     });
@@ -79,8 +79,8 @@ describe("renderProductionFiles", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          widthPx: 1200,
-          heightPx: 1800,
+          widthPx: 3300,
+          heightPx: 5100,
           previewPngBase64: "png",
           printPdfBase64: "pdf",
         }),
