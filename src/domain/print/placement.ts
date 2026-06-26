@@ -72,20 +72,18 @@ export function autoArrangeSheetItems({
   const { sheetEdgeMarginIn, stickerSpacingIn } = profile.printRules;
   const maxX = document.sheet.widthIn - sheetEdgeMarginIn;
   const maxY = document.sheet.heightIn - sheetEdgeMarginIn;
+  const candidates = getAutoArrangeCandidates({
+    document,
+    idFactory,
+    profile,
+  });
   const items: SheetItem[] = [];
   const unplacedAssetIds: string[] = [];
   let xIn = sheetEdgeMarginIn;
   let yIn = sheetEdgeMarginIn;
   let rowHeightIn = 0;
 
-  document.assets.forEach((asset, index) => {
-    const item = createSheetItemFromAsset({
-      id: idFactory(asset, index),
-      asset,
-      document,
-      profile,
-    });
-
+  candidates.forEach((item) => {
     if (xIn + item.widthIn > maxX && xIn > sheetEdgeMarginIn) {
       xIn = sheetEdgeMarginIn;
       yIn += rowHeightIn + stickerSpacingIn;
@@ -93,7 +91,7 @@ export function autoArrangeSheetItems({
     }
 
     if (yIn + item.heightIn > maxY) {
-      unplacedAssetIds.push(asset.id);
+      unplacedAssetIds.push(item.assetId);
       return;
     }
 
@@ -111,6 +109,37 @@ export function autoArrangeSheetItems({
     items,
     unplacedAssetIds,
   };
+}
+
+function getAutoArrangeCandidates({
+  document,
+  idFactory,
+  profile,
+}: Required<AutoArrangeSheetItemsInput>): SheetItem[] {
+  if (document.items.length === 0) {
+    return document.assets.map((asset, index) =>
+      createSheetItemFromAsset({
+        id: idFactory(asset, index),
+        asset,
+        document,
+        profile,
+      })
+    );
+  }
+
+  const placedAssetIds = new Set(document.items.map((item) => item.assetId));
+  const unplacedAssetItems = document.assets
+    .filter((asset) => !placedAssetIds.has(asset.id))
+    .map((asset, index) =>
+      createSheetItemFromAsset({
+        id: idFactory(asset, document.items.length + index),
+        asset,
+        document,
+        profile,
+      })
+    );
+
+  return [...document.items, ...unplacedAssetItems];
 }
 
 function getNaturalAssetSizeIn(
