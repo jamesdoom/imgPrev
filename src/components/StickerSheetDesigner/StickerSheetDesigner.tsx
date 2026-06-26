@@ -93,7 +93,6 @@ export default function StickerSheetDesigner() {
   const [assetFiles, setAssetFiles] = useState<Record<string, File>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [customerNote, setCustomerNote] = useState("");
   const [assetQuantities, setAssetQuantities] = useState<
     Record<string, number>
   >({});
@@ -357,7 +356,6 @@ export default function StickerSheetDesigner() {
     try {
       const renderedFiles = await renderProductionFiles({
         assetFiles,
-        customerNote,
         document,
         preflightIssues,
       });
@@ -394,7 +392,6 @@ export default function StickerSheetDesigner() {
     try {
       const result = await submitProjectForReview({
         assetFiles,
-        customerNote,
         document,
         preflightIssues,
       });
@@ -584,6 +581,18 @@ export default function StickerSheetDesigner() {
               </>
             )}
           </div>
+
+          <PanelTitle title="Proof" />
+          <ProductionActionsPanel
+            canExport={canExport}
+            documentItemCount={document.items.length}
+            isExporting={isExporting}
+            isSubmitting={isSubmitting}
+            submittedProjectId={submittedProjectId}
+            onDownloadBundle={downloadAvailableBundleFiles}
+            onDownloadPreviewPng={downloadPreviewPng}
+            onSubmitForReview={submitForReview}
+          />
         </aside>
 
         <main className="min-h-[480px] min-w-0 lg:min-h-0">
@@ -688,24 +697,15 @@ export default function StickerSheetDesigner() {
 
           <PanelTitle title="Export" />
           <ExportPanel
-            canExport={canExport}
-            customerNote={customerNote}
             documentItemCount={document.items.length}
             preflightErrorCount={preflightErrorCount}
             preflightWarningCount={preflightWarningCount}
-            isExporting={isExporting}
-            isSubmitting={isSubmitting}
             proofGuidance={proofGuidance}
             orderEstimate={orderEstimate}
-            submittedProjectId={submittedProjectId}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
-            onDownloadBundle={downloadAvailableBundleFiles}
-            onDownloadPreviewPng={downloadPreviewPng}
             onDownloadProjectJson={downloadProjectJson}
-            onCustomerNoteChange={setCustomerNote}
             onImportProjectJson={importProjectJson}
-            onSubmitForReview={submitForReview}
           />
 
           <PanelTitle title="Selection" />
@@ -930,74 +930,27 @@ function roundToHundredth(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function ExportPanel({
+function ProductionActionsPanel({
   canExport,
-  assetCount,
-  customerNote,
   documentItemCount,
-  preflightErrorCount,
-  preflightWarningCount,
   isExporting,
   isSubmitting,
-  orderEstimate,
-  proofGuidance,
-  sheetLabel,
   submittedProjectId,
-  onCustomerNoteChange,
   onDownloadBundle,
   onDownloadPreviewPng,
-  onDownloadProjectJson,
-  onImportProjectJson,
   onSubmitForReview,
 }: {
   canExport: boolean;
-  assetCount: number;
-  customerNote: string;
   documentItemCount: number;
-  preflightErrorCount: number;
-  preflightWarningCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
-  orderEstimate: SheetOrderEstimate;
-  proofGuidance: ProofGuidance;
-  sheetLabel: string;
   submittedProjectId: string | null;
-  onCustomerNoteChange: (note: string) => void;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
-  onDownloadProjectJson: () => void;
-  onImportProjectJson: (file: File | undefined) => void;
   onSubmitForReview: () => void;
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
-      <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm">
-        <div className="grid grid-cols-2 gap-2">
-          <ProofMetric label="Sheet" value={sheetLabel} />
-          <ProofMetric label="Artwork" value={assetCount} />
-          <ProofMetric label="Decals" value={documentItemCount} />
-          <ProofMetric
-            label="Preflight"
-            value={
-              preflightErrorCount === 0 && preflightWarningCount === 0
-                ? "Ready"
-                : `${preflightErrorCount} errors | ${preflightWarningCount} warnings`
-            }
-          />
-        </div>
-      </div>
-      <ProofChecklist guidance={proofGuidance} />
-      <PricingSummary estimate={orderEstimate} />
-      <label className="block text-xs font-semibold uppercase text-neutral-500">
-        Production note
-        <textarea
-          className="mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950"
-          maxLength={1000}
-          placeholder="Special requests for proofing"
-          value={customerNote}
-          onChange={(event) => onCustomerNoteChange(event.target.value)}
-        />
-      </label>
       <button
         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={documentItemCount === 0}
@@ -1030,6 +983,50 @@ function ExportPanel({
           Submitted as {submittedProjectId}
         </div>
       )}
+    </div>
+  );
+}
+
+function ExportPanel({
+  assetCount,
+  documentItemCount,
+  preflightErrorCount,
+  preflightWarningCount,
+  orderEstimate,
+  proofGuidance,
+  sheetLabel,
+  onDownloadProjectJson,
+  onImportProjectJson,
+}: {
+  assetCount: number;
+  documentItemCount: number;
+  preflightErrorCount: number;
+  preflightWarningCount: number;
+  orderEstimate: SheetOrderEstimate;
+  proofGuidance: ProofGuidance;
+  sheetLabel: string;
+  onDownloadProjectJson: () => void;
+  onImportProjectJson: (file: File | undefined) => void;
+}) {
+  return (
+    <div className="space-y-2 px-4 pb-4">
+      <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <ProofMetric label="Sheet" value={sheetLabel} />
+          <ProofMetric label="Artwork" value={assetCount} />
+          <ProofMetric label="Decals" value={documentItemCount} />
+          <ProofMetric
+            label="Preflight"
+            value={
+              preflightErrorCount === 0 && preflightWarningCount === 0
+                ? "Ready"
+                : `${preflightErrorCount} errors | ${preflightWarningCount} warnings`
+            }
+          />
+        </div>
+      </div>
+      <ProofChecklist guidance={proofGuidance} />
+      <PricingSummary estimate={orderEstimate} />
 
       <details className="rounded border border-neutral-200 bg-neutral-50">
         <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
