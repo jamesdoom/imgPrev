@@ -554,6 +554,20 @@ export default function StickerSheetDesigner() {
                   <SparklesIcon className="h-5 w-5" />
                   Auto-arrange
                 </button>
+                <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+                  <PhotoIcon className="h-5 w-5" />
+                  Upload artwork
+                  <input
+                    className="sr-only"
+                    type="file"
+                    multiple
+                    accept={ARTWORK_FILE_ACCEPT}
+                    onChange={(event) => {
+                      void handleFiles(event.target.files);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
                 {document.assets.map((asset) => (
                   <AssetRow
                     key={asset.id}
