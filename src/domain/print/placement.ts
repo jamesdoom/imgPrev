@@ -1,4 +1,5 @@
 import { STICKER_SHEET_MVP_PROFILE } from "./productionProfiles";
+import { getItemBounds } from "./preflight";
 import type {
   ProductionProfile,
   SheetAsset,
@@ -22,6 +23,16 @@ export interface AutoArrangeSheetItemsInput {
 export interface AutoArrangeSheetItemsResult {
   items: SheetItem[];
   unplacedAssetIds: string[];
+}
+
+interface ArrangeCandidate {
+  item: SheetItem;
+  boundsOffset: {
+    xIn: number;
+    yIn: number;
+  };
+  heightIn: number;
+  widthIn: number;
 }
 
 export function createSheetItemFromAsset({
@@ -72,42 +83,57 @@ export function autoArrangeSheetItems({
   const { sheetEdgeMarginIn, stickerSpacingIn } = profile.printRules;
   const maxX = document.sheet.widthIn - sheetEdgeMarginIn;
   const maxY = document.sheet.heightIn - sheetEdgeMarginIn;
-  const candidates = getAutoArrangeCandidates({
-    document,
-    idFactory,
-    profile,
-  });
+  const candidates = getAutoArrangeCandidates({ document, idFactory, profile })
+    .map(createArrangeCandidate);
   const items: SheetItem[] = [];
   const unplacedAssetIds: string[] = [];
   let xIn = sheetEdgeMarginIn;
   let yIn = sheetEdgeMarginIn;
   let rowHeightIn = 0;
 
-  candidates.forEach((item) => {
-    if (xIn + item.widthIn > maxX && xIn > sheetEdgeMarginIn) {
+  candidates.forEach((candidate) => {
+    if (xIn + candidate.widthIn > maxX && xIn > sheetEdgeMarginIn) {
       xIn = sheetEdgeMarginIn;
       yIn += rowHeightIn + stickerSpacingIn;
       rowHeightIn = 0;
     }
 
-    if (yIn + item.heightIn > maxY) {
-      unplacedAssetIds.push(item.assetId);
+    if (yIn + candidate.heightIn > maxY) {
+      unplacedAssetIds.push(candidate.item.assetId);
       return;
     }
 
     items.push({
-      ...item,
-      xIn: roundToThousandth(xIn),
-      yIn: roundToThousandth(yIn),
+      ...candidate.item,
+      xIn: roundToThousandth(xIn - candidate.boundsOffset.xIn),
+      yIn: roundToThousandth(yIn - candidate.boundsOffset.yIn),
     });
 
-    xIn += item.widthIn + stickerSpacingIn;
-    rowHeightIn = Math.max(rowHeightIn, item.heightIn);
+    xIn += candidate.widthIn + stickerSpacingIn;
+    rowHeightIn = Math.max(rowHeightIn, candidate.heightIn);
   });
 
   return {
     items,
     unplacedAssetIds,
+  };
+}
+
+function createArrangeCandidate(item: SheetItem): ArrangeCandidate {
+  const boundsAtOrigin = getItemBounds({
+    ...item,
+    xIn: 0,
+    yIn: 0,
+  });
+
+  return {
+    item,
+    boundsOffset: {
+      xIn: boundsAtOrigin.minX,
+      yIn: boundsAtOrigin.minY,
+    },
+    heightIn: boundsAtOrigin.maxY - boundsAtOrigin.minY,
+    widthIn: boundsAtOrigin.maxX - boundsAtOrigin.minX,
   };
 }
 

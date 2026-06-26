@@ -287,6 +287,63 @@ describe("autoArrangeSheetItems", () => {
     ]);
   });
 
+  test("uses rendered bounds when arranging scaled placed decals", () => {
+    const document = {
+      ...createSheetDocument({
+        id: "project-1",
+        sheetSizeId: "11x17",
+      }),
+      assets: [
+        {
+          id: "asset-1",
+          sourceUrl: "/uploads/one.png",
+          fileName: "one.png",
+          fileType: "image/png",
+          widthPx: 600,
+          heightPx: 300,
+        },
+      ],
+      items: [
+        {
+          id: "item-1",
+          assetId: "asset-1",
+          name: "one.png",
+          xIn: 0.25,
+          yIn: 0.25,
+          widthIn: 2,
+          heightIn: 1,
+          rotationDeg: 0,
+          scaleX: 2,
+          scaleY: 1,
+        },
+        {
+          id: "item-2",
+          assetId: "asset-1",
+          name: "one.png",
+          xIn: 3.25,
+          yIn: 0.25,
+          widthIn: 1,
+          heightIn: 1,
+          rotationDeg: 0,
+          scaleX: 1,
+          scaleY: 1,
+        },
+      ],
+    };
+
+    const result = autoArrangeSheetItems({
+      document,
+      idFactory: (_asset, index) => `new-item-${index + 1}`,
+    });
+
+    expect(result.unplacedAssetIds).toEqual([]);
+    expect(result.items).toMatchObject([
+      { id: "item-1", xIn: 0.25, yIn: 0.25, scaleX: 2 },
+      { id: "item-2", xIn: 5.25, yIn: 0.25 },
+    ]);
+    expect(runPreflight({ ...document, items: result.items })).toEqual([]);
+  });
+
   test("does not create false spacing issues from rounded positions", () => {
     const document = {
       ...createSheetDocument({
