@@ -35,6 +35,8 @@ interface ArrangeCandidate {
   widthIn: number;
 }
 
+const ARRANGE_SPACING_BUFFER_IN = 0.001;
+
 export function createSheetItemFromAsset({
   id,
   asset,
@@ -81,6 +83,7 @@ export function autoArrangeSheetItems({
   profile = STICKER_SHEET_MVP_PROFILE,
 }: AutoArrangeSheetItemsInput): AutoArrangeSheetItemsResult {
   const { sheetEdgeMarginIn, stickerSpacingIn } = profile.printRules;
+  const arrangedSpacingIn = stickerSpacingIn + ARRANGE_SPACING_BUFFER_IN;
   const maxX = document.sheet.widthIn - sheetEdgeMarginIn;
   const maxY = document.sheet.heightIn - sheetEdgeMarginIn;
   const candidates = getAutoArrangeCandidates({ document, idFactory, profile })
@@ -94,7 +97,7 @@ export function autoArrangeSheetItems({
   candidates.forEach((candidate) => {
     if (xIn + candidate.widthIn > maxX && xIn > sheetEdgeMarginIn) {
       xIn = sheetEdgeMarginIn;
-      yIn += rowHeightIn + stickerSpacingIn;
+      yIn += rowHeightIn + arrangedSpacingIn;
       rowHeightIn = 0;
     }
 
@@ -109,7 +112,7 @@ export function autoArrangeSheetItems({
       yIn: roundToThousandth(yIn - candidate.boundsOffset.yIn),
     });
 
-    xIn += candidate.widthIn + stickerSpacingIn;
+    xIn += candidate.widthIn + arrangedSpacingIn;
     rowHeightIn = Math.max(rowHeightIn, candidate.heightIn);
   });
 
