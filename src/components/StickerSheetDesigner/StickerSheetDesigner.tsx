@@ -1,3 +1,4 @@
+// src\components\StickerSheetDesigner\StickerSheetDesigner.tsx
 import {
   useEffect,
   useMemo,
@@ -97,23 +98,21 @@ export default function StickerSheetDesigner() {
     Record<string, number>
   >({});
   const [submittedProjectId, setSubmittedProjectId] = useState<string | null>(
-    null
+    null,
   );
   const [history, dispatchDocument] = useReducer(
-    (
-      state: SheetDocumentHistoryState,
-      action: SheetDocumentHistoryAction
-    ) => sheetDocumentHistoryReducer(state, action),
+    (state: SheetDocumentHistoryState, action: SheetDocumentHistoryAction) =>
+      sheetDocumentHistoryReducer(state, action),
     createInitialDocument(),
-    createSheetDocumentHistory
+    createSheetDocumentHistory,
   );
   const [viewState, dispatchView] = useReducer(
     sheetViewStateReducer,
-    DEFAULT_SHEET_VIEW_STATE
+    DEFAULT_SHEET_VIEW_STATE,
   );
   const document = history.present;
   const selectedItem = document.items.find((item) =>
-    viewState.selectedItemIds.includes(item.id)
+    viewState.selectedItemIds.includes(item.id),
   );
   const selectedAsset = selectedItem
     ? document.assets.find((asset) => asset.id === selectedItem.assetId)
@@ -121,10 +120,9 @@ export default function StickerSheetDesigner() {
   const hasSelection = viewState.selectedItemIds.length > 0;
   const preflightIssues = useMemo(() => runPreflight(document), [document]);
   const preflightErrorCount = preflightIssues.filter(
-    (issue) => issue.severity === "error"
+    (issue) => issue.severity === "error",
   ).length;
-  const preflightWarningCount =
-    preflightIssues.length - preflightErrorCount;
+  const preflightWarningCount = preflightIssues.length - preflightErrorCount;
   const canExport = canExportProductionBundle(preflightIssues);
   const workflowSteps = getWorkflowSteps({
     assetCount: document.assets.length,
@@ -135,7 +133,7 @@ export default function StickerSheetDesigner() {
   const proofGuidance = useMemo(() => buildProofGuidance(), []);
   const orderEstimate = useMemo(
     () => estimateSheetOrder({ sheetCount: 1 }),
-    []
+    [],
   );
 
   const assetCountText = useMemo(() => {
@@ -191,8 +189,8 @@ export default function StickerSheetDesigner() {
             document,
           }),
           index,
-          document
-        )
+          document,
+        ),
     );
 
     dispatchDocument({
@@ -285,14 +283,14 @@ export default function StickerSheetDesigner() {
     dispatchView(
       result.items[0]
         ? { type: "selection/select-item", itemId: result.items[0].id }
-        : { type: "selection/clear" }
+        : { type: "selection/clear" },
     );
 
     if (result.unplacedAssetIds.length > 0) {
       toast.error(
         `${result.unplacedAssetIds.length} artwork item${
           result.unplacedAssetIds.length === 1 ? "" : "s"
-        } did not fit.`
+        } did not fit.`,
       );
       return;
     }
@@ -321,15 +319,11 @@ export default function StickerSheetDesigner() {
         preflightIssues,
       }),
       null,
-      2
+      2,
     );
 
   const downloadProjectJson = () => {
-    downloadTextFile(
-      "project.json",
-      createManifestJson(),
-      "application/json"
-    );
+    downloadTextFile("project.json", createManifestJson(), "application/json");
     toast.success("Project JSON downloaded");
   };
 
@@ -360,21 +354,25 @@ export default function StickerSheetDesigner() {
         preflightIssues,
       });
 
-      downloadTextFile("project.json", createManifestJson(), "application/json");
+      downloadTextFile(
+        "project.json",
+        createManifestJson(),
+        "application/json",
+      );
       downloadBase64File(
         "preview.png",
         renderedFiles.previewPngBase64,
-        "image/png"
+        "image/png",
       );
       downloadBase64File(
         "print.pdf",
         renderedFiles.printPdfBase64,
-        "application/pdf"
+        "application/pdf",
       );
       toast.success("Production files downloaded");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Production export failed."
+        error instanceof Error ? error.message : "Production export failed.",
       );
     } finally {
       setIsExporting(false);
@@ -400,7 +398,7 @@ export default function StickerSheetDesigner() {
       toast.success(`Submitted ${result.projectId}`);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Project submission failed."
+        error instanceof Error ? error.message : "Project submission failed.",
       );
     } finally {
       setIsSubmitting(false);
@@ -426,7 +424,7 @@ export default function StickerSheetDesigner() {
       toast.success("Project JSON loaded");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Could not load project JSON."
+        error instanceof Error ? error.message : "Could not load project JSON.",
       );
     }
   };
@@ -489,11 +487,16 @@ export default function StickerSheetDesigner() {
         <aside className="border-b border-neutral-300 bg-white lg:min-h-0 lg:border-b-0 lg:border-r">
           <PanelTitle title="Sheet" />
           <div className="space-y-3 px-4 pb-4">
-            <label className="block text-xs font-semibold uppercase text-neutral-500">
+            <label
+              className="block text-xs font-semibold uppercase text-neutral-500"
+              htmlFor="sheet-size-select"
+            >
               Size
             </label>
             <select
+              id="sheet-size-select"
               className="h-10 w-full rounded border border-neutral-300 bg-white px-3 text-sm"
+              title="Sheet size"
               value={document.sheet.sizeId}
               onChange={(event) =>
                 dispatchDocument({
@@ -588,7 +591,7 @@ export default function StickerSheetDesigner() {
                     }
                     onRemove={() => removeAsset(asset.id)}
                     preflightIssues={preflightIssues.filter(
-                      (issue) => issue.assetId === asset.id
+                      (issue) => issue.assetId === asset.id,
                     )}
                   />
                 ))}
@@ -770,7 +773,9 @@ export default function StickerSheetDesigner() {
                 <NumberField
                   label="Rotation"
                   value={selectedItem.rotationDeg}
-                  onChange={(rotationDeg) => updateSelectedItem({ rotationDeg })}
+                  onChange={(rotationDeg) =>
+                    updateSelectedItem({ rotationDeg })
+                  }
                 />
 
                 <div className="flex gap-2">
@@ -922,14 +927,14 @@ function clampArtworkQuantity(quantity: number): number {
 
   return Math.min(
     MAX_ARTWORK_QUANTITY,
-    Math.max(MIN_ARTWORK_QUANTITY, Math.round(quantity))
+    Math.max(MIN_ARTWORK_QUANTITY, Math.round(quantity)),
   );
 }
 
 function staggerPlacedItem(
   item: SheetItem,
   index: number,
-  document: SheetDocument
+  document: SheetDocument,
 ): SheetItem {
   if (index === 0) {
     return item;
@@ -1090,10 +1095,8 @@ function PricingSummary({ estimate }: { estimate: SheetOrderEstimate }) {
       <div className="mt-2 space-y-1">
         <p>
           {estimate.sheetCount} sheet x{" "}
-          {formatCurrency(
-            estimate.subtotalCents / estimate.sheetCount
-          )}{" "}
-          per sheet
+          {formatCurrency(estimate.subtotalCents / estimate.sheetCount)} per
+          sheet
         </p>
         <p>
           {estimate.estimatedOrderCents > estimate.subtotalCents
@@ -1104,7 +1107,7 @@ function PricingSummary({ estimate }: { estimate: SheetOrderEstimate }) {
           {estimate.freeShippingEligible
             ? "This order qualifies for free shipping."
             : `Free shipping at ${formatCurrency(
-                estimate.freeShippingThresholdCents
+                estimate.freeShippingThresholdCents,
               )} or more.`}
         </p>
       </div>
@@ -1326,32 +1329,32 @@ function AssetRow({
       className={`grid w-full grid-cols-[48px_minmax(0,1fr)] gap-3 rounded border p-2 text-left ${
         isSelected
           ? "border-teal-700 bg-teal-50"
-          : "border-neutral-200 bg-white hover:bg-neutral-50"
+          : "border-neutral-200 bg-white"
       }`}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          onSelect();
-        }
-      }}
-      role="button"
-      tabIndex={0}
     >
-      <AssetThumbnail asset={asset} />
-      <span className="min-w-0">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">{asset.fileName}</span>
-          <ArtworkReadinessBadge readiness={readiness} />
+      <button
+        className="col-span-2 grid grid-cols-[48px_minmax(0,1fr)] gap-3 rounded text-left hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+        type="button"
+        onClick={onSelect}
+      >
+        <AssetThumbnail asset={asset} />
+        <span className="min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-medium">
+              {asset.fileName}
+            </span>
+            <ArtworkReadinessBadge readiness={readiness} />
+          </span>
+          <span className="block text-xs text-neutral-500">
+            {asset.widthPx && asset.heightPx
+              ? `${asset.widthPx} x ${asset.heightPx}px`
+              : asset.fileType}
+          </span>
+          <span className="mt-1 block text-xs text-neutral-500">
+            {readiness.detail}
+          </span>
         </span>
-        <span className="block text-xs text-neutral-500">
-          {asset.widthPx && asset.heightPx
-            ? `${asset.widthPx} x ${asset.heightPx}px`
-            : asset.fileType}
-        </span>
-        <span className="mt-1 block text-xs text-neutral-500">
-          {readiness.detail}
-        </span>
-      </span>
+      </button>
       <span className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
         <label className="block text-xs font-semibold uppercase text-neutral-500">
           Qty
@@ -1364,15 +1367,12 @@ function AssetRow({
             type="number"
             value={quantity}
             onChange={(event) => onQuantityChange(Number(event.target.value))}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
           />
         </label>
         <button
           className="inline-flex h-9 items-center rounded border border-neutral-300 bg-white px-3 text-xs font-semibold hover:bg-neutral-50"
           type="button"
-          onClick={(event) => {
-            event.stopPropagation();
+          onClick={() => {
             onPlace();
           }}
         >
@@ -1381,8 +1381,7 @@ function AssetRow({
         <button
           className="inline-flex h-9 items-center rounded border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50"
           type="button"
-          onClick={(event) => {
-            event.stopPropagation();
+          onClick={() => {
             onRemove();
           }}
         >
@@ -1401,7 +1400,7 @@ type ArtworkReadiness = {
 
 function getArtworkReadiness(
   asset: SheetAsset,
-  preflightIssues: PreflightIssue[]
+  preflightIssues: PreflightIssue[],
 ): ArtworkReadiness {
   if (preflightIssues.some((issue) => issue.severity === "error")) {
     return {
@@ -1450,11 +1449,7 @@ function getArtworkReadiness(
   };
 }
 
-function ArtworkReadinessBadge({
-  readiness,
-}: {
-  readiness: ArtworkReadiness;
-}) {
+function ArtworkReadinessBadge({ readiness }: { readiness: ArtworkReadiness }) {
   const className =
     readiness.tone === "ready"
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -1551,9 +1546,7 @@ async function createAssetFromFile(file: File): Promise<SheetAsset> {
   const sourceUrl = isImage
     ? await readFileAsDataUrl(file)
     : URL.createObjectURL(file);
-  const dimensions = isImage
-    ? await loadImageDimensions(sourceUrl)
-    : {};
+  const dimensions = isImage ? await loadImageDimensions(sourceUrl) : {};
 
   return {
     id: createId("asset"),
@@ -1579,7 +1572,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 async function loadImageDimensions(
-  sourceUrl: string
+  sourceUrl: string,
 ): Promise<Pick<SheetAsset, "widthPx" | "heightPx">> {
   return new Promise((resolve) => {
     const image = new Image();
@@ -1598,7 +1591,7 @@ async function loadImageDimensions(
 function downloadTextFile(
   fileName: string,
   contents: string,
-  mimeType: string
+  mimeType: string,
 ) {
   const blob = new Blob([contents], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -1614,10 +1607,10 @@ function downloadDataUrl(fileName: string, dataUrl: string) {
 function downloadBase64File(
   fileName: string,
   base64: string,
-  mimeType: string
+  mimeType: string,
 ) {
   const bytes = Uint8Array.from(atob(base64), (character) =>
-    character.charCodeAt(0)
+    character.charCodeAt(0),
   );
   const blob = new Blob([bytes], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -1673,7 +1666,7 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
   const durableAssetIds = new Set(
     candidate.assets
       .filter((asset) => hasDurableAssetUrl(asset))
-      .map((asset) => asset.id)
+      .map((asset) => asset.id),
   );
 
   const activeSheetSize = BASELINE_SHEET_SIZES[0];
@@ -1696,7 +1689,9 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
 function hasDurableAssetUrl(asset: SheetAsset): boolean {
   const previewUrl = asset.previewUrl ?? asset.sourceUrl;
 
-  return !previewUrl.startsWith("blob:") && !asset.sourceUrl.startsWith("blob:");
+  return (
+    !previewUrl.startsWith("blob:") && !asset.sourceUrl.startsWith("blob:")
+  );
 }
 
 function isSheetDocument(value: unknown): value is SheetDocument {

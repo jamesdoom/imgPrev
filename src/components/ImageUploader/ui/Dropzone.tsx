@@ -13,6 +13,11 @@ export default function Dropzone({
   onDrop,
   disabled = false,
 }: DropzoneProps): ReactElement {
+  const rootClassName = `flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-gray-400 bg-white px-4 py-5 text-center transition ${
+    disabled
+      ? "cursor-not-allowed opacity-60"
+      : "cursor-pointer hover:border-gray-600 hover:bg-gray-50"
+  }`;
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "image/*": [] },
@@ -24,9 +29,8 @@ export default function Dropzone({
     <div
       {...getRootProps()}
       data-testid="dropzone"
-      aria-disabled={disabled}
       tabIndex={disabled ? -1 : 0}
-      className="flex min-h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-gray-400 bg-white px-4 py-5 text-center transition hover:border-gray-600 hover:bg-gray-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
+      className={rootClassName}
     >
       <input {...getInputProps()} data-testid="file-input" />
       {isDragActive ? (
