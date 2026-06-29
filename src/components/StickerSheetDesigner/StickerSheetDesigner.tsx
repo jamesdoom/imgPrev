@@ -29,7 +29,6 @@ import {
   autoArrangeSheetItems,
   BASELINE_SHEET_SIZES,
   DEFAULT_SHEET_VIEW_STATE,
-  alignSheetItems,
   buildExportBundleManifest,
   buildProofGuidance,
   canExportProductionBundle,
@@ -38,7 +37,6 @@ import {
   createSheetItemFromAsset,
   estimateSheetOrder,
   formatCurrency,
-  distributeSheetItems,
   runPreflight,
   sheetDocumentHistoryReducer,
   sheetViewStateReducer,
@@ -49,8 +47,6 @@ import {
   type SheetAsset,
   type SheetDocument,
   type SheetItem,
-  type SheetItemAlignment,
-  type SheetItemDistribution,
   type SheetSizeId,
   type PreflightIssue,
   type ProofGuidance,
@@ -128,17 +124,8 @@ export default function StickerSheetDesigner() {
   const selectedAsset = selectedItem
     ? document.assets.find((asset) => asset.id === selectedItem.assetId)
     : undefined;
-  const selectedItems = useMemo(
-    () =>
-      document.items.filter((item) =>
-        viewState.selectedItemIds.includes(item.id),
-      ),
-    [document.items, viewState.selectedItemIds],
-  );
-  const selectedItemCount = selectedItems.length;
+  const selectedItemCount = viewState.selectedItemIds.length;
   const hasSelection = viewState.selectedItemIds.length > 0;
-  const canAlignSelection = selectedItemCount >= 2;
-  const canDistributeSelection = selectedItemCount >= 3;
   const preflightIssues = useMemo(() => runPreflight(document), [document]);
   const preflightErrorCount = preflightIssues.filter(
     (issue) => issue.severity === "error",
@@ -356,47 +343,6 @@ export default function StickerSheetDesigner() {
       patch,
       now: new Date().toISOString(),
     });
-  };
-
-  const replaceItemsFromLayout = (items: SheetItem[], successMessage: string) => {
-    if (items === document.items) {
-      return;
-    }
-
-    dispatchDocument({
-      type: "items/replace",
-      items,
-      now: new Date().toISOString(),
-    });
-    toast.success(successMessage);
-  };
-
-  const alignSelectedItems = (alignment: SheetItemAlignment) => {
-    if (!canAlignSelection) {
-      toast.error("Select at least two decals to align.");
-      return;
-    }
-
-    replaceItemsFromLayout(
-      alignSheetItems(document.items, viewState.selectedItemIds, alignment),
-      "Aligned selected decals.",
-    );
-  };
-
-  const distributeSelectedItems = (distribution: SheetItemDistribution) => {
-    if (!canDistributeSelection) {
-      toast.error("Select at least three decals to distribute.");
-      return;
-    }
-
-    replaceItemsFromLayout(
-      distributeSheetItems(
-        document.items,
-        viewState.selectedItemIds,
-        distribution,
-      ),
-      "Distributed selected decals.",
-    );
   };
 
   const createManifestJson = () =>
@@ -989,60 +935,6 @@ export default function StickerSheetDesigner() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase text-neutral-500">
-                    Align
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Left"
-                      onClick={() => alignSelectedItems("left")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Center"
-                      onClick={() => alignSelectedItems("center-x")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Right"
-                      onClick={() => alignSelectedItems("right")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Top"
-                      onClick={() => alignSelectedItems("top")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Middle"
-                      onClick={() => alignSelectedItems("center-y")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canAlignSelection}
-                      label="Bottom"
-                      onClick={() => alignSelectedItems("bottom")}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <LayoutToolButton
-                      disabled={!canDistributeSelection}
-                      label="Distribute H"
-                      onClick={() => distributeSelectedItems("horizontal")}
-                    />
-                    <LayoutToolButton
-                      disabled={!canDistributeSelection}
-                      label="Distribute V"
-                      onClick={() => distributeSelectedItems("vertical")}
-                    />
-                  </div>
-                  <p className="text-xs leading-5 text-neutral-500">
-                    Shift-click decals on the sheet to add them to the
-                    selection.
-                  </p>
-                </div>
-
                 <div className="grid grid-cols-4 gap-2">
                   <IconButton
                     label="Flip horizontal"
@@ -1068,31 +960,6 @@ export default function StickerSheetDesigner() {
                   >
                     <ArrowUturnRightIcon className="h-5 w-5" />
                   </IconButton>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <NumberField
-                    label="X"
-                    value={selectedItem.xIn}
-                    onChange={(xIn) => updateSelectedItem({ xIn })}
-                  />
-                  <NumberField
-                    label="Y"
-                    value={selectedItem.yIn}
-                    onChange={(yIn) => updateSelectedItem({ yIn })}
-                  />
-                  <NumberField
-                    label="W"
-                    min={0.1}
-                    value={selectedItem.widthIn}
-                    onChange={(widthIn) => updateSelectedItem({ widthIn })}
-                  />
-                  <NumberField
-                    label="H"
-                    min={0.1}
-                    value={selectedItem.heightIn}
-                    onChange={(heightIn) => updateSelectedItem({ heightIn })}
-                  />
                 </div>
 
                 <NumberField
@@ -1124,7 +991,7 @@ export default function StickerSheetDesigner() {
             ) : (
               <div className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
                 Select a decal on the sheet to edit its size, position, and
-                rotation. Shift-click to select multiple decals for alignment.
+                rotation.
               </div>
             )}
           </div>
@@ -1659,27 +1526,6 @@ function ToggleButton({
           ? "border-teal-700 bg-teal-50 text-teal-900"
           : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
       }`}
-      type="button"
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-function LayoutToolButton({
-  disabled,
-  label,
-  onClick,
-}: {
-  disabled?: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="h-9 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
-      disabled={disabled}
       type="button"
       onClick={onClick}
     >
