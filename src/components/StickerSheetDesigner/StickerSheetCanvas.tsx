@@ -32,12 +32,13 @@ import type {
 } from "../../domain/print";
 
 const PREVIEW_PIXELS_PER_INCH = 96;
-const CHECKER_SIZE = 16;
+const CHECKER_SIZE = 24;
 const MIN_ITEM_SIZE_PX = 24;
 const CUTLINE_PADDING_PX = 6;
 const SNAP_GRID_IN = 0.25;
 const SNAP_THRESHOLD_IN = 0.05;
 const SPACING_GUIDE_LIMIT = 14;
+const DIMENSION_TICK_PX = 10;
 
 interface StickerSheetCanvasProps {
   document: SheetDocument;
@@ -80,16 +81,22 @@ export const StickerSheetCanvas = forwardRef<
 ) {
   const stageRef = useRef<Konva.Stage>(null);
   const [activeSnapGuides, setActiveSnapGuides] = useState<SnapGuideLine[]>([]);
+  const [isDraggingItem, setIsDraggingItem] = useState(false);
   const assetsById = useMemo(
     () => new Map(document.assets.map((asset) => [asset.id, asset])),
     [document.assets]
   );
   const spacingGuides = useMemo(
     () =>
-      viewState.showSpacingGuides
+      viewState.showSpacingGuides && !isDraggingItem
         ? getSpacingGuides(document, viewState.selectedItemIds)
         : [],
-    [document, viewState.selectedItemIds, viewState.showSpacingGuides]
+    [
+      document,
+      isDraggingItem,
+      viewState.selectedItemIds,
+      viewState.showSpacingGuides,
+    ]
   );
   const width = document.sheet.widthIn * PREVIEW_PIXELS_PER_INCH;
   const height = document.sheet.heightIn * PREVIEW_PIXELS_PER_INCH;
@@ -141,7 +148,8 @@ export const StickerSheetCanvas = forwardRef<
 
   return (
     <div className="h-full overflow-auto bg-neutral-200 p-3 sm:p-6">
-      <div className="mx-auto w-fit rounded-sm border border-neutral-300 bg-white shadow-sm">
+      <div className="relative mx-auto w-fit rounded-sm border border-neutral-300 bg-white shadow-sm">
+        <GuideStatusChip viewState={viewState} />
         <Stage
           ref={stageRef}
           width={stageWidth}
@@ -185,6 +193,7 @@ export const StickerSheetCanvas = forwardRef<
                   snapToGrid={viewState.snapToGrid}
                   snapToItems={viewState.snapToItems}
                   onSelect={(append) => onSelectItem(item.id, append)}
+                  onDragStateChange={setIsDraggingItem}
                   onSnapGuidesChange={setActiveSnapGuides}
                   onUpdate={(patch) => onUpdateItem(item.id, patch)}
                 />
@@ -217,6 +226,7 @@ function StickerItemNode({
   snapToGrid,
   snapToItems,
   onSelect,
+  onDragStateChange,
   onSnapGuidesChange,
   onUpdate,
 }: {
@@ -229,6 +239,7 @@ function StickerItemNode({
   snapToGrid: boolean;
   snapToItems: boolean;
   onSelect: (append?: boolean) => void;
+  onDragStateChange: (isDragging: boolean) => void;
   onSnapGuidesChange: (guides: SnapGuideLine[]) => void;
   onUpdate: (patch: Partial<Omit<SheetItem, "id">>) => void;
 }) {
@@ -302,6 +313,9 @@ function StickerItemNode({
       onSelect(event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey);
     },
     onTap: () => onSelect(),
+    onDragStart: () => {
+      onDragStateChange(true);
+    },
     onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => {
       const snapped = getSnappedDragCenterPx({
         centerX: event.target.x(),
@@ -323,6 +337,7 @@ function StickerItemNode({
       onSnapGuidesChange(snapped.guides);
     },
     onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
+      onDragStateChange(false);
       onSnapGuidesChange([]);
       onUpdate({
         xIn: (event.target.x() - renderedWidth / 2) / PREVIEW_PIXELS_PER_INCH,
@@ -529,6 +544,23 @@ function getBestSnap(
   return bestSnap;
 }
 
+function GuideStatusChip({ viewState }: { viewState: SheetViewState }) {
+  const snapTargets = [
+    viewState.snapToGrid ? "grid" : null,
+    viewState.snapToItems ? "decals" : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="pointer-events-none absolute left-3 top-3 z-10 rounded border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm">
+      <span className="text-neutral-900">
+        Snap {snapTargets.length > 0 ? snapTargets.join(" + ") : "off"}
+      </span>
+      <span className="mx-1.5 text-neutral-300">|</span>
+      <span>Spacing {viewState.showSpacingGuides ? "on" : "off"}</span>
+    </div>
+  );
+}
+
 function SheetBackground({
   document,
   width,
@@ -563,7 +595,7 @@ function SheetBackground({
           y={y}
           width={CHECKER_SIZE}
           height={CHECKER_SIZE}
-          fill={isDark ? "#f4f4f5" : "#ffffff"}
+          fill={isDark ? "#fafafa" : "#ffffff"}
           listening={false}
         />
       );
@@ -578,24 +610,30 @@ function SheetGrid({ width, height }: { width: number; height: number }) {
   const gridSize = PREVIEW_PIXELS_PER_INCH / 2;
 
   for (let x = 0; x <= width; x += gridSize) {
+    const isMajor = Math.round(x) % PREVIEW_PIXELS_PER_INCH === 0;
+
     lines.push(
       <Line
         key={`v-${x}`}
         points={[x, 0, x, height]}
-        stroke="#d4d4d8"
-        strokeWidth={0.75}
+        stroke={isMajor ? "#d4d4d8" : "#e5e7eb"}
+        strokeWidth={isMajor ? 0.75 : 0.4}
+        opacity={isMajor ? 0.7 : 0.5}
         listening={false}
       />
     );
   }
 
   for (let y = 0; y <= height; y += gridSize) {
+    const isMajor = Math.round(y) % PREVIEW_PIXELS_PER_INCH === 0;
+
     lines.push(
       <Line
         key={`h-${y}`}
         points={[0, y, width, y]}
-        stroke="#d4d4d8"
-        strokeWidth={0.75}
+        stroke={isMajor ? "#d4d4d8" : "#e5e7eb"}
+        strokeWidth={isMajor ? 0.75 : 0.4}
+        opacity={isMajor ? 0.7 : 0.5}
         listening={false}
       />
     );
@@ -657,7 +695,7 @@ function SpacingGuideOverlay({ guides }: { guides: SpacingGuide[] }) {
   return (
     <>
       {guides.map((guide, index) => {
-        const color = guide.isTight ? "#dc2626" : "#0f766e";
+        const color = guide.isTight ? "#dc2626" : "#2563eb";
         const points =
           guide.orientation === "horizontal"
             ? [
@@ -672,28 +710,72 @@ function SpacingGuideOverlay({ guides }: { guides: SpacingGuide[] }) {
                 guide.crossIn * PREVIEW_PIXELS_PER_INCH,
                 guide.toIn * PREVIEW_PIXELS_PER_INCH,
               ];
+        const startTick =
+          guide.orientation === "horizontal"
+            ? [
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH - DIMENSION_TICK_PX / 2,
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH + DIMENSION_TICK_PX / 2,
+              ]
+            : [
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH - DIMENSION_TICK_PX / 2,
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH + DIMENSION_TICK_PX / 2,
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+              ];
+        const endTick =
+          guide.orientation === "horizontal"
+            ? [
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH - DIMENSION_TICK_PX / 2,
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH + DIMENSION_TICK_PX / 2,
+              ]
+            : [
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH - DIMENSION_TICK_PX / 2,
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH + DIMENSION_TICK_PX / 2,
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+              ];
+        const labelText = `${roundToHundredth(guide.distanceIn)}"`;
+        const labelWidth = Math.max(38, labelText.length * 7 + 10);
+        const labelHeight = 18;
         const labelX =
           guide.orientation === "horizontal"
-            ? ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH - 18
-            : guide.crossIn * PREVIEW_PIXELS_PER_INCH + 6;
+            ? ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH -
+              labelWidth / 2
+            : guide.crossIn * PREVIEW_PIXELS_PER_INCH + 8;
         const labelY =
           guide.orientation === "horizontal"
-            ? guide.crossIn * PREVIEW_PIXELS_PER_INCH - 18
-            : ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH - 7;
+            ? guide.crossIn * PREVIEW_PIXELS_PER_INCH - labelHeight - 6
+            : ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH -
+              labelHeight / 2;
 
         return (
           <Group key={`${guide.orientation}-${index}`}>
             <Line
               points={points}
               stroke={color}
-              strokeWidth={1.5}
-              dash={[4, 4]}
+              strokeWidth={1.25}
+              opacity={0.9}
             />
-            <Text
+            <Line points={startTick} stroke={color} strokeWidth={1.25} />
+            <Line points={endTick} stroke={color} strokeWidth={1.25} />
+            <Rect
               x={labelX}
               y={labelY}
-              text={`${roundToHundredth(guide.distanceIn)}"`}
-              fontSize={12}
+              width={labelWidth}
+              height={labelHeight}
+              fill="white"
+              opacity={0.88}
+              cornerRadius={3}
+            />
+            <Text
+              x={labelX + 5}
+              y={labelY + 3}
+              text={labelText}
+              fontSize={11}
               fontStyle="bold"
               fill={color}
             />
@@ -726,9 +808,10 @@ function SnapGuideOverlay({
           <Line
             key={`${guide.orientation}-${guide.positionIn}-${index}`}
             points={points}
-            stroke="#14b8a6"
-            strokeWidth={1.5}
+            stroke="#7c3aed"
+            strokeWidth={1.25}
             dash={[10, 6]}
+            opacity={0.8}
           />
         );
       })}
