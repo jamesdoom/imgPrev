@@ -28,6 +28,8 @@ import type {
 
 const PREVIEW_PIXELS_PER_INCH = 96;
 const CHECKER_SIZE = 16;
+const MIN_ITEM_SIZE_PX = 24;
+const CUTLINE_PADDING_PX = 6;
 
 interface StickerSheetCanvasProps {
   document: SheetDocument;
@@ -183,6 +185,14 @@ function StickerItemNode({
   const y = item.yIn * PREVIEW_PIXELS_PER_INCH;
   const width = item.widthIn * PREVIEW_PIXELS_PER_INCH;
   const height = item.heightIn * PREVIEW_PIXELS_PER_INCH;
+  const absScaleX = Math.max(Math.abs(item.scaleX), 0.0001);
+  const absScaleY = Math.max(Math.abs(item.scaleY), 0.0001);
+  const renderedWidth = width * absScaleX;
+  const renderedHeight = height * absScaleY;
+  const centerX = x + renderedWidth / 2;
+  const centerY = y + renderedHeight / 2;
+  const cutlineWidth = width + (CUTLINE_PADDING_PX * 2) / absScaleX;
+  const cutlineHeight = height + (CUTLINE_PADDING_PX * 2) / absScaleY;
 
   useEffect(() => {
     const node = image ? imageRef.current : placeholderRef.current;
@@ -200,34 +210,45 @@ function StickerItemNode({
       return;
     }
 
-    const nextWidth = Math.max(24, node.width() * node.scaleX());
-    const nextHeight = Math.max(24, node.height() * node.scaleY());
-
-    node.scaleX(1);
-    node.scaleY(1);
+    const nextScaleX = node.scaleX() < 0 ? -1 : 1;
+    const nextScaleY = node.scaleY() < 0 ? -1 : 1;
+    const nextWidth = Math.max(
+      MIN_ITEM_SIZE_PX,
+      node.width() * Math.abs(node.scaleX())
+    );
+    const nextHeight = Math.max(
+      MIN_ITEM_SIZE_PX,
+      node.height() * Math.abs(node.scaleY())
+    );
 
     onUpdate({
-      xIn: node.x() / PREVIEW_PIXELS_PER_INCH,
-      yIn: node.y() / PREVIEW_PIXELS_PER_INCH,
+      xIn: (node.x() - nextWidth / 2) / PREVIEW_PIXELS_PER_INCH,
+      yIn: (node.y() - nextHeight / 2) / PREVIEW_PIXELS_PER_INCH,
       widthIn: nextWidth / PREVIEW_PIXELS_PER_INCH,
       heightIn: nextHeight / PREVIEW_PIXELS_PER_INCH,
-      rotationDeg: node.rotation(),
+      rotationDeg: normalizeRotation(node.rotation()),
+      scaleX: nextScaleX,
+      scaleY: nextScaleY,
     });
   };
 
   const commonProps = {
-    x,
-    y,
+    x: centerX,
+    y: centerY,
     width,
     height,
+    offsetX: width / 2,
+    offsetY: height / 2,
     rotation: item.rotationDeg,
+    scaleX: item.scaleX,
+    scaleY: item.scaleY,
     draggable: !item.locked,
     onClick: onSelect,
     onTap: onSelect,
     onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
       onUpdate({
-        xIn: event.target.x() / PREVIEW_PIXELS_PER_INCH,
-        yIn: event.target.y() / PREVIEW_PIXELS_PER_INCH,
+        xIn: (event.target.x() - renderedWidth / 2) / PREVIEW_PIXELS_PER_INCH,
+        yIn: (event.target.y() - renderedHeight / 2) / PREVIEW_PIXELS_PER_INCH,
       });
     },
     onTransformEnd: handleTransformEnd,
@@ -237,11 +258,15 @@ function StickerItemNode({
     <Group>
       {showCutline && (
         <Rect
-          x={x - 6}
-          y={y - 6}
-          width={width + 12}
-          height={height + 12}
+          x={centerX}
+          y={centerY}
+          width={cutlineWidth}
+          height={cutlineHeight}
+          offsetX={cutlineWidth / 2}
+          offsetY={cutlineHeight / 2}
           rotation={item.rotationDeg}
+          scaleX={item.scaleX}
+          scaleY={item.scaleY}
           stroke="#0f766e"
           strokeWidth={1.5}
           dash={[8, 5]}
@@ -282,7 +307,10 @@ function StickerItemNode({
           anchorStroke="#0f766e"
           anchorFill="#ffffff"
           boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 24 || newBox.height < 24) {
+            if (
+              newBox.width < MIN_ITEM_SIZE_PX ||
+              newBox.height < MIN_ITEM_SIZE_PX
+            ) {
               return oldBox;
             }
 
@@ -292,6 +320,10 @@ function StickerItemNode({
       )}
     </Group>
   );
+}
+
+function normalizeRotation(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
 }
 
 function SheetBackground({

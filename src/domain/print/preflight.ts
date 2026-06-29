@@ -62,17 +62,19 @@ export function runPreflight(
 export function getItemBounds(item: SheetItem): Bounds {
   const width = item.widthIn * Math.abs(item.scaleX);
   const height = item.heightIn * Math.abs(item.scaleY);
+  const centerX = item.xIn + width / 2;
+  const centerY = item.yIn + height / 2;
   const radians = (item.rotationDeg * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
   const corners = [
-    { x: 0, y: 0 },
-    { x: width, y: 0 },
-    { x: width, y: height },
-    { x: 0, y: height },
+    { x: -width / 2, y: -height / 2 },
+    { x: width / 2, y: -height / 2 },
+    { x: width / 2, y: height / 2 },
+    { x: -width / 2, y: height / 2 },
   ].map((corner) => ({
-    x: item.xIn + corner.x * cos - corner.y * sin,
-    y: item.yIn + corner.x * sin + corner.y * cos,
+    x: centerX + corner.x * cos - corner.y * sin,
+    y: centerY + corner.x * sin + corner.y * cos,
   }));
 
   return {
@@ -156,10 +158,10 @@ function preflightItem(
   const marginIn = profile.printRules.sheetEdgeMarginIn;
 
   if (
-    bounds.minX < marginIn ||
-    bounds.minY < marginIn ||
-    bounds.maxX > document.sheet.widthIn - marginIn ||
-    bounds.maxY > document.sheet.heightIn - marginIn
+    bounds.minX + MEASUREMENT_EPSILON_IN < marginIn ||
+    bounds.minY + MEASUREMENT_EPSILON_IN < marginIn ||
+    bounds.maxX - MEASUREMENT_EPSILON_IN > document.sheet.widthIn - marginIn ||
+    bounds.maxY - MEASUREMENT_EPSILON_IN > document.sheet.heightIn - marginIn
   ) {
     issues.push({
       id: `${item.id}:item-outside-safe-area`,

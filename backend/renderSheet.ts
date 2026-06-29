@@ -86,8 +86,19 @@ export async function renderSheetToFiles(
         1,
         Math.round(item.heightIn * Math.abs(item.scaleY) * document.sheet.dpi)
       );
-      const rotated = await sharp(file.buffer)
-        .resize(itemWidthPx, itemHeightPx, { fit: "fill" })
+      let image = sharp(file.buffer).resize(itemWidthPx, itemHeightPx, {
+        fit: "fill",
+      });
+
+      if (item.scaleX < 0) {
+        image = image.flop();
+      }
+
+      if (item.scaleY < 0) {
+        image = image.flip();
+      }
+
+      const rotated = await image
         .rotate(item.rotationDeg, {
           background: { r: 0, g: 0, b: 0, alpha: 0 },
         })
@@ -135,17 +146,19 @@ export async function renderSheetToFiles(
 function getItemBounds(item: RenderSheetItem): Bounds {
   const width = item.widthIn * Math.abs(item.scaleX);
   const height = item.heightIn * Math.abs(item.scaleY);
+  const centerX = item.xIn + width / 2;
+  const centerY = item.yIn + height / 2;
   const radians = (item.rotationDeg * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
   const corners = [
-    { x: 0, y: 0 },
-    { x: width, y: 0 },
-    { x: width, y: height },
-    { x: 0, y: height },
+    { x: -width / 2, y: -height / 2 },
+    { x: width / 2, y: -height / 2 },
+    { x: width / 2, y: height / 2 },
+    { x: -width / 2, y: height / 2 },
   ].map((corner) => ({
-    x: item.xIn + corner.x * cos - corner.y * sin,
-    y: item.yIn + corner.x * sin + corner.y * cos,
+    x: centerX + corner.x * cos - corner.y * sin,
+    y: centerY + corner.x * sin + corner.y * cos,
   }));
 
   return {

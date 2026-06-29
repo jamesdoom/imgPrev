@@ -173,7 +173,21 @@ describe("runPreflight", () => {
       rotationDeg: 45,
     });
 
-    expect(bounds.minX).toBeCloseTo(-0.207, 3);
-    expect(bounds.maxX).toBeCloseTo(1.207, 3);
+    expect(bounds.minX).toBeCloseTo(0.293, 3);
+    expect(bounds.maxX).toBeCloseTo(1.707, 3);
+  });
+
+  test("keeps rotated bounds centered on the sticker", () => {
+    const bounds = getItemBounds({
+      ...item,
+      xIn: 2,
+      yIn: 3,
+      widthIn: 2,
+      heightIn: 1,
+      rotationDeg: 90,
+    });
+
+    expect((bounds.minX + bounds.maxX) / 2).toBeCloseTo(3);
+    expect((bounds.minY + bounds.maxY) / 2).toBeCloseTo(3.5);
   });
 });
