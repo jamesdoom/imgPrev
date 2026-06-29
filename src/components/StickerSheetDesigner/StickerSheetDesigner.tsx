@@ -11,6 +11,8 @@ import {
   ArrowDownTrayIcon,
   ArrowUturnLeftIcon,
   ArrowUturnRightIcon,
+  ArrowsRightLeftIcon,
+  ArrowsUpDownIcon,
   CheckCircleIcon,
   CloudArrowUpIcon,
   DocumentDuplicateIcon,
@@ -227,6 +229,32 @@ export default function StickerSheetDesigner() {
     dispatchView({
       type: "selection/select-item",
       itemId: newItemId,
+    });
+  };
+
+  const flipSelectedItemHorizontal = () => {
+    if (!selectedItem) {
+      return;
+    }
+
+    updateSelectedItem({ scaleX: selectedItem.scaleX * -1 });
+  };
+
+  const flipSelectedItemVertical = () => {
+    if (!selectedItem) {
+      return;
+    }
+
+    updateSelectedItem({ scaleY: selectedItem.scaleY * -1 });
+  };
+
+  const rotateSelectedItem = (degrees: number) => {
+    if (!selectedItem) {
+      return;
+    }
+
+    updateSelectedItem({
+      rotationDeg: normalizeRotation(selectedItem.rotationDeg + degrees),
     });
   };
 
@@ -700,37 +728,6 @@ export default function StickerSheetDesigner() {
             onImportProjectJson={importProjectJson}
           />
 
-          <PanelTitle title="Preflight" />
-          <PreflightPanel
-            issues={preflightIssues}
-            onSelectIssue={(issue) => {
-              if (issue.itemId) {
-                dispatchView({
-                  type: "selection/select-item",
-                  itemId: issue.itemId,
-                });
-                return;
-              }
-
-              if (issue.assetId) {
-                dispatchView({
-                  type: "selection/select-asset",
-                  assetId: issue.assetId,
-                });
-              }
-            }}
-          />
-
-          <PanelTitle title="Export" />
-          <ExportPanel
-            documentItemCount={document.items.length}
-            preflightErrorCount={preflightErrorCount}
-            preflightWarningCount={preflightWarningCount}
-            orderEstimate={orderEstimate}
-            sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
-            assetCount={document.assets.length}
-          />
-
           <PanelTitle title="Selection" />
           <div className="space-y-4 px-4 pb-4">
             {selectedItem ? (
@@ -743,6 +740,33 @@ export default function StickerSheetDesigner() {
                     {selectedItem.widthIn.toFixed(2)}" x{" "}
                     {selectedItem.heightIn.toFixed(2)}"
                   </p>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <IconButton
+                    label="Flip horizontal"
+                    onClick={flipSelectedItemHorizontal}
+                  >
+                    <ArrowsRightLeftIcon className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton
+                    label="Flip vertical"
+                    onClick={flipSelectedItemVertical}
+                  >
+                    <ArrowsUpDownIcon className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton
+                    label="Rotate left 90 degrees"
+                    onClick={() => rotateSelectedItem(-90)}
+                  >
+                    <ArrowUturnLeftIcon className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton
+                    label="Rotate right 90 degrees"
+                    onClick={() => rotateSelectedItem(90)}
+                  >
+                    <ArrowUturnRightIcon className="h-5 w-5" />
+                  </IconButton>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -803,6 +827,37 @@ export default function StickerSheetDesigner() {
               </div>
             )}
           </div>
+
+          <PanelTitle title="Preflight" />
+          <PreflightPanel
+            issues={preflightIssues}
+            onSelectIssue={(issue) => {
+              if (issue.itemId) {
+                dispatchView({
+                  type: "selection/select-item",
+                  itemId: issue.itemId,
+                });
+                return;
+              }
+
+              if (issue.assetId) {
+                dispatchView({
+                  type: "selection/select-asset",
+                  assetId: issue.assetId,
+                });
+              }
+            }}
+          />
+
+          <PanelTitle title="Export" />
+          <ExportPanel
+            documentItemCount={document.items.length}
+            preflightErrorCount={preflightErrorCount}
+            preflightWarningCount={preflightWarningCount}
+            orderEstimate={orderEstimate}
+            sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
+            assetCount={document.assets.length}
+          />
         </aside>
       </div>
     </div>
@@ -953,6 +1008,10 @@ function staggerPlacedItem(
 
 function roundToHundredth(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function normalizeRotation(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
 }
 
 function ProductionActionsPanel({
