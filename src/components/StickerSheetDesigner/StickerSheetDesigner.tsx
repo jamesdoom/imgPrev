@@ -1,5 +1,6 @@
 // src\components\StickerSheetDesigner\StickerSheetDesigner.tsx
 import {
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -59,6 +60,10 @@ import {
   renderProductionFiles,
   submitProjectForReview,
 } from "./renderProductionFiles";
+import {
+  getDesignerKeyboardShortcut,
+  isEditableShortcutTarget,
+} from "./keyboardShortcuts";
 import { getWorkflowSteps, type WorkflowStep } from "./workflowProgress";
 
 const PROJECT_ID = "local-sticker-sheet";
@@ -456,6 +461,163 @@ export default function StickerSheetDesigner() {
       );
     }
   };
+
+  const applyKeyboardShortcut = useCallback(
+    (shortcut: ReturnType<typeof getDesignerKeyboardShortcut>) => {
+      if (!shortcut) {
+        return false;
+      }
+
+      const now = new Date().toISOString();
+
+      switch (shortcut.type) {
+        case "clear-selection":
+          if (!hasSelection) {
+            return false;
+          }
+
+          dispatchView({ type: "selection/clear" });
+          return true;
+
+        case "delete":
+          if (!hasSelection) {
+            return false;
+          }
+
+          viewState.selectedItemIds.forEach((itemId) => {
+            dispatchDocument({
+              type: "item/remove",
+              itemId,
+              now,
+            });
+          });
+          dispatchView({ type: "selection/clear" });
+          return true;
+
+        case "duplicate": {
+          if (!selectedItem) {
+            return false;
+          }
+
+          const newItemId = createId("item");
+
+          dispatchDocument({
+            type: "item/duplicate",
+            itemId: selectedItem.id,
+            newItemId,
+            now,
+          });
+          dispatchView({
+            type: "selection/select-item",
+            itemId: newItemId,
+          });
+          return true;
+        }
+
+        case "flip-horizontal":
+          if (!selectedItem) {
+            return false;
+          }
+
+          dispatchDocument({
+            type: "item/update",
+            itemId: selectedItem.id,
+            patch: { scaleX: selectedItem.scaleX * -1 },
+            now,
+          });
+          return true;
+
+        case "flip-vertical":
+          if (!selectedItem) {
+            return false;
+          }
+
+          dispatchDocument({
+            type: "item/update",
+            itemId: selectedItem.id,
+            patch: { scaleY: selectedItem.scaleY * -1 },
+            now,
+          });
+          return true;
+
+        case "nudge":
+          if (!selectedItem) {
+            return false;
+          }
+
+          dispatchDocument({
+            type: "item/update",
+            itemId: selectedItem.id,
+            patch: {
+              xIn: roundToThousandth(selectedItem.xIn + shortcut.xIn),
+              yIn: roundToThousandth(selectedItem.yIn + shortcut.yIn),
+            },
+            now,
+          });
+          return true;
+
+        case "redo":
+          if (history.future.length === 0) {
+            return false;
+          }
+
+          dispatchDocument({ type: "history/redo" });
+          return true;
+
+        case "rotate":
+          if (!selectedItem) {
+            return false;
+          }
+
+          dispatchDocument({
+            type: "item/update",
+            itemId: selectedItem.id,
+            patch: {
+              rotationDeg: normalizeRotation(
+                selectedItem.rotationDeg + shortcut.degrees,
+              ),
+            },
+            now,
+          });
+          return true;
+
+        case "undo":
+          if (history.past.length === 0) {
+            return false;
+          }
+
+          dispatchDocument({ type: "history/undo" });
+          return true;
+      }
+    },
+    [
+      hasSelection,
+      history.future.length,
+      history.past.length,
+      selectedItem,
+      viewState.selectedItemIds,
+    ],
+  );
+
+  useEffect(() => {
+    const handleKeyboardShortcut = (event: KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) {
+        return;
+      }
+
+      const shortcut = getDesignerKeyboardShortcut(event);
+
+      if (applyKeyboardShortcut(shortcut)) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboardShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyboardShortcut);
+    };
+  }, [applyKeyboardShortcut]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-neutral-100 text-neutral-950 lg:h-screen">
@@ -1008,6 +1170,10 @@ function staggerPlacedItem(
 
 function roundToHundredth(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function roundToThousandth(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 function normalizeRotation(degrees: number): number {
