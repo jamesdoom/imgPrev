@@ -127,6 +127,9 @@ export interface SheetViewState {
   showBleed: boolean;
   showSafeArea: boolean;
   showCutlines: boolean;
+  showSpacingGuides: boolean;
+  snapToGrid: boolean;
+  snapToItems: boolean;
 }
 
 export interface VectorCutline {

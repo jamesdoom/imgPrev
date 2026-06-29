@@ -11,6 +11,9 @@ export const DEFAULT_SHEET_VIEW_STATE: SheetViewState = {
   showBleed: true,
   showSafeArea: true,
   showCutlines: true,
+  showSpacingGuides: true,
+  snapToGrid: true,
+  snapToItems: true,
 };
 
 export type SheetViewStateAction =
@@ -23,7 +26,10 @@ export type SheetViewStateAction =
   | { type: "overlay/set-grid"; visible: boolean }
   | { type: "overlay/set-bleed"; visible: boolean }
   | { type: "overlay/set-safe-area"; visible: boolean }
-  | { type: "overlay/set-cutlines"; visible: boolean };
+  | { type: "overlay/set-cutlines"; visible: boolean }
+  | { type: "overlay/set-spacing-guides"; visible: boolean }
+  | { type: "snap/set-grid"; enabled: boolean }
+  | { type: "snap/set-items"; enabled: boolean };
 
 export function sheetViewStateReducer(
   state: SheetViewState,
@@ -94,6 +100,24 @@ export function sheetViewStateReducer(
       return {
         ...state,
         showCutlines: action.visible,
+      };
+
+    case "overlay/set-spacing-guides":
+      return {
+        ...state,
+        showSpacingGuides: action.visible,
+      };
+
+    case "snap/set-grid":
+      return {
+        ...state,
+        snapToGrid: action.enabled,
+      };
+
+    case "snap/set-items":
+      return {
+        ...state,
+        snapToItems: action.enabled,
       };
   }
 }

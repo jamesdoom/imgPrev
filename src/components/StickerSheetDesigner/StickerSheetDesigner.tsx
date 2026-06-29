@@ -29,6 +29,7 @@ import {
   autoArrangeSheetItems,
   BASELINE_SHEET_SIZES,
   DEFAULT_SHEET_VIEW_STATE,
+  alignSheetItems,
   buildExportBundleManifest,
   buildProofGuidance,
   canExportProductionBundle,
@@ -37,6 +38,7 @@ import {
   createSheetItemFromAsset,
   estimateSheetOrder,
   formatCurrency,
+  distributeSheetItems,
   runPreflight,
   sheetDocumentHistoryReducer,
   sheetViewStateReducer,
@@ -47,6 +49,8 @@ import {
   type SheetAsset,
   type SheetDocument,
   type SheetItem,
+  type SheetItemAlignment,
+  type SheetItemDistribution,
   type SheetSizeId,
   type PreflightIssue,
   type ProofGuidance,
@@ -124,7 +128,17 @@ export default function StickerSheetDesigner() {
   const selectedAsset = selectedItem
     ? document.assets.find((asset) => asset.id === selectedItem.assetId)
     : undefined;
+  const selectedItems = useMemo(
+    () =>
+      document.items.filter((item) =>
+        viewState.selectedItemIds.includes(item.id),
+      ),
+    [document.items, viewState.selectedItemIds],
+  );
+  const selectedItemCount = selectedItems.length;
   const hasSelection = viewState.selectedItemIds.length > 0;
+  const canAlignSelection = selectedItemCount >= 2;
+  const canDistributeSelection = selectedItemCount >= 3;
   const preflightIssues = useMemo(() => runPreflight(document), [document]);
   const preflightErrorCount = preflightIssues.filter(
     (issue) => issue.severity === "error",
@@ -342,6 +356,47 @@ export default function StickerSheetDesigner() {
       patch,
       now: new Date().toISOString(),
     });
+  };
+
+  const replaceItemsFromLayout = (items: SheetItem[], successMessage: string) => {
+    if (items === document.items) {
+      return;
+    }
+
+    dispatchDocument({
+      type: "items/replace",
+      items,
+      now: new Date().toISOString(),
+    });
+    toast.success(successMessage);
+  };
+
+  const alignSelectedItems = (alignment: SheetItemAlignment) => {
+    if (!canAlignSelection) {
+      toast.error("Select at least two decals to align.");
+      return;
+    }
+
+    replaceItemsFromLayout(
+      alignSheetItems(document.items, viewState.selectedItemIds, alignment),
+      "Aligned selected decals.",
+    );
+  };
+
+  const distributeSelectedItems = (distribution: SheetItemDistribution) => {
+    if (!canDistributeSelection) {
+      toast.error("Select at least three decals to distribute.");
+      return;
+    }
+
+    replaceItemsFromLayout(
+      distributeSheetItems(
+        document.items,
+        viewState.selectedItemIds,
+        distribution,
+      ),
+      "Distributed selected decals.",
+    );
   };
 
   const createManifestJson = () =>
@@ -811,8 +866,8 @@ export default function StickerSheetDesigner() {
             ref={canvasRef}
             document={document}
             viewState={viewState}
-            onSelectItem={(itemId) =>
-              dispatchView({ type: "selection/select-item", itemId })
+            onSelectItem={(itemId, append) =>
+              dispatchView({ type: "selection/select-item", itemId, append })
             }
             onClearSelection={() => dispatchView({ type: "selection/clear" })}
             onUpdateItem={(itemId, patch) =>
@@ -858,6 +913,17 @@ export default function StickerSheetDesigner() {
                 }
               />
               <OverlayToggle
+                description="Show measured gaps around selected decals."
+                label="Spacing guides"
+                checked={viewState.showSpacingGuides}
+                onChange={(visible) =>
+                  dispatchView({
+                    type: "overlay/set-spacing-guides",
+                    visible,
+                  })
+                }
+              />
+              <OverlayToggle
                 description={proofGuidance.bleed.description}
                 label={proofGuidance.bleed.label}
                 checked={viewState.showBleed}
@@ -881,6 +947,22 @@ export default function StickerSheetDesigner() {
                   dispatchView({ type: "overlay/set-cutlines", visible })
                 }
               />
+              <OverlayToggle
+                description='Snap moved decals to the 1/4" grid.'
+                label="Snap to grid"
+                checked={viewState.snapToGrid}
+                onChange={(enabled) =>
+                  dispatchView({ type: "snap/set-grid", enabled })
+                }
+              />
+              <OverlayToggle
+                description="Snap moved decals to other decals, sheet edges, and the safe margin."
+                label="Snap to decals and sheet"
+                checked={viewState.snapToItems}
+                onChange={(enabled) =>
+                  dispatchView({ type: "snap/set-items", enabled })
+                }
+              />
               <ProofGuideLegend guidance={proofGuidance} />
             </div>
           </details>
@@ -896,11 +978,68 @@ export default function StickerSheetDesigner() {
               <>
                 <div className="rounded border border-neutral-200 bg-neutral-50 p-3">
                   <p className="truncate text-sm font-medium">
-                    {selectedAsset?.fileName ?? selectedItem.name}
+                    {selectedItemCount > 1
+                      ? `${selectedItemCount} decals selected`
+                      : (selectedAsset?.fileName ?? selectedItem.name)}
                   </p>
                   <p className="text-xs text-neutral-500">
-                    {selectedItem.widthIn.toFixed(2)}" x{" "}
-                    {selectedItem.heightIn.toFixed(2)}"
+                    {selectedItemCount > 1
+                      ? "Editing the first selected decal below"
+                      : `${selectedItem.widthIn.toFixed(2)}" x ${selectedItem.heightIn.toFixed(2)}"`}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase text-neutral-500">
+                    Align
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Left"
+                      onClick={() => alignSelectedItems("left")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Center"
+                      onClick={() => alignSelectedItems("center-x")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Right"
+                      onClick={() => alignSelectedItems("right")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Top"
+                      onClick={() => alignSelectedItems("top")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Middle"
+                      onClick={() => alignSelectedItems("center-y")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canAlignSelection}
+                      label="Bottom"
+                      onClick={() => alignSelectedItems("bottom")}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LayoutToolButton
+                      disabled={!canDistributeSelection}
+                      label="Distribute H"
+                      onClick={() => distributeSelectedItems("horizontal")}
+                    />
+                    <LayoutToolButton
+                      disabled={!canDistributeSelection}
+                      label="Distribute V"
+                      onClick={() => distributeSelectedItems("vertical")}
+                    />
+                  </div>
+                  <p className="text-xs leading-5 text-neutral-500">
+                    Shift-click decals on the sheet to add them to the
+                    selection.
                   </p>
                 </div>
 
@@ -985,7 +1124,7 @@ export default function StickerSheetDesigner() {
             ) : (
               <div className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
                 Select a decal on the sheet to edit its size, position, and
-                rotation.
+                rotation. Shift-click to select multiple decals for alignment.
               </div>
             )}
           </div>
@@ -1520,6 +1659,27 @@ function ToggleButton({
           ? "border-teal-700 bg-teal-50 text-teal-900"
           : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
       }`}
+      type="button"
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function LayoutToolButton({
+  disabled,
+  label,
+  onClick,
+}: {
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="h-9 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+      disabled={disabled}
       type="button"
       onClick={onClick}
     >

@@ -4,6 +4,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
   type ReactElement,
 } from "react";
 import {
@@ -18,7 +19,11 @@ import {
 } from "react-konva";
 import type Konva from "konva";
 import { useImage } from "../../hooks/useImage";
-import { STICKER_SHEET_MVP_PROFILE, sheetSizeToPixels } from "../../domain/print";
+import {
+  STICKER_SHEET_MVP_PROFILE,
+  getItemBounds,
+  sheetSizeToPixels,
+} from "../../domain/print";
 import type {
   SheetAsset,
   SheetDocument,
@@ -30,17 +35,34 @@ const PREVIEW_PIXELS_PER_INCH = 96;
 const CHECKER_SIZE = 16;
 const MIN_ITEM_SIZE_PX = 24;
 const CUTLINE_PADDING_PX = 6;
+const SNAP_GRID_IN = 0.25;
+const SNAP_THRESHOLD_IN = 0.05;
+const SPACING_GUIDE_LIMIT = 14;
 
 interface StickerSheetCanvasProps {
   document: SheetDocument;
   viewState: SheetViewState;
-  onSelectItem: (itemId: string) => void;
+  onSelectItem: (itemId: string, append?: boolean) => void;
   onClearSelection: () => void;
   onUpdateItem: (itemId: string, patch: Partial<Omit<SheetItem, "id">>) => void;
 }
 
 export interface StickerSheetCanvasHandle {
   exportPreviewPng: () => string | null;
+}
+
+interface SnapGuideLine {
+  orientation: "horizontal" | "vertical";
+  positionIn: number;
+}
+
+interface SpacingGuide {
+  orientation: "horizontal" | "vertical";
+  fromIn: number;
+  toIn: number;
+  crossIn: number;
+  distanceIn: number;
+  isTight: boolean;
 }
 
 export const StickerSheetCanvas = forwardRef<
@@ -57,9 +79,17 @@ export const StickerSheetCanvas = forwardRef<
   ref
 ) {
   const stageRef = useRef<Konva.Stage>(null);
+  const [activeSnapGuides, setActiveSnapGuides] = useState<SnapGuideLine[]>([]);
   const assetsById = useMemo(
     () => new Map(document.assets.map((asset) => [asset.id, asset])),
     [document.assets]
+  );
+  const spacingGuides = useMemo(
+    () =>
+      viewState.showSpacingGuides
+        ? getSpacingGuides(document, viewState.selectedItemIds)
+        : [],
+    [document, viewState.selectedItemIds, viewState.showSpacingGuides]
   );
   const width = document.sheet.widthIn * PREVIEW_PIXELS_PER_INCH;
   const height = document.sheet.heightIn * PREVIEW_PIXELS_PER_INCH;
@@ -147,15 +177,30 @@ export const StickerSheetCanvas = forwardRef<
                 <StickerItemNode
                   key={item.id}
                   asset={asset}
+                  document={document}
                   item={item}
+                  items={document.items}
                   isSelected={viewState.selectedItemIds.includes(item.id)}
                   showCutline={viewState.showCutlines}
-                  onSelect={() => onSelectItem(item.id)}
+                  snapToGrid={viewState.snapToGrid}
+                  snapToItems={viewState.snapToItems}
+                  onSelect={(append) => onSelectItem(item.id, append)}
+                  onSnapGuidesChange={setActiveSnapGuides}
                   onUpdate={(patch) => onUpdateItem(item.id, patch)}
                 />
               );
             })}
           </Layer>
+          {(spacingGuides.length > 0 || activeSnapGuides.length > 0) && (
+            <Layer listening={false}>
+              <SpacingGuideOverlay guides={spacingGuides} />
+              <SnapGuideOverlay
+                guides={activeSnapGuides}
+                width={document.sheet.widthIn}
+                height={document.sheet.heightIn}
+              />
+            </Layer>
+          )}
         </Stage>
       </div>
     </div>
@@ -164,17 +209,27 @@ export const StickerSheetCanvas = forwardRef<
 
 function StickerItemNode({
   asset,
+  document,
   item,
+  items,
   isSelected,
   showCutline,
+  snapToGrid,
+  snapToItems,
   onSelect,
+  onSnapGuidesChange,
   onUpdate,
 }: {
   asset: SheetAsset;
+  document: SheetDocument;
   item: SheetItem;
+  items: SheetItem[];
   isSelected: boolean;
   showCutline: boolean;
-  onSelect: () => void;
+  snapToGrid: boolean;
+  snapToItems: boolean;
+  onSelect: (append?: boolean) => void;
+  onSnapGuidesChange: (guides: SnapGuideLine[]) => void;
   onUpdate: (patch: Partial<Omit<SheetItem, "id">>) => void;
 }) {
   const imageRef = useRef<Konva.Image>(null);
@@ -243,9 +298,32 @@ function StickerItemNode({
     scaleX: item.scaleX,
     scaleY: item.scaleY,
     draggable: !item.locked,
-    onClick: onSelect,
-    onTap: onSelect,
+    onClick: (event: Konva.KonvaEventObject<MouseEvent>) => {
+      onSelect(event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey);
+    },
+    onTap: () => onSelect(),
+    onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => {
+      const snapped = getSnappedDragCenterPx({
+        centerX: event.target.x(),
+        centerY: event.target.y(),
+        document,
+        item,
+        items,
+        snapToGrid,
+        snapToItems,
+      });
+
+      if (
+        snapped.centerX !== event.target.x() ||
+        snapped.centerY !== event.target.y()
+      ) {
+        event.target.position({ x: snapped.centerX, y: snapped.centerY });
+      }
+
+      onSnapGuidesChange(snapped.guides);
+    },
     onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
+      onSnapGuidesChange([]);
       onUpdate({
         xIn: (event.target.x() - renderedWidth / 2) / PREVIEW_PIXELS_PER_INCH,
         yIn: (event.target.y() - renderedHeight / 2) / PREVIEW_PIXELS_PER_INCH,
@@ -324,6 +402,131 @@ function StickerItemNode({
 
 function normalizeRotation(degrees: number): number {
   return ((degrees % 360) + 360) % 360;
+}
+
+function getSnappedDragCenterPx({
+  centerX,
+  centerY,
+  document,
+  item,
+  items,
+  snapToGrid,
+  snapToItems,
+}: {
+  centerX: number;
+  centerY: number;
+  document: SheetDocument;
+  item: SheetItem;
+  items: SheetItem[];
+  snapToGrid: boolean;
+  snapToItems: boolean;
+}): { centerX: number; centerY: number; guides: SnapGuideLine[] } {
+  const renderedWidthIn = item.widthIn * Math.abs(item.scaleX);
+  const renderedHeightIn = item.heightIn * Math.abs(item.scaleY);
+  const draftItem: SheetItem = {
+    ...item,
+    xIn: centerX / PREVIEW_PIXELS_PER_INCH - renderedWidthIn / 2,
+    yIn: centerY / PREVIEW_PIXELS_PER_INCH - renderedHeightIn / 2,
+  };
+  const bounds = getItemBounds(draftItem);
+  const sourceX = [
+    bounds.minX,
+    (bounds.minX + bounds.maxX) / 2,
+    bounds.maxX,
+  ];
+  const sourceY = [
+    bounds.minY,
+    (bounds.minY + bounds.maxY) / 2,
+    bounds.maxY,
+  ];
+  const targetX: number[] = [];
+  const targetY: number[] = [];
+
+  if (snapToGrid) {
+    targetX.push(...sourceX.map((position) => snapToGridLine(position)));
+    targetY.push(...sourceY.map((position) => snapToGridLine(position)));
+  }
+
+  if (snapToItems) {
+    const sheetMarginIn = STICKER_SHEET_MVP_PROFILE.printRules.sheetEdgeMarginIn;
+
+    targetX.push(
+      0,
+      sheetMarginIn,
+      document.sheet.widthIn / 2,
+      document.sheet.widthIn - sheetMarginIn,
+      document.sheet.widthIn,
+    );
+    targetY.push(
+      0,
+      sheetMarginIn,
+      document.sheet.heightIn / 2,
+      document.sheet.heightIn - sheetMarginIn,
+      document.sheet.heightIn,
+    );
+
+    items
+      .filter((candidate) => candidate.id !== item.id)
+      .forEach((candidate) => {
+        const candidateBounds = getItemBounds(candidate);
+
+        targetX.push(
+          candidateBounds.minX,
+          (candidateBounds.minX + candidateBounds.maxX) / 2,
+          candidateBounds.maxX,
+        );
+        targetY.push(
+          candidateBounds.minY,
+          (candidateBounds.minY + candidateBounds.maxY) / 2,
+          candidateBounds.maxY,
+        );
+      });
+  }
+
+  const xSnap = getBestSnap(sourceX, targetX);
+  const ySnap = getBestSnap(sourceY, targetY);
+  const guides: SnapGuideLine[] = [];
+
+  if (xSnap) {
+    guides.push({ orientation: "vertical", positionIn: xSnap.target });
+  }
+
+  if (ySnap) {
+    guides.push({ orientation: "horizontal", positionIn: ySnap.target });
+  }
+
+  return {
+    centerX: centerX + (xSnap?.delta ?? 0) * PREVIEW_PIXELS_PER_INCH,
+    centerY: centerY + (ySnap?.delta ?? 0) * PREVIEW_PIXELS_PER_INCH,
+    guides,
+  };
+}
+
+function snapToGridLine(positionIn: number): number {
+  return Math.round(positionIn / SNAP_GRID_IN) * SNAP_GRID_IN;
+}
+
+function getBestSnap(
+  sourcePositions: number[],
+  targetPositions: number[],
+): { delta: number; target: number } | null {
+  let bestSnap: { delta: number; target: number } | null = null;
+
+  sourcePositions.forEach((source) => {
+    targetPositions.forEach((target) => {
+      const delta = target - source;
+
+      if (Math.abs(delta) > SNAP_THRESHOLD_IN) {
+        return;
+      }
+
+      if (!bestSnap || Math.abs(delta) < Math.abs(bestSnap.delta)) {
+        bestSnap = { delta, target };
+      }
+    });
+  });
+
+  return bestSnap;
 }
 
 function SheetBackground({
@@ -448,4 +651,205 @@ function SafeAreaOverlay({ document }: { document: SheetDocument }) {
       />
     </>
   );
+}
+
+function SpacingGuideOverlay({ guides }: { guides: SpacingGuide[] }) {
+  return (
+    <>
+      {guides.map((guide, index) => {
+        const color = guide.isTight ? "#dc2626" : "#0f766e";
+        const points =
+          guide.orientation === "horizontal"
+            ? [
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH,
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH,
+              ]
+            : [
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH,
+                guide.fromIn * PREVIEW_PIXELS_PER_INCH,
+                guide.crossIn * PREVIEW_PIXELS_PER_INCH,
+                guide.toIn * PREVIEW_PIXELS_PER_INCH,
+              ];
+        const labelX =
+          guide.orientation === "horizontal"
+            ? ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH - 18
+            : guide.crossIn * PREVIEW_PIXELS_PER_INCH + 6;
+        const labelY =
+          guide.orientation === "horizontal"
+            ? guide.crossIn * PREVIEW_PIXELS_PER_INCH - 18
+            : ((guide.fromIn + guide.toIn) / 2) * PREVIEW_PIXELS_PER_INCH - 7;
+
+        return (
+          <Group key={`${guide.orientation}-${index}`}>
+            <Line
+              points={points}
+              stroke={color}
+              strokeWidth={1.5}
+              dash={[4, 4]}
+            />
+            <Text
+              x={labelX}
+              y={labelY}
+              text={`${roundToHundredth(guide.distanceIn)}"`}
+              fontSize={12}
+              fontStyle="bold"
+              fill={color}
+            />
+          </Group>
+        );
+      })}
+    </>
+  );
+}
+
+function SnapGuideOverlay({
+  guides,
+  height,
+  width,
+}: {
+  guides: SnapGuideLine[];
+  height: number;
+  width: number;
+}) {
+  return (
+    <>
+      {guides.map((guide, index) => {
+        const position = guide.positionIn * PREVIEW_PIXELS_PER_INCH;
+        const points =
+          guide.orientation === "vertical"
+            ? [position, 0, position, height * PREVIEW_PIXELS_PER_INCH]
+            : [0, position, width * PREVIEW_PIXELS_PER_INCH, position];
+
+        return (
+          <Line
+            key={`${guide.orientation}-${guide.positionIn}-${index}`}
+            points={points}
+            stroke="#14b8a6"
+            strokeWidth={1.5}
+            dash={[10, 6]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function getSpacingGuides(
+  document: SheetDocument,
+  selectedItemIds: string[],
+): SpacingGuide[] {
+  if (selectedItemIds.length === 0) {
+    return [];
+  }
+
+  const selectedIds = new Set(selectedItemIds);
+  const itemBounds = document.items.map((item) => ({
+    item,
+    bounds: getItemBounds(item),
+  }));
+  const requiredSpacingIn = STICKER_SHEET_MVP_PROFILE.printRules.stickerSpacingIn;
+  const visibleSpacingIn = Math.max(requiredSpacingIn * 3, 0.75);
+  const guides: SpacingGuide[] = [];
+
+  for (let firstIndex = 0; firstIndex < itemBounds.length; firstIndex += 1) {
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < itemBounds.length;
+      secondIndex += 1
+    ) {
+      const first = itemBounds[firstIndex];
+      const second = itemBounds[secondIndex];
+
+      if (!selectedIds.has(first.item.id) && !selectedIds.has(second.item.id)) {
+        continue;
+      }
+
+      const guide = getPairSpacingGuide(
+        first.bounds,
+        second.bounds,
+        requiredSpacingIn,
+      );
+
+      if (!guide) {
+        continue;
+      }
+
+      if (guide.isTight || guide.distanceIn <= visibleSpacingIn) {
+        guides.push(guide);
+      }
+    }
+  }
+
+  return guides
+    .sort(
+      (a, b) =>
+        Number(b.isTight) - Number(a.isTight) ||
+        a.distanceIn - b.distanceIn,
+    )
+    .slice(0, SPACING_GUIDE_LIMIT);
+}
+
+function getPairSpacingGuide(
+  firstBounds: ReturnType<typeof getItemBounds>,
+  secondBounds: ReturnType<typeof getItemBounds>,
+  requiredSpacingIn: number,
+): SpacingGuide | null {
+  const horizontalOverlap =
+    Math.min(firstBounds.maxY, secondBounds.maxY) -
+    Math.max(firstBounds.minY, secondBounds.minY);
+  const verticalOverlap =
+    Math.min(firstBounds.maxX, secondBounds.maxX) -
+    Math.max(firstBounds.minX, secondBounds.minX);
+
+  if (horizontalOverlap > 0) {
+    const [leftBounds, rightBounds] =
+      firstBounds.maxX <= secondBounds.minX
+        ? [firstBounds, secondBounds]
+        : [secondBounds, firstBounds];
+    const distanceIn = rightBounds.minX - leftBounds.maxX;
+
+    if (distanceIn >= 0) {
+      return {
+        orientation: "horizontal",
+        fromIn: leftBounds.maxX,
+        toIn: rightBounds.minX,
+        crossIn:
+          (Math.max(leftBounds.minY, rightBounds.minY) +
+            Math.min(leftBounds.maxY, rightBounds.maxY)) /
+          2,
+        distanceIn,
+        isTight: distanceIn < requiredSpacingIn,
+      };
+    }
+  }
+
+  if (verticalOverlap > 0) {
+    const [topBounds, bottomBounds] =
+      firstBounds.maxY <= secondBounds.minY
+        ? [firstBounds, secondBounds]
+        : [secondBounds, firstBounds];
+    const distanceIn = bottomBounds.minY - topBounds.maxY;
+
+    if (distanceIn >= 0) {
+      return {
+        orientation: "vertical",
+        fromIn: topBounds.maxY,
+        toIn: bottomBounds.minY,
+        crossIn:
+          (Math.max(topBounds.minX, bottomBounds.minX) +
+            Math.min(topBounds.maxX, bottomBounds.maxX)) /
+          2,
+        distanceIn,
+        isTight: distanceIn < requiredSpacingIn,
+      };
+    }
+  }
+
+  return null;
+}
+
+function roundToHundredth(value: number): string {
+  return (Math.round(value * 100) / 100).toFixed(2);
 }

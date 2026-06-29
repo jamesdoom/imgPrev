@@ -54,6 +54,29 @@ describe("sheetViewStateReducer", () => {
     });
 
     expect(withoutCutlines.showCutlines).toBe(false);
+
+    const withoutSpacingGuides = sheetViewStateReducer(withoutCutlines, {
+      type: "overlay/set-spacing-guides",
+      visible: false,
+    });
+
+    expect(withoutSpacingGuides.showSpacingGuides).toBe(false);
+  });
+
+  test("updates manual layout snap settings", () => {
+    const withoutGridSnap = sheetViewStateReducer(DEFAULT_SHEET_VIEW_STATE, {
+      type: "snap/set-grid",
+      enabled: false,
+    });
+
+    expect(withoutGridSnap.snapToGrid).toBe(false);
+
+    const withoutItemSnap = sheetViewStateReducer(withoutGridSnap, {
+      type: "snap/set-items",
+      enabled: false,
+    });
+
+    expect(withoutItemSnap.snapToItems).toBe(false);
   });
 
   test("clears selection", () => {
