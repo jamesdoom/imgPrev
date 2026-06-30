@@ -13,7 +13,12 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'jsdom',
-      exclude: ['**/node_modules/**', '**/dist/**', 'backend/dist/**'],
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        'backend/dist/**',
+        'tests/e2e/**',
+      ],
       setupFiles: './setupTests.ts',
     },
   }

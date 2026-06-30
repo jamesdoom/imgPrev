@@ -61,6 +61,7 @@ The frontend defaults to `http://localhost:5173` and the backend defaults to `ht
 
 ```sh
 npm run test:baseline
+npm run test:e2e
 npm run build
 npm run lint
 npm test

@@ -16,6 +16,14 @@ This runs:
 - `npm run build` for TypeScript and production bundle validation.
 - `npm run test` for unit, component, integration, backend API, and axe-style accessibility coverage.
 
+Run browser smoke checks when customer, editor, or admin workflows change:
+
+```sh
+npm run test:e2e
+```
+
+This runs Playwright checks against a real Chromium browser.
+
 Current baseline notes:
 
 - The build may warn that Browserslist data is stale. Treat this as maintenance noise unless it becomes a failure.
@@ -28,6 +36,7 @@ Current baseline notes:
 - Editor controls: transform, crop, export, keyboard shortcut, and accessibility coverage.
 - Admin review: API client behavior, review screen behavior, project status updates, reviewer notes, and downloadable previews.
 - Backend API: project submission, stored project access, review updates, and generated/downloadable file behavior.
+- Browser smoke tests: customer artwork upload/reload, proof request submission readiness, and admin review decision controls.
 
 ## Manual Smoke Checks
 
