@@ -1047,14 +1047,16 @@ export default function StickerSheetDesigner() {
             }}
           />
 
-          <PanelTitle title="Export" />
+          <PanelTitle title="Order Summary" />
           <ExportPanel
+            canExport={canExport}
             documentItemCount={document.items.length}
             preflightErrorCount={preflightErrorCount}
             preflightWarningCount={preflightWarningCount}
             orderEstimate={orderEstimate}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
+            submittedProjectId={submittedProjectId}
           />
         </aside>
       </div>
@@ -1275,18 +1277,22 @@ function ProductionActionsPanel({
 
 function ExportPanel({
   assetCount,
+  canExport,
   documentItemCount,
   preflightErrorCount,
   preflightWarningCount,
   orderEstimate,
   sheetLabel,
+  submittedProjectId,
 }: {
   assetCount: number;
+  canExport: boolean;
   documentItemCount: number;
   preflightErrorCount: number;
   preflightWarningCount: number;
   orderEstimate: SheetOrderEstimate;
   sheetLabel: string;
+  submittedProjectId: string | null;
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
@@ -1305,7 +1311,13 @@ function ExportPanel({
           />
         </div>
       </div>
-      <PricingSummary estimate={orderEstimate} />
+      <OrderSummaryPanel
+        canExport={canExport}
+        documentItemCount={documentItemCount}
+        estimate={orderEstimate}
+        preflightErrorCount={preflightErrorCount}
+        submittedProjectId={submittedProjectId}
+      />
     </div>
   );
 }
@@ -1349,31 +1361,145 @@ function ProjectToolsPanel({
   );
 }
 
-function PricingSummary({ estimate }: { estimate: SheetOrderEstimate }) {
+function OrderSummaryPanel({
+  canExport,
+  documentItemCount,
+  estimate,
+  preflightErrorCount,
+  submittedProjectId,
+}: {
+  canExport: boolean;
+  documentItemCount: number;
+  estimate: SheetOrderEstimate;
+  preflightErrorCount: number;
+  submittedProjectId: string | null;
+}) {
+  const perSheetCents = estimate.subtotalCents / estimate.sheetCount;
+  const readiness = getSubmitProofReadiness({
+    canExport,
+    documentItemCount,
+    preflightErrorCount,
+    submittedProjectId,
+  });
+
   return (
-    <div className="rounded border border-neutral-200 bg-white p-3 text-xs text-neutral-700">
-      <p className="font-semibold text-neutral-900">Sheet pricing</p>
-      <div className="mt-2 space-y-1">
-        <p>
-          {estimate.sheetCount} sheet x{" "}
-          {formatCurrency(estimate.subtotalCents / estimate.sheetCount)} per
-          sheet
-        </p>
-        <p>
-          {estimate.estimatedOrderCents > estimate.subtotalCents
-            ? `${formatCurrency(estimate.minimumOrderCents)} minimum order applies.`
-            : `Estimated sheet total ${formatCurrency(estimate.estimatedOrderCents)}.`}
-        </p>
-        <p>
-          {estimate.freeShippingEligible
-            ? "This order qualifies for free shipping."
-            : `Free shipping at ${formatCurrency(
-                estimate.freeShippingThresholdCents,
-              )} or more.`}
-        </p>
+    <div className="rounded border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
+      <div className="flex items-start justify-between gap-3">
+        <span>
+          <span className="block text-xs font-semibold uppercase text-neutral-500">
+            Estimated total
+          </span>
+          <span className="mt-1 block text-xl font-semibold text-neutral-950">
+            {formatCurrency(estimate.estimatedOrderCents)}
+          </span>
+        </span>
+        <span
+          className={`rounded border px-2 py-1 text-xs font-semibold ${readiness.className}`}
+        >
+          {readiness.label}
+        </span>
+      </div>
+
+      <dl className="mt-3 divide-y divide-neutral-200 border-y border-neutral-200 text-xs">
+        <OrderSummaryRow
+          label="Sheet count"
+          value={`${estimate.sheetCount} sheet${
+            estimate.sheetCount === 1 ? "" : "s"
+          }`}
+        />
+        <OrderSummaryRow
+          label="Price"
+          value={`${formatCurrency(perSheetCents)} per sheet`}
+        />
+        <OrderSummaryRow
+          label="Sheet subtotal"
+          value={formatCurrency(estimate.subtotalCents)}
+        />
+        <OrderSummaryRow
+          label="Minimum order"
+          value={formatCurrency(estimate.minimumOrderCents)}
+        />
+        <OrderSummaryRow
+          label="Free shipping threshold"
+          value={formatCurrency(estimate.freeShippingThresholdCents)}
+        />
+      </dl>
+
+      <div className={`mt-3 rounded border p-3 text-xs ${readiness.className}`}>
+        <p className="font-semibold">Submit proof request</p>
+        <p className="mt-1 leading-5">{readiness.description}</p>
+        {!estimate.freeShippingEligible && (
+          <p className="mt-2 leading-5">
+            {formatCurrency(estimate.remainingForFreeShippingCents)} from free
+            shipping.
+          </p>
+        )}
       </div>
     </div>
   );
+}
+
+function OrderSummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <dt className="text-neutral-500">{label}</dt>
+      <dd className="text-right font-medium text-neutral-900">{value}</dd>
+    </div>
+  );
+}
+
+function getSubmitProofReadiness({
+  canExport,
+  documentItemCount,
+  preflightErrorCount,
+  submittedProjectId,
+}: {
+  canExport: boolean;
+  documentItemCount: number;
+  preflightErrorCount: number;
+  submittedProjectId: string | null;
+}): {
+  className: string;
+  description: string;
+  label: string;
+} {
+  if (submittedProjectId) {
+    return {
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      description: `Submitted as ${submittedProjectId}.`,
+      label: "Submitted",
+    };
+  }
+
+  if (documentItemCount === 0) {
+    return {
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+      description: "Upload and place artwork before requesting a proof.",
+      label: "Needs artwork",
+    };
+  }
+
+  if (!canExport) {
+    return {
+      className: "border-red-200 bg-red-50 text-red-800",
+      description: `Resolve ${preflightErrorCount} preflight error${
+        preflightErrorCount === 1 ? "" : "s"
+      } before submitting.`,
+      label: "Not ready",
+    };
+  }
+
+  return {
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    description: "Ready to submit once the proof preview looks correct.",
+    label: "Ready",
+  };
 }
 
 function ProofGuideLegend({ guidance }: { guidance: ProofGuidance }) {
