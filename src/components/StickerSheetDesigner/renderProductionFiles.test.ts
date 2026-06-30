@@ -189,4 +189,46 @@ describe("renderProductionFiles", () => {
       })
     ).rejects.toThrow("Project submission failed.");
   });
+
+  test("throws fallback submission errors when the backend response is not JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: () => Promise.reject(new Error("not json")),
+      })
+    );
+
+    await expect(
+      submitProjectForReview({
+        document: documentWithAsset(),
+        preflightIssues: [],
+        assetFiles: {},
+      })
+    ).rejects.toThrow("Project submission failed.");
+  });
+
+  test("rejects malformed successful submission responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: "submitted",
+            files: {},
+          }),
+      })
+    );
+
+    await expect(
+      submitProjectForReview({
+        document: documentWithAsset(),
+        preflightIssues: [],
+        assetFiles: {},
+      })
+    ).rejects.toThrow(
+      "Project submission could not be confirmed. Please try again."
+    );
+  });
 });

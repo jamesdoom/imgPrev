@@ -44,7 +44,7 @@ export async function renderProductionFiles({
       preflightIssues,
     }),
   });
-  const payload = (await response.json()) as
+  const payload = (await readResponseJson(response)) as
     | RenderProductionFilesResult
     | { error?: string };
 
@@ -79,7 +79,7 @@ export async function submitProjectForReview({
       preflightIssues,
     }),
   });
-  const payload = (await response.json()) as
+  const payload = (await readResponseJson(response)) as
     | SubmitProjectForReviewResult
     | { error?: string };
 
@@ -91,7 +91,39 @@ export async function submitProjectForReview({
     );
   }
 
-  return payload as SubmitProjectForReviewResult;
+  if (!isSubmitProjectForReviewResult(payload)) {
+    throw new Error(
+      "Project submission could not be confirmed. Please try again.",
+    );
+  }
+
+  return payload;
+}
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function isSubmitProjectForReviewResult(
+  payload: SubmitProjectForReviewResult | { error?: string },
+): payload is SubmitProjectForReviewResult {
+  return (
+    typeof (payload as SubmitProjectForReviewResult).projectId === "string" &&
+    (payload as SubmitProjectForReviewResult).projectId.length > 0 &&
+    (payload as SubmitProjectForReviewResult).status === "submitted" &&
+    typeof (payload as SubmitProjectForReviewResult).files?.assets ===
+      "string" &&
+    typeof (payload as SubmitProjectForReviewResult).files?.previewPng ===
+      "string" &&
+    typeof (payload as SubmitProjectForReviewResult).files?.printPdf ===
+      "string" &&
+    typeof (payload as SubmitProjectForReviewResult).files?.projectJson ===
+      "string"
+  );
 }
 
 function buildProductionFormData({

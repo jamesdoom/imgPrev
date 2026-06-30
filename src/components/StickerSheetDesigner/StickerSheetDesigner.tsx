@@ -76,6 +76,22 @@ const MAX_ARTWORK_QUANTITY = 99;
 const PLACED_ITEM_STAGGER_IN = 0.12;
 const PERSISTED_THUMBNAIL_MAX_PX = 320;
 
+interface InitialDesignerState {
+  document: SheetDocument;
+  restoreNotice: string | null;
+}
+
+interface SavedDocumentResult {
+  document: SheetDocument | null;
+  restoreNotice: string | null;
+}
+
+interface ProjectJsonReadResult {
+  document: SheetDocument;
+  droppedAssetCount: number;
+  droppedItemCount: number;
+}
+
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -84,22 +100,32 @@ function createId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function createInitialDocument() {
+function createInitialDesignerState(): InitialDesignerState {
   const savedDocument = loadSavedDocument();
 
-  if (savedDocument) {
-    return savedDocument;
+  if (savedDocument.document) {
+    return {
+      document: savedDocument.document,
+      restoreNotice: savedDocument.restoreNotice,
+    };
   }
 
-  return createSheetDocument({
-    id: PROJECT_ID,
-    sheetSizeId: "11x17",
-    now: new Date().toISOString(),
-  });
+  return {
+    document: createSheetDocument({
+      id: PROJECT_ID,
+      sheetSizeId: "11x17",
+      now: new Date().toISOString(),
+    }),
+    restoreNotice: savedDocument.restoreNotice,
+  };
 }
 
 export default function StickerSheetDesigner() {
   const canvasRef = useRef<StickerSheetCanvasHandle>(null);
+  const [initialDesignerState] = useState(createInitialDesignerState);
+  const [restoreNotice, setRestoreNotice] = useState(
+    initialDesignerState.restoreNotice,
+  );
   const [assetFiles, setAssetFiles] = useState<Record<string, File>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,7 +138,7 @@ export default function StickerSheetDesigner() {
   const [history, dispatchDocument] = useReducer(
     (state: SheetDocumentHistoryState, action: SheetDocumentHistoryAction) =>
       sheetDocumentHistoryReducer(state, action),
-    createInitialDocument(),
+    initialDesignerState.document,
     createSheetDocumentHistory,
   );
   const [viewState, dispatchView] = useReducer(
@@ -477,15 +503,16 @@ export default function StickerSheetDesigner() {
     }
 
     try {
-      const loadedDocument = readDocumentFromProjectJson(await file.text());
+      const loadedProject = readProjectFromProjectJson(await file.text());
 
       dispatchDocument({
         type: "history/reset",
-        document: loadedDocument,
+        document: loadedProject.document,
       });
       setAssetFiles({});
       setAssetQuantities({});
       setSubmittedProjectId(null);
+      setRestoreNotice(getProjectRestoreNotice(loadedProject));
       dispatchView({ type: "selection/clear" });
       toast.success("Project JSON loaded");
     } catch (error) {
@@ -704,6 +731,22 @@ export default function StickerSheetDesigner() {
         </div>
 
         <WorkflowProgress steps={workflowSteps} />
+        {restoreNotice && (
+          <div
+            className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+            role="status"
+          >
+            <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0" />
+            <p className="min-w-0 flex-1 leading-5">{restoreNotice}</p>
+            <button
+              className="shrink-0 rounded px-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              type="button"
+              onClick={() => setRestoreNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
@@ -1823,7 +1866,7 @@ function getArtworkReadiness(
 
   if (asset.fileType === "image/svg+xml") {
     return {
-      detail: "Vector artwork",
+      detail: "Vector artwork; DPI metadata is not required",
       label: "Ready",
       tone: "ready",
     };
@@ -1831,14 +1874,14 @@ function getArtworkReadiness(
 
   if (asset.widthPx && asset.heightPx) {
     return {
-      detail: "DPI metadata unavailable",
+      detail: `DPI metadata unavailable; using ${STICKER_SHEET_MVP_PROFILE.requiredDpi} DPI for sizing`,
       label: "Ready",
       tone: "ready",
     };
   }
 
   return {
-    detail: "Dimensions will be checked during proofing",
+    detail: "Dimensions unavailable; proofing will recheck this file",
     label: "Check",
     tone: "warning",
   };
@@ -1862,19 +1905,48 @@ function ArtworkReadinessBadge({ readiness }: { readiness: ArtworkReadiness }) {
 }
 
 function AssetThumbnail({ asset }: { asset: SheetAsset }) {
-  if (asset.previewUrl || asset.fileType.startsWith("image/")) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const thumbnailUrl = asset.previewUrl ?? asset.sourceUrl;
+
+  if (!previewFailed && (asset.previewUrl || asset.fileType.startsWith("image/"))) {
     return (
       <img
         alt=""
         className="h-12 w-12 rounded border border-neutral-200 object-contain"
-        src={asset.previewUrl ?? asset.sourceUrl}
+        src={thumbnailUrl}
+        title={`Preview for ${asset.fileName}`}
+        onError={() => setPreviewFailed(true)}
+      />
+    );
+  }
+
+  if (previewFailed) {
+    return (
+      <ThumbnailFallback
+        label="No preview"
+        title={`Preview unavailable for ${asset.fileName}`}
       />
     );
   }
 
   return (
-    <span className="inline-flex h-12 w-12 items-center justify-center rounded border border-neutral-200 bg-neutral-100">
+    <ThumbnailFallback
+      label={getFileExtension(asset.fileName, asset.fileType).toUpperCase()}
+      title={`File thumbnail for ${asset.fileName}`}
+    />
+  );
+}
+
+function ThumbnailFallback({ label, title }: { label: string; title: string }) {
+  return (
+    <span
+      className="inline-flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded border border-neutral-200 bg-neutral-100 px-1 text-center"
+      title={title}
+    >
       <Squares2X2Icon className="h-5 w-5 text-neutral-500" />
+      <span className="max-w-full truncate text-[9px] font-semibold uppercase leading-none text-neutral-500">
+        {label}
+      </span>
     </span>
   );
 }
@@ -2137,21 +2209,36 @@ function shouldPreferPreviewForAutosave(sourceUrl: string): boolean {
   return sourceUrl.startsWith("blob:") || sourceUrl.startsWith("data:");
 }
 
-function loadSavedDocument(): SheetDocument | null {
+function loadSavedDocument(): SavedDocumentResult {
   try {
     const savedDocument = localStorage.getItem(LOCAL_PROJECT_STORAGE_KEY);
 
     if (!savedDocument) {
-      return null;
+      return { document: null, restoreNotice: null };
     }
 
-    return readDocumentFromProjectJson(savedDocument);
+    const loadedProject = readProjectFromProjectJson(savedDocument);
+
+    return {
+      document: loadedProject.document,
+      restoreNotice: getProjectRestoreNotice(loadedProject),
+    };
   } catch {
-    return null;
+    try {
+      localStorage.removeItem(LOCAL_PROJECT_STORAGE_KEY);
+    } catch {
+      // If storage is unavailable, starting fresh is still the safest fallback.
+    }
+
+    return {
+      document: null,
+      restoreNotice:
+        "Saved project data was stale or unreadable, so we started a fresh sheet.",
+    };
   }
 }
 
-function readDocumentFromProjectJson(contents: string): SheetDocument {
+function readProjectFromProjectJson(contents: string): ProjectJsonReadResult {
   const parsed = JSON.parse(contents) as unknown;
   const candidate =
     parsed && typeof parsed === "object" && "document" in parsed
@@ -2169,20 +2256,34 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
   );
 
   const activeSheetSize = BASELINE_SHEET_SIZES[0];
+  const assets = candidate.assets.filter((asset) => durableAssetIds.has(asset.id));
+  const items = candidate.items.filter((item) => durableAssetIds.has(item.assetId));
 
   return {
-    ...candidate,
-    productionProfileId: STICKER_SHEET_MVP_PROFILE.id,
-    sheet: {
-      sizeId: activeSheetSize.id,
-      widthIn: activeSheetSize.widthIn,
-      heightIn: activeSheetSize.heightIn,
-      dpi: STICKER_SHEET_MVP_PROFILE.requiredDpi,
+    document: {
+      ...candidate,
+      productionProfileId: STICKER_SHEET_MVP_PROFILE.id,
+      sheet: {
+        sizeId: activeSheetSize.id,
+        widthIn: activeSheetSize.widthIn,
+        heightIn: activeSheetSize.heightIn,
+        dpi: STICKER_SHEET_MVP_PROFILE.requiredDpi,
+      },
+      assets,
+      items,
+      updatedAt: new Date().toISOString(),
     },
-    assets: candidate.assets.filter((asset) => durableAssetIds.has(asset.id)),
-    items: candidate.items.filter((item) => durableAssetIds.has(item.assetId)),
-    updatedAt: new Date().toISOString(),
+    droppedAssetCount: candidate.assets.length - assets.length,
+    droppedItemCount: candidate.items.length - items.length,
   };
+}
+
+function getProjectRestoreNotice(result: ProjectJsonReadResult): string | null {
+  if (result.droppedAssetCount > 0 || result.droppedItemCount > 0) {
+    return "Some saved artwork could not be restored because browser-only previews expired. Re-upload any missing files before submitting a proof.";
+  }
+
+  return null;
 }
 
 function hasDurableAssetUrl(asset: SheetAsset): boolean {
