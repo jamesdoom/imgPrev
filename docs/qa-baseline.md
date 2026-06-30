@@ -2,6 +2,8 @@
 
 Use this checklist before starting reliability or polish work, and again before merging changes that affect customer, editor, or admin workflows.
 
+For data and file reliability work, pair this checklist with `docs/data-file-paths-audit.md`.
+
 ## Automated Gate
 
 Run the full baseline from the project root:
