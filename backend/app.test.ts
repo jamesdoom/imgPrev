@@ -288,6 +288,13 @@ describe("backend app", () => {
           previewPng: `/projects/${submitResponse.body.projectId}/preview.png`,
           printPdf: `/projects/${submitResponse.body.projectId}/print.pdf`,
           manifestJson: `/projects/${submitResponse.body.projectId}/manifest.json`,
+          assetFiles: [
+            {
+              fileName: "pixel.png",
+              path: `/projects/${submitResponse.body.projectId}/assets/pixel.png`,
+              sizeBytes: validPng.length,
+            },
+          ],
         }),
         review: {
           status: "submitted",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowPathIcon,
+  ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
   CheckCircleIcon,
   DocumentTextIcon,
@@ -33,6 +34,7 @@ export default function AdminReviewScreen() {
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [savingReviewStatus, setSavingReviewStatus] = useState<
     Exclude<AdminProjectReviewStatus, "submitted"> | null
@@ -76,6 +78,7 @@ export default function AdminReviewScreen() {
       setSelectedProject(null);
       setDetailState("idle");
       setReviewNote("");
+      setReviewerName("");
       setReviewError(null);
       return;
     }
@@ -83,6 +86,7 @@ export default function AdminReviewScreen() {
     setDetailState("loading");
     setDetailError(null);
     setReviewNote("");
+    setReviewerName("");
     setReviewError(null);
 
     void fetchAdminProjectDetail(selectedProjectId)
@@ -123,6 +127,7 @@ export default function AdminReviewScreen() {
       const updatedProject = await updateAdminProjectReview(selectedProjectId, {
         status,
         note: reviewNote,
+        reviewer: reviewerName.trim() || undefined,
       });
 
       setSelectedProject(updatedProject);
@@ -191,9 +196,11 @@ export default function AdminReviewScreen() {
             project={selectedProject}
             reviewError={reviewError}
             reviewNote={reviewNote}
+            reviewerName={reviewerName}
             savingReviewStatus={savingReviewStatus}
             state={detailState}
             onChangeReviewNote={setReviewNote}
+            onChangeReviewerName={setReviewerName}
             onUpdateReview={handleReviewUpdate}
           />
         </section>
@@ -278,18 +285,22 @@ function ProjectDetail({
   project,
   reviewError,
   reviewNote,
+  reviewerName,
   savingReviewStatus,
   state,
   onChangeReviewNote,
+  onChangeReviewerName,
   onUpdateReview,
 }: {
   error: string | null;
   project: AdminReviewProjectDetail | null;
   reviewError: string | null;
   reviewNote: string;
+  reviewerName: string;
   savingReviewStatus: Exclude<AdminProjectReviewStatus, "submitted"> | null;
   state: LoadState;
   onChangeReviewNote: (note: string) => void;
+  onChangeReviewerName: (reviewerName: string) => void;
   onUpdateReview: (
     status: Exclude<AdminProjectReviewStatus, "submitted">
   ) => void;
@@ -356,6 +367,15 @@ function ProjectDetail({
 
       {project.files.previewPng && (
         <div className="overflow-hidden rounded border border-neutral-300 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2">
+            <p className="text-sm font-semibold">Proof preview</p>
+            <FileActionLinks
+              downloadLabel="Download PNG"
+              fileName="preview.png"
+              filePath={project.files.previewPng}
+              openLabel="Open full size"
+            />
+          </div>
           <img
             alt="Submitted sheet preview"
             className="max-h-[440px] w-full bg-neutral-50 object-contain"
@@ -392,9 +412,11 @@ function ProjectDetail({
           <SectionTitle title="Review decision" />
           <ReviewDecisionPanel
             note={reviewNote}
+            reviewerName={reviewerName}
             savingStatus={savingReviewStatus}
             error={reviewError}
             onChangeNote={onChangeReviewNote}
+            onChangeReviewerName={onChangeReviewerName}
             onUpdateReview={onUpdateReview}
           />
         </div>
@@ -437,14 +459,18 @@ function ProjectDetail({
 function ReviewDecisionPanel({
   error,
   note,
+  reviewerName,
   savingStatus,
   onChangeNote,
+  onChangeReviewerName,
   onUpdateReview,
 }: {
   error: string | null;
   note: string;
+  reviewerName: string;
   savingStatus: Exclude<AdminProjectReviewStatus, "submitted"> | null;
   onChangeNote: (note: string) => void;
+  onChangeReviewerName: (reviewerName: string) => void;
   onUpdateReview: (
     status: Exclude<AdminProjectReviewStatus, "submitted">
   ) => void;
@@ -454,7 +480,18 @@ function ReviewDecisionPanel({
   return (
     <div className="space-y-3 p-3">
       <label className="block text-xs font-semibold uppercase text-neutral-500">
-        Note
+        Reviewer
+        <input
+          className="mt-1 h-10 w-full rounded border border-neutral-300 px-3 text-sm font-normal normal-case text-neutral-950"
+          maxLength={80}
+          placeholder="Admin reviewer"
+          type="text"
+          value={reviewerName}
+          onChange={(event) => onChangeReviewerName(event.target.value)}
+        />
+      </label>
+      <label className="block text-xs font-semibold uppercase text-neutral-500">
+        Reviewer note
         <textarea
           className="mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950"
           maxLength={1000}
@@ -565,15 +602,17 @@ function ReviewHistory({ project }: { project: AdminReviewProjectDetail }) {
 
 function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
   const links = [
-    ["project.json", files.projectJson],
-    ["preview.png", files.previewPng],
-    ["print.pdf", files.printPdf],
-    ["manifest.json", files.manifestJson],
+    ["Project JSON", "project.json", files.projectJson],
+    ["Proof preview", "preview.png", files.previewPng],
+    ["Print PDF", "print.pdf", files.printPdf],
+    ["Manifest", "manifest.json", files.manifestJson],
   ] as const;
+  const assetFiles = files.assetFiles ?? [];
 
   return (
-    <div className="divide-y divide-neutral-200">
-      {links.map(([label, filePath]) => (
+    <div>
+      <div className="divide-y divide-neutral-200">
+      {links.map(([label, fileName, filePath]) => (
         <div
           key={label}
           className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
@@ -583,15 +622,7 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
             <span className="truncate">{label}</span>
           </span>
           {filePath ? (
-            <a
-              className="inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
-              href={getAdminFileUrl(filePath)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Open
-              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-            </a>
+            <FileActionLinks fileName={fileName} filePath={filePath} />
           ) : (
             <span className="rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-500">
               Missing
@@ -599,7 +630,78 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
           )}
         </div>
       ))}
+      </div>
+      <div className="border-t border-neutral-200">
+        <div className="px-3 py-2 text-xs font-semibold uppercase text-neutral-500">
+          Original artwork
+        </div>
+        {assetFiles.length > 0 ? (
+          <div className="divide-y divide-neutral-200">
+            {assetFiles.map((assetFile) => (
+              <div
+                key={assetFile.path}
+                className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
+              >
+                <span className="min-w-0 text-sm">
+                  <span className="block truncate font-medium">
+                    {assetFile.fileName}
+                  </span>
+                  {typeof assetFile.sizeBytes === "number" && (
+                    <span className="block text-xs text-neutral-500">
+                      {formatFileSize(assetFile.sizeBytes)}
+                    </span>
+                  )}
+                </span>
+                <FileActionLinks
+                  fileName={assetFile.fileName}
+                  filePath={assetFile.path}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-3 pb-3 text-sm text-neutral-500">
+            No original asset files found.
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function FileActionLinks({
+  downloadLabel = "Download",
+  fileName,
+  filePath,
+  openLabel = "Open",
+}: {
+  downloadLabel?: string;
+  fileName: string;
+  filePath: string;
+  openLabel?: string;
+}) {
+  const url = getAdminFileUrl(filePath);
+
+  return (
+    <span className="flex shrink-0 items-center gap-2">
+      <a
+        className="inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+        href={url}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {openLabel}
+        <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+      </a>
+      <a
+        className="inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+        download={fileName}
+        href={url}
+      >
+        {downloadLabel}
+        <ArrowDownTrayIcon className="h-4 w-4" />
+      </a>
+    </span>
   );
 }
 
@@ -742,6 +844,22 @@ function countAvailableFiles(files: AdminReviewProjectFiles): number {
     files.printPdf,
     files.manifestJson,
   ].filter(Boolean).length;
+}
+
+function formatFileSize(sizeBytes: number): string {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
+    return "Unknown size";
+  }
+
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatSheet(sheet: Partial<{ widthIn: number; heightIn: number }>) {

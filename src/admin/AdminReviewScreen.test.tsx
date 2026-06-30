@@ -66,6 +66,13 @@ describe("AdminReviewScreen", () => {
         previewPng: "/projects/project-20260625120000-abc123/preview.png",
         printPdf: "/projects/project-20260625120000-abc123/print.pdf",
         manifestJson: "/projects/project-20260625120000-abc123/manifest.json",
+        assetFiles: [
+          {
+            fileName: "pixel.png",
+            path: "/projects/project-20260625120000-abc123/assets/pixel.png",
+            sizeBytes: 2048,
+          },
+        ],
       },
       review: {
         status: "submitted",
@@ -103,6 +110,13 @@ describe("AdminReviewScreen", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
     expect(screen.getByText("No review decisions yet.")).toBeInTheDocument();
+    expect(screen.getByText("Original artwork")).toBeInTheDocument();
+    expect(screen.getByText("pixel.png")).toBeInTheDocument();
+    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download PNG/ })).toHaveAttribute(
+      "download",
+      "preview.png"
+    );
     expect(fetchAdminProjectDetailMock).toHaveBeenCalledWith(
       "project-20260625120000-abc123"
     );
@@ -169,6 +183,10 @@ describe("AdminReviewScreen", () => {
 
     await screen.findByText("No review decisions yet.");
     await userEvent.type(
+      screen.getByPlaceholderText("Admin reviewer"),
+      "Production lead"
+    );
+    await userEvent.type(
       screen.getByPlaceholderText("Decision note"),
       "Ready for production."
     );
@@ -180,6 +198,7 @@ describe("AdminReviewScreen", () => {
         {
           status: "approved",
           note: "Ready for production.",
+          reviewer: "Production lead",
         }
       );
     });

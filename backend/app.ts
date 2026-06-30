@@ -692,13 +692,14 @@ function readProjectReviewEvent(value: unknown): ProjectReviewEvent | null {
 }
 
 async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
-  const [projectJson, previewPng, printPdf, manifestJson, assets] =
+  const [projectJson, previewPng, printPdf, manifestJson, assets, assetFiles] =
     await Promise.all([
       getProjectFileUrl(projectId, projectDir, "project.json"),
       getProjectFileUrl(projectId, projectDir, "preview.png"),
       getProjectFileUrl(projectId, projectDir, "print.pdf"),
       getProjectFileUrl(projectId, projectDir, "manifest.json"),
       getProjectFileUrl(projectId, projectDir, "assets"),
+      getSubmittedAssetFiles(projectId, projectDir),
     ]);
 
   return {
@@ -707,7 +708,38 @@ async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
     printPdf,
     manifestJson,
     assets,
+    assetFiles,
   };
+}
+
+async function getSubmittedAssetFiles(projectId: string, projectDir: string) {
+  const assetsDir = path.join(projectDir, "assets");
+
+  try {
+    const entries = await fs.promises.readdir(assetsDir, {
+      withFileTypes: true,
+    });
+    const files = await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map(async (entry) => {
+          const fileName = path.basename(entry.name);
+          const stats = await fs.promises.stat(path.join(assetsDir, fileName));
+
+          return {
+            fileName,
+            path: `/projects/${projectId}/assets/${encodeURIComponent(fileName)}`,
+            sizeBytes: stats.size,
+          };
+        })
+    );
+
+    return files.sort((first, second) =>
+      first.fileName.localeCompare(second.fileName)
+    );
+  } catch {
+    return [];
+  }
 }
 
 async function getProjectFileUrl(

@@ -28,6 +28,13 @@ export interface AdminReviewProjectFiles {
   printPdf?: string;
   manifestJson?: string;
   assets?: string;
+  assetFiles?: AdminReviewProjectFile[];
+}
+
+export interface AdminReviewProjectFile {
+  fileName: string;
+  path: string;
+  sizeBytes?: number;
 }
 
 export interface AdminReviewManifest {

@@ -22,7 +22,16 @@ describe("adminReviewApi", () => {
               submittedAt: "2026-06-25T12:00:00.000Z",
               sheet: { widthIn: 11, heightIn: 17, dpi: 300 },
               counts: { assets: 2, items: 5 },
-              files: { projectJson: "/projects/project-1/project.json" },
+              files: {
+                projectJson: "/projects/project-1/project.json",
+                assetFiles: [
+                  {
+                    fileName: "pixel.png",
+                    path: "/projects/project-1/assets/pixel.png",
+                    sizeBytes: 68,
+                  },
+                ],
+              },
               review: {
                 status: "submitted",
                 updatedAt: "2026-06-25T12:00:00.000Z",
@@ -35,7 +44,18 @@ describe("adminReviewApi", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchAdminProjects()).resolves.toHaveLength(1);
+    await expect(fetchAdminProjects()).resolves.toMatchObject([
+      {
+        files: {
+          assetFiles: [
+            {
+              fileName: "pixel.png",
+              path: "/projects/project-1/assets/pixel.png",
+            },
+          ],
+        },
+      },
+    ]);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4000/admin/projects"
     );
