@@ -73,6 +73,7 @@ const ARTWORK_FILE_ACCEPT =
 const MIN_ARTWORK_QUANTITY = 1;
 const MAX_ARTWORK_QUANTITY = 99;
 const PLACED_ITEM_STAGGER_IN = 0.12;
+const PERSISTED_THUMBNAIL_MAX_PX = 320;
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -1854,7 +1855,7 @@ function ArtworkReadinessBadge({ readiness }: { readiness: ArtworkReadiness }) {
 }
 
 function AssetThumbnail({ asset }: { asset: SheetAsset }) {
-  if (asset.fileType.startsWith("image/")) {
+  if (asset.previewUrl || asset.fileType.startsWith("image/")) {
     return (
       <img
         alt=""
@@ -1934,11 +1935,14 @@ async function createAssetFromFile(file: File): Promise<SheetAsset> {
     ? await readFileAsDataUrl(file)
     : URL.createObjectURL(file);
   const dimensions = isImage ? await loadImageDimensions(sourceUrl) : {};
+  const previewUrl = isImage
+    ? await createImageThumbnailDataUrl(sourceUrl)
+    : createFileThumbnailDataUrl(file.name, file.type);
 
   return {
     id: createId("asset"),
     sourceUrl,
-    previewUrl: sourceUrl,
+    previewUrl,
     fileName: file.name,
     fileType: file.type || "application/octet-stream",
     uploadedAt: new Date().toISOString(),
@@ -1973,6 +1977,62 @@ async function loadImageDimensions(
     image.onerror = () => resolve({});
     image.src = sourceUrl;
   });
+}
+
+async function createImageThumbnailDataUrl(sourceUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const image = new Image();
+
+    image.onload = () => {
+      const scale = Math.min(
+        1,
+        PERSISTED_THUMBNAIL_MAX_PX / Math.max(image.naturalWidth, image.naturalHeight),
+      );
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        resolve(sourceUrl);
+        return;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => resolve(sourceUrl);
+    image.src = sourceUrl;
+  });
+}
+
+function createFileThumbnailDataUrl(fileName: string, fileType: string): string {
+  const extension = getFileExtension(fileName, fileType);
+  const safeExtension = escapeSvgText(extension.toUpperCase());
+  const safeFileName = escapeSvgText(fileName);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240"><rect width="320" height="240" rx="18" fill="#f4f4f5"/><rect x="86" y="38" width="148" height="164" rx="12" fill="#ffffff" stroke="#d4d4d8" stroke-width="4"/><path d="M198 38v42h36" fill="#e0f2fe"/><path d="M198 38v42h36" fill="none" stroke="#93c5fd" stroke-width="4"/><rect x="108" y="128" width="104" height="32" rx="16" fill="#0f766e"/><text x="160" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">${safeExtension}</text><text x="160" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#52525b">${safeFileName}</text></svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function getFileExtension(fileName: string, fileType: string): string {
+  const extension = fileName.split(".").pop();
+
+  if (extension && extension !== fileName) {
+    return extension.slice(0, 5);
+  }
+
+  return fileType.split("/").pop()?.slice(0, 5) || "file";
+}
+
+function escapeSvgText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function downloadTextFile(
@@ -2021,8 +2081,43 @@ function saveDocumentLocally(document: SheetDocument) {
   try {
     localStorage.setItem(LOCAL_PROJECT_STORAGE_KEY, JSON.stringify(document));
   } catch {
-    // Autosave is best-effort; export JSON remains the durable fallback.
+    try {
+      localStorage.setItem(
+        LOCAL_PROJECT_STORAGE_KEY,
+        JSON.stringify(createPreviewOnlySavedDocument(document)),
+      );
+    } catch {
+      // Autosave is best-effort; export JSON remains the durable fallback.
+    }
   }
+}
+
+function createPreviewOnlySavedDocument(document: SheetDocument): SheetDocument {
+  return {
+    ...document,
+    assets: document.assets.map((asset) => {
+      const durablePreviewUrl =
+        asset.previewUrl && isDurableAssetUrl(asset.previewUrl)
+          ? asset.previewUrl
+          : undefined;
+
+      if (!durablePreviewUrl) {
+        return asset;
+      }
+
+      return {
+        ...asset,
+        sourceUrl: shouldPreferPreviewForAutosave(asset.sourceUrl)
+          ? durablePreviewUrl
+          : asset.sourceUrl,
+        previewUrl: durablePreviewUrl,
+      };
+    }),
+  };
+}
+
+function shouldPreferPreviewForAutosave(sourceUrl: string): boolean {
+  return sourceUrl.startsWith("blob:") || sourceUrl.startsWith("data:");
 }
 
 function loadSavedDocument(): SheetDocument | null {
@@ -2076,9 +2171,11 @@ function readDocumentFromProjectJson(contents: string): SheetDocument {
 function hasDurableAssetUrl(asset: SheetAsset): boolean {
   const previewUrl = asset.previewUrl ?? asset.sourceUrl;
 
-  return (
-    !previewUrl.startsWith("blob:") && !asset.sourceUrl.startsWith("blob:")
-  );
+  return isDurableAssetUrl(asset.sourceUrl) || isDurableAssetUrl(previewUrl);
+}
+
+function isDurableAssetUrl(url: string): boolean {
+  return !url.startsWith("blob:");
 }
 
 function isSheetDocument(value: unknown): value is SheetDocument {

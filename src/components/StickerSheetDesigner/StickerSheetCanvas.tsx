@@ -246,7 +246,7 @@ function StickerItemNode({
   const imageRef = useRef<Konva.Image>(null);
   const placeholderRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const [image] = useImage(asset.previewUrl ?? asset.sourceUrl);
+  const [image] = useImage(getRenderableAssetUrl(asset));
   const x = item.xIn * PREVIEW_PIXELS_PER_INCH;
   const y = item.yIn * PREVIEW_PIXELS_PER_INCH;
   const width = item.widthIn * PREVIEW_PIXELS_PER_INCH;
@@ -413,6 +413,14 @@ function StickerItemNode({
       )}
     </Group>
   );
+}
+
+function getRenderableAssetUrl(asset: SheetAsset): string {
+  if (asset.fileType.startsWith("image/") && !asset.sourceUrl.startsWith("blob:")) {
+    return asset.sourceUrl;
+  }
+
+  return asset.previewUrl ?? asset.sourceUrl;
 }
 
 function normalizeRotation(degrees: number): number {
