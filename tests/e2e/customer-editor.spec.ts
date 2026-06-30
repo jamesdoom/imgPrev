@@ -219,14 +219,37 @@ test("customer can reach submit proof readiness and submit a proof request", asy
   ).toBeVisible();
 });
 
-test("customer can retry after failed proof submission response", async ({
+test("customer can recover after a failed proof submission response", async ({
   page,
 }) => {
+  let submitAttempts = 0;
+
   await page.route("http://localhost:4000/submit-project", async (route) => {
+    submitAttempts += 1;
+
+    if (submitAttempts === 1) {
+      await route.fulfill({
+        contentType: "application/json",
+        json: { error: "Proof service temporarily unavailable." },
+        status: 503,
+      });
+      return;
+    }
+
     await route.fulfill({
       contentType: "application/json",
-      json: { error: "Proof service temporarily unavailable." },
-      status: 503,
+      json: {
+        files: {
+          assets: "/projects/project-playwright-retry/assets/",
+          manifestJson: "/projects/project-playwright-retry/manifest.json",
+          previewPng: "/projects/project-playwright-retry/preview.png",
+          printPdf: "/projects/project-playwright-retry/print.pdf",
+          projectJson: "/projects/project-playwright-retry/project.json",
+        },
+        projectId: "project-playwright-retry",
+        status: "submitted",
+      },
+      status: 201,
     });
   });
 
@@ -240,6 +263,12 @@ test("customer can retry after failed proof submission response", async ({
     page.getByRole("button", { name: "Submit Proof Request" }),
   ).toBeEnabled();
   await expect(page.getByText("Submitted as project-playwright")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+
+  await expect(
+    page.getByText("Submitted as project-playwright-retry", { exact: true }),
+  ).toBeVisible();
 });
 
 function createSavedDocument({
