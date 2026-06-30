@@ -60,11 +60,14 @@ The frontend defaults to `http://localhost:5173` and the backend defaults to `ht
 ## Validation
 
 ```sh
+npm run test:baseline
 npm run build
 npm run lint
 npm test
 npm audit --omit=dev
 ```
+
+See `docs/qa-baseline.md` for the repeatable baseline checklist and manual smoke checks.
 
 ## Runtime Storage
 
