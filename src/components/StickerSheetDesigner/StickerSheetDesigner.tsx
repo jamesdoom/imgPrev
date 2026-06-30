@@ -60,6 +60,7 @@ import {
   renderProductionFiles,
   submitProjectForReview,
 } from "./renderProductionFiles";
+import { getDpi } from "../ImageUploader/utils/getDpi";
 import {
   getDesignerKeyboardShortcut,
   isEditableShortcutTarget,
@@ -706,7 +707,10 @@ export default function StickerSheetDesigner() {
       </header>
 
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
-        <aside className="border-b border-neutral-300 bg-white lg:min-h-0 lg:border-b-0 lg:border-r">
+        <aside
+          aria-label="Sheet setup and artwork"
+          className="border-b border-neutral-300 bg-white lg:min-h-0 lg:border-b-0 lg:border-r"
+        >
           <PanelTitle title="Sheet" />
           <div className="space-y-3 px-4 pb-4">
             <label
@@ -858,7 +862,10 @@ export default function StickerSheetDesigner() {
           />
         </main>
 
-        <aside className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0">
+        <aside
+          aria-label="Editor controls and order summary"
+          className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0"
+        >
           <details className="m-4 rounded border border-neutral-200 bg-neutral-50">
             <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
               View
@@ -1824,7 +1831,7 @@ function getArtworkReadiness(
 
   if (asset.widthPx && asset.heightPx) {
     return {
-      detail: "Resolution detected",
+      detail: "DPI metadata unavailable",
       label: "Ready",
       tone: "ready",
     };
@@ -1935,6 +1942,7 @@ async function createAssetFromFile(file: File): Promise<SheetAsset> {
     ? await readFileAsDataUrl(file)
     : URL.createObjectURL(file);
   const dimensions = isImage ? await loadImageDimensions(sourceUrl) : {};
+  const dpi = isImage ? await readImageDpi(file) : null;
   const previewUrl = isImage
     ? await createImageThumbnailDataUrl(sourceUrl)
     : createFileThumbnailDataUrl(file.name, file.type);
@@ -1946,6 +1954,7 @@ async function createAssetFromFile(file: File): Promise<SheetAsset> {
     fileName: file.name,
     fileType: file.type || "application/octet-stream",
     uploadedAt: new Date().toISOString(),
+    ...(dpi ? { dpi } : {}),
     ...dimensions,
   };
 }
@@ -1960,6 +1969,14 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+async function readImageDpi(file: File): Promise<number | null> {
+  try {
+    return await getDpi(file);
+  } catch {
+    return null;
+  }
 }
 
 async function loadImageDimensions(

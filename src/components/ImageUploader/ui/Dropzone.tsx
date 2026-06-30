@@ -32,7 +32,10 @@ export default function Dropzone({
       tabIndex={disabled ? -1 : 0}
       className={rootClassName}
     >
-      <input {...getInputProps()} data-testid="file-input" />
+      <input
+        {...getInputProps({ "aria-label": "Upload image file" })}
+        data-testid="file-input"
+      />
       {isDragActive ? (
         <>
           <ArrowUpTrayIcon className="h-7 w-7 text-gray-700" aria-hidden />
