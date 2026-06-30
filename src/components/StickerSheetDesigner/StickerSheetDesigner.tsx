@@ -161,6 +161,9 @@ export default function StickerSheetDesigner() {
       return;
     }
 
+    const acceptedUploads: Array<{ asset: SheetAsset; file: File; item: SheetItem }> = [];
+    let placementIndex = document.items.length;
+
     for (const file of Array.from(files)) {
       const issues = validateUploadCandidate(file);
 
@@ -170,20 +173,47 @@ export default function StickerSheetDesigner() {
       }
 
       const asset = await createAssetFromFile(file);
+      const item = staggerPlacedItem(
+        createSheetItemFromAsset({
+          id: createId("item"),
+          asset,
+          document,
+        }),
+        placementIndex,
+        document,
+      );
+
+      acceptedUploads.push({ asset, file, item });
+      placementIndex += 1;
+    }
+
+    if (acceptedUploads.length === 0) {
+      return;
+    }
+
+    acceptedUploads.forEach(({ asset }) => {
       dispatchDocument({
         type: "asset/add",
         asset,
         now: new Date().toISOString(),
       });
-      setAssetFiles((current) => ({
-        ...current,
-        [asset.id]: file,
-      }));
-      dispatchView({
-        type: "selection/select-asset",
-        assetId: asset.id,
-      });
-    }
+    });
+
+    dispatchDocument({
+      type: "items/place",
+      items: acceptedUploads.map(({ item }) => item),
+      now: new Date().toISOString(),
+    });
+    setAssetFiles((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        acceptedUploads.map(({ asset, file }) => [asset.id, file]),
+      ),
+    }));
+    dispatchView({
+      type: "selection/select-item",
+      itemId: acceptedUploads[acceptedUploads.length - 1].item.id,
+    });
   };
 
   const placeAsset = (asset: SheetAsset, quantity: number) => {
