@@ -75,6 +75,10 @@ const MIN_ARTWORK_QUANTITY = 1;
 const MAX_ARTWORK_QUANTITY = 99;
 const PLACED_ITEM_STAGGER_IN = 0.12;
 const PERSISTED_THUMBNAIL_MAX_PX = 320;
+const FOCUS_RING_CLASS =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2";
+const FOCUS_WITHIN_RING_CLASS =
+  "focus-within:ring-2 focus-within:ring-teal-700 focus-within:ring-offset-2";
 
 interface InitialDesignerState {
   document: SheetDocument;
@@ -694,7 +698,9 @@ export default function StickerSheetDesigner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+            <label
+              className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_WITHIN_RING_CLASS}`}
+            >
               <PhotoIcon className="h-5 w-5" />
               Upload artwork
               <input
@@ -819,14 +825,16 @@ export default function StickerSheetDesigner() {
             ) : (
               <>
                 <button
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
+                  className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
                   type="button"
                   onClick={autoArrangeArtwork}
                 >
                   <SparklesIcon className="h-5 w-5" />
                   Auto-arrange
                 </button>
-                <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800">
+                <label
+                  className={`inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_WITHIN_RING_CLASS}`}
+                >
                   <PhotoIcon className="h-5 w-5" />
                   Upload artwork
                   <input
@@ -1193,7 +1201,7 @@ function ArtworkUploadDropZone({
 }) {
   return (
     <label
-      className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-teal-300 bg-teal-50/60 px-4 py-6 text-center hover:border-teal-600 hover:bg-teal-50"
+      className={`flex min-h-48 cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-teal-300 bg-teal-50/60 px-4 py-6 text-center hover:border-teal-600 hover:bg-teal-50 ${FOCUS_WITHIN_RING_CLASS}`}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
@@ -1291,7 +1299,7 @@ function ProductionActionsPanel({
   return (
     <div className="space-y-2 px-4 pb-4">
       <button
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_CLASS}`}
         disabled={documentItemCount === 0}
         type="button"
         onClick={onDownloadPreviewPng}
@@ -1300,7 +1308,7 @@ function ProductionActionsPanel({
         Proof PNG
       </button>
       <button
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500"
+        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
         disabled={!canExport || documentItemCount === 0 || isExporting}
         type="button"
         onClick={onDownloadBundle}
@@ -1309,7 +1317,7 @@ function ProductionActionsPanel({
         {isExporting ? "Rendering..." : "Export Files"}
       </button>
       <button
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500"
+        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
         disabled={!canExport || documentItemCount === 0 || isSubmitting}
         type="button"
         onClick={onSubmitForReview}
@@ -1386,7 +1394,9 @@ function ProjectToolsPanel({
         Project tools
       </summary>
       <div className="space-y-2 border-t border-neutral-200 p-2">
-        <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50">
+        <label
+          className={`inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 ${FOCUS_WITHIN_RING_CLASS}`}
+        >
           <FolderOpenIcon className="h-5 w-5" />
           Open project JSON
           <input
@@ -1400,7 +1410,7 @@ function ProjectToolsPanel({
           />
         </label>
         <button
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50"
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
           type="button"
           onClick={onDownloadProjectJson}
         >
@@ -1666,7 +1676,7 @@ function PreflightPanel({
       {issues.map((issue) => (
         <button
           key={issue.id}
-          className={`w-full rounded border p-3 text-left text-sm ${
+          className={`w-full rounded border p-3 text-left text-sm ${FOCUS_RING_CLASS} ${
             issue.severity === "error"
               ? "border-red-200 bg-red-50 text-red-900"
               : "border-amber-200 bg-amber-50 text-amber-900"
@@ -1706,7 +1716,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-10 w-10 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className={`inline-flex h-10 w-10 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_CLASS}`}
       disabled={disabled}
       title={label}
       type="button"
@@ -1728,7 +1738,7 @@ function ToggleButton({
 }) {
   return (
     <button
-      className={`h-9 rounded border px-3 text-sm font-medium ${
+      className={`h-9 rounded border px-3 text-sm font-medium ${FOCUS_RING_CLASS} ${
         active
           ? "border-teal-700 bg-teal-50 text-teal-900"
           : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"

@@ -21,6 +21,8 @@ import {
 import type { SheetBackground } from "../domain/print";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
+const focusRingClass =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2";
 
 export default function AdminReviewScreen() {
   const [projects, setProjects] = useState<AdminReviewProjectSummary[]>([]);
@@ -164,7 +166,7 @@ export default function AdminReviewScreen() {
             </p>
           </div>
           <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-3 text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-3 text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${focusRingClass}`}
             disabled={listState === "loading"}
             type="button"
             onClick={() => void loadProjects()}
@@ -175,10 +177,18 @@ export default function AdminReviewScreen() {
         </div>
       </header>
 
-      <main className="grid min-h-[calc(100vh-73px)] grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="border-b border-neutral-300 bg-white lg:border-b-0 lg:border-r">
+      <main
+        aria-label="Admin review workspace"
+        className="grid min-h-[calc(100vh-73px)] grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)]"
+      >
+        <section
+          aria-labelledby="admin-submissions-heading"
+          className="border-b border-neutral-300 bg-white lg:border-b-0 lg:border-r"
+        >
           <div className="flex h-12 items-center border-b border-neutral-200 px-4">
-            <h2 className="text-sm font-semibold">Submissions</h2>
+            <h2 id="admin-submissions-heading" className="text-sm font-semibold">
+              Submissions
+            </h2>
           </div>
           <SubmissionList
             error={listError}
@@ -190,7 +200,7 @@ export default function AdminReviewScreen() {
           />
         </section>
 
-        <section className="min-w-0">
+        <section aria-label="Submission detail" className="min-w-0">
           <ProjectDetail
             error={detailError}
             project={selectedProject}
@@ -248,7 +258,7 @@ function SubmissionList({
       {projects.map((project) => (
         <button
           key={project.projectId}
-          className={`block w-full px-4 py-3 text-left hover:bg-neutral-50 ${
+          className={`block w-full px-4 py-3 text-left hover:bg-neutral-50 ${focusRingClass} ${
             project.projectId === selectedProjectId
               ? "bg-teal-50 ring-1 ring-inset ring-teal-700"
               : "bg-white"
@@ -482,7 +492,7 @@ function ReviewDecisionPanel({
       <label className="block text-xs font-semibold uppercase text-neutral-500">
         Reviewer
         <input
-          className="mt-1 h-10 w-full rounded border border-neutral-300 px-3 text-sm font-normal normal-case text-neutral-950"
+          className={`mt-1 h-10 w-full rounded border border-neutral-300 px-3 text-sm font-normal normal-case text-neutral-950 ${focusRingClass}`}
           maxLength={80}
           placeholder="Admin reviewer"
           type="text"
@@ -493,7 +503,7 @@ function ReviewDecisionPanel({
       <label className="block text-xs font-semibold uppercase text-neutral-500">
         Reviewer note
         <textarea
-          className="mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950"
+          className={`mt-1 min-h-24 w-full resize-y rounded border border-neutral-300 px-3 py-2 text-sm font-normal normal-case text-neutral-950 ${focusRingClass}`}
           maxLength={1000}
           placeholder="Decision note"
           value={note}
@@ -502,7 +512,10 @@ function ReviewDecisionPanel({
       </label>
 
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+        <div
+          className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900"
+          role="alert"
+        >
           {error}
         </div>
       )}
@@ -556,7 +569,7 @@ function ReviewActionButton({
 
   return (
     <button
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${className}`}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${focusRingClass} ${className}`}
       disabled={disabled}
       type="button"
       onClick={onClick}
@@ -612,24 +625,24 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
   return (
     <div>
       <div className="divide-y divide-neutral-200">
-      {links.map(([label, fileName, filePath]) => (
-        <div
-          key={label}
-          className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
-        >
-          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium">
-            <DocumentTextIcon className="h-5 w-5 shrink-0 text-neutral-500" />
-            <span className="truncate">{label}</span>
-          </span>
-          {filePath ? (
-            <FileActionLinks fileName={fileName} filePath={filePath} />
-          ) : (
-            <span className="rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-500">
-              Missing
+        {links.map(([label, fileName, filePath]) => (
+          <div
+            key={label}
+            className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
+          >
+            <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium">
+              <DocumentTextIcon className="h-5 w-5 shrink-0 text-neutral-500" />
+              <span className="truncate">{label}</span>
             </span>
-          )}
-        </div>
-      ))}
+            {filePath ? (
+              <FileActionLinks fileName={fileName} filePath={filePath} />
+            ) : (
+              <span className="rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-500">
+                Missing
+              </span>
+            )}
+          </div>
+        ))}
       </div>
       <div className="border-t border-neutral-200">
         <div className="px-3 py-2 text-xs font-semibold uppercase text-neutral-500">
@@ -685,7 +698,7 @@ function FileActionLinks({
   return (
     <span className="flex shrink-0 items-center gap-2">
       <a
-        className="inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+        className={`inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
         href={url}
         rel="noreferrer"
         target="_blank"
@@ -694,7 +707,7 @@ function FileActionLinks({
         <ArrowTopRightOnSquareIcon className="h-4 w-4" />
       </a>
       <a
-        className="inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+        className={`inline-flex h-8 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
         download={fileName}
         href={url}
       >
@@ -825,7 +838,7 @@ function StatusBlock({
         <p>{title}</p>
         {actionLabel && onAction && (
           <button
-            className="mt-3 inline-flex h-9 items-center rounded border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            className={`mt-3 inline-flex h-9 items-center rounded border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
             type="button"
             onClick={onAction}
           >
