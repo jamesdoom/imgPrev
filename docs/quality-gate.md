@@ -15,6 +15,8 @@ Use this as the standard definition of done for changes to the app. Keep the gat
 
 ## One-Command Gates
 
+GitHub Actions runs the automated gate on every pull request and every push to `main`.
+
 Run the full automated quality gate:
 
 ```sh

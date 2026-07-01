@@ -21,3 +21,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; documentation/script change only
 - Regression added: not applicable
 - Notes/follow-up: continue adding focused regression tests whenever a bug is fixed
+
+## 2026-07-01 - CI Quality Gate
+
+- Automated: `npm run test:quality`
+- Accessibility: `npm run test:a11y`
+- Manual: not required; workflow/documentation change only
+- Regression added: not applicable
+- Notes/follow-up: GitHub Actions now runs the gate on pull requests and pushes to `main`
