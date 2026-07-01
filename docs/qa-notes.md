@@ -36,4 +36,4 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Accessibility: covered by `npm run test:a11y`
 - Manual: reviewed failed GitHub Actions run annotations and job step status
 - Regression added: not applicable
-- Notes/follow-up: updated workflow actions to Node 24 runtime majors and made the install step use explicit npm cache settings
+- Notes/follow-up: updated workflow actions to Node 24 runtime majors, made the install step report npm failures, and repaired missing optional dependency entries in `package-lock.json`
