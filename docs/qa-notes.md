@@ -29,3 +29,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; workflow/documentation change only
 - Regression added: not applicable
 - Notes/follow-up: GitHub Actions now runs the gate on pull requests and pushes to `main`
+
+## 2026-07-01 - CI Install Follow-up
+
+- Automated: `npm run test:a11y`, `npm run test:quality`
+- Accessibility: covered by `npm run test:a11y`
+- Manual: reviewed failed GitHub Actions run annotations and job step status
+- Regression added: not applicable
+- Notes/follow-up: updated workflow actions to Node 24 runtime majors and made the install step use explicit npm cache settings
