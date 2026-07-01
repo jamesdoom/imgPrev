@@ -37,3 +37,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: reviewed failed GitHub Actions run annotations and job step status
 - Regression added: existing `backend/app.test.ts` no-manifest render test caught the Linux CI guard bug
 - Notes/follow-up: updated workflow actions to Node 24 runtime majors, made the install step report npm failures, and repaired missing optional dependency entries in `package-lock.json`
+
+## 2026-07-01 - Main Path Playwright Coverage
+
+- Automated: `npm run test:a11y`, `npm run test:quality`
+- Accessibility: covered by `npm run test:a11y`
+- Manual: not required; browser regression coverage change only
+- Regression added: `tests/e2e/customer-editor.spec.ts`, `tests/e2e/admin-review.spec.ts`
+- Notes/follow-up: expanded browser coverage for upload, layout edits, order summary, proof submit payloads, reload persistence, admin downloads, and reject status updates

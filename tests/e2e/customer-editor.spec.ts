@@ -26,6 +26,18 @@ const emptySvgDataUrl =
     `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="600" height="600" fill="#0f766e"/></svg>`,
   );
 
+interface SubmittedProofManifest {
+  document: {
+    assets: Array<{
+      fileName?: string;
+      fileType?: string;
+    }>;
+    items: Array<{
+      xIn?: number;
+    }>;
+  };
+}
+
 test("customer can upload artwork and reload the saved project preview", async ({
   page,
 }) => {
@@ -219,6 +231,118 @@ test("customer can reach submit proof readiness and submit a proof request", asy
   ).toBeVisible();
 });
 
+test("customer main proof path preserves layout, order summary, submit payload, and reload", async ({
+  page,
+}) => {
+  let submittedManifest: SubmittedProofManifest | null = null;
+  let submittedBody = "";
+
+  await page.route("http://localhost:4000/submit-project", async (route) => {
+    submittedBody = route.request().postDataBuffer()?.toString("utf8") ?? "";
+    submittedManifest = extractMultipartJsonField<SubmittedProofManifest>(
+      submittedBody,
+      "manifest",
+    );
+
+    expect(submittedBody).toContain('filename="playwright-artwork.svg"');
+    expect(submittedManifest.document.assets).toHaveLength(1);
+    expect(submittedManifest.document.assets[0]).toMatchObject({
+      fileName: "playwright-artwork.svg",
+      fileType: "image/svg+xml",
+    });
+    expect(submittedManifest.document.items).toHaveLength(2);
+    expect(
+      new Set(
+        submittedManifest.document.items.map((item) => item.xIn),
+      ).size,
+    ).toBeGreaterThan(1);
+
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        files: {
+          assets: "/projects/project-playwright-main/assets/",
+          manifestJson: "/projects/project-playwright-main/manifest.json",
+          previewPng: "/projects/project-playwright-main/preview.png",
+          printPdf: "/projects/project-playwright-main/print.pdf",
+          projectJson: "/projects/project-playwright-main/project.json",
+        },
+        projectId: "project-playwright-main",
+        status: "submitted",
+      },
+      status: 201,
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+
+  await expect(
+    page.getByRole("button", { name: /playwright-artwork\.svg Ready/ }),
+  ).toBeVisible();
+  await expect(page.getByText("Vector artwork; DPI metadata is not required")).toBeVisible();
+
+  await page.getByText("View", { exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { exact: true, name: "Grid" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Spacing guides" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Snap to grid" }),
+  ).toBeChecked();
+  await page.getByRole("checkbox", { name: "Snap to grid" }).uncheck();
+  await page
+    .getByRole("checkbox", { name: "Snap to decals and sheet" })
+    .uncheck();
+  await expect(
+    page.getByRole("checkbox", { name: "Snap to grid" }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Snap to decals and sheet" }),
+  ).not.toBeChecked();
+
+  await page.getByRole("button", { name: "Duplicate" }).click();
+  await page.getByRole("button", { name: "Auto-arrange" }).click();
+
+  const editorSummary = page.getByLabel("Editor controls and order summary");
+
+  await expect(editorSummary.getByText("Order Summary")).toBeVisible();
+  await expect(editorSummary.getByText("Decals", { exact: true })).toBeVisible();
+  await expect(editorSummary.getByText("2", { exact: true })).toBeVisible();
+  await expect(editorSummary.getByText("Estimated total", { exact: true })).toBeVisible();
+  await expect(editorSummary.getByText("$10.00", { exact: true })).toHaveCount(2);
+  await expect(editorSummary.getByText("Sheet count", { exact: true })).toBeVisible();
+  await expect(editorSummary.getByText("1 sheet", { exact: true })).toBeVisible();
+  await expect(editorSummary.getByText("Price", { exact: true })).toBeVisible();
+  await expect(
+    editorSummary.getByText("$7.50 per sheet", { exact: true }),
+  ).toBeVisible();
+  await expect(editorSummary.getByText("Minimum order", { exact: true })).toBeVisible();
+  await expect(
+    editorSummary.getByText("Free shipping threshold", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    editorSummary.getByText("$15.00 from free shipping.", { exact: true }),
+  ).toBeVisible();
+  await expect(editorSummary.getByText("Ready", { exact: true })).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+
+  await expect(
+    page.getByText("Submitted as project-playwright-main", { exact: true }),
+  ).toBeVisible();
+  expect(submittedManifest).not.toBeNull();
+
+  await page.reload();
+
+  await expect(
+    page.getByRole("button", { name: /playwright-artwork\.svg Ready/ }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Editor controls and order summary").getByText("2", { exact: true })).toBeVisible();
+});
+
 test("customer can recover after a failed proof submission response", async ({
   page,
 }) => {
@@ -311,4 +435,21 @@ function createSavedItem(id: string, assetId: string, name: string) {
     xIn: 0.5,
     yIn: 0.5,
   };
+}
+
+function extractMultipartJsonField<T>(body: string, fieldName: string): T {
+  const fieldMarker = `name="${fieldName}"`;
+  const fieldStart = body.indexOf(fieldMarker);
+
+  expect(fieldStart).toBeGreaterThanOrEqual(0);
+
+  const valueStart = body.indexOf("\r\n\r\n", fieldStart);
+
+  expect(valueStart).toBeGreaterThanOrEqual(0);
+
+  const valueEnd = body.indexOf("\r\n--", valueStart + 4);
+
+  expect(valueEnd).toBeGreaterThan(valueStart);
+
+  return JSON.parse(body.slice(valueStart + 4, valueEnd)) as T;
 }
