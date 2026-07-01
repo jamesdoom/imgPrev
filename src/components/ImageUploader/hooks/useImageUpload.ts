@@ -64,7 +64,7 @@ export function useImageUpload({
         img.src = url;
         await img.decode();
 
-        const dpiValue = await getDpi(file);
+        const dpiValue = await readDpiMetadata(file);
         setPreviewUrl(url);
         updateImages((prev) => [
           ...prev,
@@ -96,4 +96,12 @@ export function useImageUpload({
     onDrop,
     previewUrl,
   };
+}
+
+async function readDpiMetadata(file: File): Promise<number | null> {
+  try {
+    return await getDpi(file);
+  } catch {
+    return null;
+  }
 }

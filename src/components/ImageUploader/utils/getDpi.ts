@@ -9,6 +9,10 @@ export async function getDpi(file: File): Promise<number | null> {
   const buffer = await file.arrayBuffer();
   const view = new DataView(buffer);
 
+  if (view.byteLength < 4) {
+    return null;
+  }
+
   // Check JPEG
   if (view.getUint16(0, false) === 0xffd8) {
     let offset = 2;
@@ -51,7 +55,7 @@ export async function getDpi(file: File): Promise<number | null> {
   const isPng = view.getUint32(0) === 0x89504e47;
   if (isPng) {
     let offset = 8;
-    while (offset < buffer.byteLength) {
+    while (offset + 12 <= buffer.byteLength) {
       const length = view.getUint32(offset);
       const type = String.fromCharCode(
         view.getUint8(offset + 4),
@@ -60,7 +64,15 @@ export async function getDpi(file: File): Promise<number | null> {
         view.getUint8(offset + 7)
       );
 
+      if (offset + 12 + length > buffer.byteLength) {
+        return null;
+      }
+
       if (type === "pHYs") {
+        if (length < 9) {
+          return null;
+        }
+
         const pixelsPerUnitX = view.getUint32(offset + 8);
         const unitSpecifier = view.getUint8(offset + 16);
         if (unitSpecifier === 1) {
@@ -81,6 +93,10 @@ export async function getDpi(file: File): Promise<number | null> {
   const isBigEndian = byteOrder === 0x4d4d;
   if (!isLittleEndian && !isBigEndian) return null;
 
+  if (view.byteLength < 8) {
+    return null;
+  }
+
   const getUint16 = (offset: number) =>
     isLittleEndian
       ? view.getUint16(offset, true)
@@ -91,14 +107,29 @@ export async function getDpi(file: File): Promise<number | null> {
       : view.getUint32(offset, false);
 
   const ifdOffset = getUint32(4);
+
+  if (ifdOffset + 2 > view.byteLength) {
+    return null;
+  }
+
   const numTags = getUint16(ifdOffset);
 
   for (let i = 0; i < numTags; i++) {
     const tagOffset = ifdOffset + 2 + i * 12;
+
+    if (tagOffset + 12 > view.byteLength) {
+      return null;
+    }
+
     const tag = getUint16(tagOffset);
     if (tag === 0x011a) {
       // XResolution
       const valOffset = getUint32(tagOffset + 8);
+
+      if (valOffset + 8 > view.byteLength) {
+        return null;
+      }
+
       const num = getUint32(valOffset);
       const denom = getUint32(valOffset + 4);
       if (denom !== 0) return Math.round(num / denom);

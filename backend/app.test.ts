@@ -305,6 +305,82 @@ describe("backend app", () => {
     );
   });
 
+  test("skips stale project folders with malformed project JSON", async () => {
+    const staleProjectId = "project-20260701120000-stale1";
+
+    submittedProjectIds.push(staleProjectId);
+    await fs.promises.mkdir(path.join(projectsDir, staleProjectId), {
+      recursive: true,
+    });
+    await fs.promises.writeFile(
+      path.join(projectsDir, staleProjectId, "project.json"),
+      JSON.stringify({
+        document: {
+          sheet: { widthIn: 11 },
+        },
+      })
+    );
+
+    const app = createApp();
+    const listResponse = await request(app).get("/admin/projects");
+    const detailResponse = await request(app).get(
+      `/admin/projects/${staleProjectId}`
+    );
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.projects).not.toContainEqual(
+      expect.objectContaining({ projectId: staleProjectId })
+    );
+    expect(detailResponse.status).toBe(404);
+    expect(detailResponse.body).toEqual({ error: "Project not found." });
+  });
+
+  test("keeps submitted projects reviewable when generated files are missing", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+    const projectDir = path.join(projectsDir, submitResponse.body.projectId);
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+    await Promise.all([
+      fs.promises.rm(path.join(projectDir, "preview.png"), { force: true }),
+      fs.promises.rm(path.join(projectDir, "manifest.json"), { force: true }),
+      fs.promises.rm(path.join(projectDir, "review.json"), { force: true }),
+      fs.promises.rm(path.join(projectDir, "assets", "pixel.png"), {
+        force: true,
+      }),
+    ]);
+
+    const response = await request(app).get(
+      `/admin/projects/${submitResponse.body.projectId}`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.project).toMatchObject({
+      projectId: submitResponse.body.projectId,
+      counts: {
+        assets: 1,
+        items: 1,
+      },
+      files: {
+        projectJson: `/projects/${submitResponse.body.projectId}/project.json`,
+        assets: `/projects/${submitResponse.body.projectId}/assets/`,
+        assetFiles: [],
+      },
+      review: {
+        status: "submitted",
+        history: [],
+      },
+    });
+    expect(response.body.project.files.previewPng).toBeUndefined();
+    expect(response.body.project.files.manifestJson).toBeUndefined();
+  });
+
   test("returns submitted project details for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)

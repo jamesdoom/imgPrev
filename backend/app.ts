@@ -562,6 +562,11 @@ async function readSubmittedProject(projectId: string) {
     );
     const document = getRecord(manifest.document);
     const sheet = getRecord(document.sheet);
+
+    if (!isStoredProjectManifest(manifest, document, sheet)) {
+      return null;
+    }
+
     const assets = Array.isArray(document.assets) ? document.assets : [];
     const items = Array.isArray(document.items) ? document.items : [];
     const submittedAt =
@@ -766,6 +771,26 @@ function getSafeProjectId(projectId: unknown): string | null {
   }
 
   return /^project-\d+-[a-z0-9]+$/.test(projectId) ? projectId : null;
+}
+
+function isStoredProjectManifest(
+  manifest: Record<string, unknown>,
+  document: Record<string, unknown>,
+  sheet: Record<string, unknown>
+): boolean {
+  return (
+    typeof manifest.submittedAt === "string" &&
+    manifest.submittedAt.length > 0 &&
+    typeof document.id === "string" &&
+    Array.isArray(document.assets) &&
+    Array.isArray(document.items) &&
+    typeof sheet.widthIn === "number" &&
+    Number.isFinite(sheet.widthIn) &&
+    typeof sheet.heightIn === "number" &&
+    Number.isFinite(sheet.heightIn) &&
+    typeof sheet.dpi === "number" &&
+    Number.isFinite(sheet.dpi)
+  );
 }
 
 type ProjectReviewStatus =

@@ -150,6 +150,29 @@ describe("useImageUpload", () => {
     expect(hook.result.current.error).toBeNull();
     expect(imageStates.at(-1)?.[0]).not.toHaveProperty("dpi");
   });
+
+  test("continues upload when DPI metadata parsing fails", async () => {
+    getDpi.mockRejectedValue(new Error("corrupt metadata"));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ previewUrl: "/processed/preview.webp" }),
+    }) as unknown as typeof globalThis.fetch;
+    const { hook, imageStates } = renderUpload();
+
+    await act(async () => {
+      await hook.result.current.onDrop([file("photo.png", 512, "image/png")]);
+    });
+
+    expect(hook.result.current.error).toBeNull();
+    expect(hook.result.current.previewUrl).toBe(
+      "http://localhost:4000/processed/preview.webp"
+    );
+    expect(imageStates.at(-1)?.[0]).toMatchObject({
+      width: 640,
+      height: 480,
+    });
+    expect(imageStates.at(-1)?.[0]).not.toHaveProperty("dpi");
+  });
 });
 
 afterAll(() => {

@@ -45,3 +45,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; browser regression coverage change only
 - Regression added: `tests/e2e/customer-editor.spec.ts`, `tests/e2e/admin-review.spec.ts`
 - Notes/follow-up: expanded browser coverage for upload, layout edits, order summary, proof submit payloads, reload persistence, admin downloads, and reject status updates
+
+## 2026-07-01 - Data And File Reliability Hardening
+
+- Automated: `npm run test -- src/components/ImageUploader/utils/getDpi.test.ts`, `npm run test -- src/components/ImageUploader/hooks/useImageUpload.test.ts`, `npm run test -- backend/app.test.ts`, `npm run test:a11y`, `npm run test:quality`
+- Accessibility: covered by `npm run test:a11y`
+- Manual: not required; parser, hook, and backend storage regression coverage change
+- Regression added: malformed DPI metadata, DPI parser failure fallback, stale project JSON filtering, and missing generated project file handling
+- Notes/follow-up: keep admin missing-file states visible while hiding malformed stale project folders
