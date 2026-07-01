@@ -237,7 +237,7 @@ export function createApp() {
     (req: Request, res: Response): void => {
       void (async () => {
         try {
-          const document = parseRenderDocument(req.body.manifest);
+          const document = parseRenderDocument(getRequestBodyField(req, "manifest"));
           const files = Array.isArray(req.files)
             ? req.files.map((file) => ({
                 originalname: file.originalname,
@@ -270,7 +270,9 @@ export function createApp() {
     (req: Request, res: Response): void => {
       void (async () => {
         try {
-          const manifest = parseRenderManifest(req.body.manifest);
+          const manifest = parseRenderManifest(
+            getRequestBodyField(req, "manifest")
+          );
           const files = getUploadedRenderFiles(req.files);
           const renderedFiles = await renderSheetToFiles(manifest.document, files);
           const projectId = createProjectId();
@@ -809,6 +811,10 @@ function getReviewer(reviewer: unknown): string {
   }
 
   return reviewer.trim().slice(0, 80);
+}
+
+function getRequestBodyField(req: Request, fieldName: string): unknown {
+  return getRecord(req.body)[fieldName];
 }
 
 function getRecord(value: unknown): Record<string, unknown> {

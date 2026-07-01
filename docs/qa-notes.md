@@ -35,5 +35,5 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Automated: `npm run test:a11y`, `npm run test:quality`
 - Accessibility: covered by `npm run test:a11y`
 - Manual: reviewed failed GitHub Actions run annotations and job step status
-- Regression added: not applicable
+- Regression added: existing `backend/app.test.ts` no-manifest render test caught the Linux CI guard bug
 - Notes/follow-up: updated workflow actions to Node 24 runtime majors, made the install step report npm failures, and repaired missing optional dependency entries in `package-lock.json`
