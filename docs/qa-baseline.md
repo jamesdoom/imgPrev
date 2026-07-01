@@ -2,6 +2,8 @@
 
 Use this checklist before starting reliability or polish work, and again before merging changes that affect customer, editor, or admin workflows.
 
+For the standard definition of done, use `docs/quality-gate.md`.
+
 For data and file reliability work, pair this checklist with `docs/data-file-paths-audit.md`.
 
 ## Automated Gate
@@ -25,6 +27,18 @@ npm run test:e2e
 ```
 
 This runs Playwright checks against a real Chromium browser.
+
+Run the full automated quality gate before merging broad UI or workflow changes:
+
+```sh
+npm run test:quality
+```
+
+Run focused accessibility checks when labels, controls, landmarks, focus states, or layouts change:
+
+```sh
+npm run test:a11y
+```
 
 Current baseline notes:
 

@@ -61,6 +61,8 @@ The frontend defaults to `http://localhost:5173` and the backend defaults to `ht
 
 ```sh
 npm run test:baseline
+npm run test:quality
+npm run test:a11y
 npm run test:e2e
 npm run build
 npm run lint
@@ -68,7 +70,7 @@ npm test
 npm audit --omit=dev
 ```
 
-See `docs/qa-baseline.md` for the repeatable baseline checklist and manual smoke checks.
+See `docs/quality-gate.md` for the standard done checklist, and `docs/qa-baseline.md` for repeatable baseline and manual smoke checks.
 
 ## Runtime Storage
 
