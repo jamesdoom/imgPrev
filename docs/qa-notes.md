@@ -69,3 +69,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; admin workflow and warning cleanup covered by automated checks
 - Regression added: admin API network/status errors, admin review save-error preservation, and Playwright admin history assertions
 - Notes/follow-up: recurring canvas, Browserslist, and Playwright color warnings should stay quiet in the quality gate
+
+## 2026-07-02 - Client Test Readiness Plan
+
+- Automated: `npm run test:quality`
+- Accessibility: covered by client checklist focus and disabled-state smoke checks
+- Manual: documented in `docs/client-test-plan.md`
+- Regression added: not applicable; documentation/readiness workflow change
+- Notes/follow-up: run the client checklist with realistic artwork before the presentation session

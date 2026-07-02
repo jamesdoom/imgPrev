@@ -6,6 +6,8 @@ For the standard definition of done, use `docs/quality-gate.md`.
 
 For data and file reliability work, pair this checklist with `docs/data-file-paths-audit.md`.
 
+Before a client-led test session, run the structured walkthrough in `docs/client-test-plan.md`.
+
 ## Automated Gate
 
 Run the full baseline from the project root:
@@ -65,6 +67,8 @@ Run these in a browser after the automated gate when UI behavior changed:
 - Submit a proof request and verify the admin review screen can open previews, add notes, reject, approve, and change status.
 - Check keyboard focus states and basic keyboard navigation through upload, editor, proof request, and admin controls.
 - Resize to a narrow/mobile viewport and confirm controls remain usable without clipping.
+
+For client presentation readiness, use `docs/client-test-plan.md` instead of this shorter smoke list.
 
 ## Step 1 Exit Criteria
 

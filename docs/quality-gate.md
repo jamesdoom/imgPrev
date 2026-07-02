@@ -11,6 +11,7 @@ Use this as the standard definition of done for changes to the app. Keep the gat
 - `npm run test:a11y` passes when UI labels, controls, forms, landmarks, focus states, or layout structure changed.
 - `npm run test:e2e` passes when upload, editor, save/reload, proof submission, admin review, or responsive browser behavior changed.
 - The relevant manual smoke checks in `docs/qa-baseline.md` have been completed or intentionally skipped with a note.
+- For client-facing test sessions, the walkthrough in `docs/client-test-plan.md` has been completed or intentionally scoped with a note.
 - `docs/qa-notes.md` has a short entry for the change, including tests run, manual checks, and follow-up risks.
 
 ## One-Command Gates
