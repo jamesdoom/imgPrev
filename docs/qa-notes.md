@@ -77,3 +77,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: documented in `docs/client-test-plan.md`
 - Regression added: not applicable; documentation/readiness workflow change
 - Notes/follow-up: run the client checklist with realistic artwork before the presentation session
+
+## 2026-07-02 - First-Run UX Polish
+
+- Automated: `npm run test -- src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx src/admin/AdminReviewScreen.test.tsx`, `npm run test:e2e`, `npm run test:quality`
+- Accessibility: first-run customer guidance remains covered by editor accessibility checks
+- Manual: not required; first-run copy and admin empty state covered by automated assertions
+- Regression added: customer start-here guidance, automatic placement copy, and admin empty-state next action
+- Notes/follow-up: run the client checklist with realistic files for final presentation rehearsal

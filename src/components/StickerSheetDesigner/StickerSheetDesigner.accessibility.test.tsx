@@ -91,6 +91,10 @@ describe("StickerSheetDesigner accessibility", () => {
     const disabledReason =
       "Add artwork to enable proof downloads, exports, and proof submission.";
 
+    expect(screen.getByText("Start with artwork")).toBeInTheDocument();
+    expect(
+      screen.getByText("Artwork is placed on the sheet automatically after upload."),
+    ).toBeInTheDocument();
     expect(screen.getByText(disabledReason)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Proof PNG" })).toHaveAccessibleDescription(
       disabledReason,

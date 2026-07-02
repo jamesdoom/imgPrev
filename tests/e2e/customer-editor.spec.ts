@@ -78,7 +78,11 @@ test("customer sees empty artwork state after malformed saved project JSON", asy
       "Saved project data was stale or unreadable, so we started a fresh sheet.",
     ),
   ).toBeVisible();
+  await expect(page.getByText("Start with artwork")).toBeVisible();
   await expect(page.getByText("Drag files here or choose PNG")).toBeVisible();
+  await expect(
+    page.getByText("Artwork is placed on the sheet automatically after upload."),
+  ).toBeVisible();
   await expect(page.getByText("Upload and place artwork before requesting a proof.")).toBeVisible();
 });
 

@@ -251,7 +251,12 @@ function SubmissionList({
   }
 
   if (projects.length === 0) {
-    return <StatusBlock title="No submitted projects found." />;
+    return (
+      <StatusBlock
+        detail="Submit a proof request from the customer editor, then refresh this list."
+        title="No submitted projects found."
+      />
+    );
   }
 
   return (

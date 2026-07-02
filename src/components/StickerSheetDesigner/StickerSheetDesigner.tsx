@@ -821,11 +821,14 @@ export default function StickerSheetDesigner() {
           <PanelTitle title="Artwork" />
           <div className="flex min-h-0 flex-col gap-3 px-4 pb-4">
             {document.assets.length === 0 ? (
-              <ArtworkUploadDropZone
-                onFiles={(files) => {
-                  void handleFiles(files);
-                }}
-              />
+              <>
+                <FirstRunGuide />
+                <ArtworkUploadDropZone
+                  onFiles={(files) => {
+                    void handleFiles(files);
+                  }}
+                />
+              </>
             ) : (
               <>
                 <button
@@ -1222,6 +1225,9 @@ function ArtworkUploadDropZone({
       <span className="mt-1 max-w-48 text-xs leading-5 text-neutral-600">
         Drag files here or choose PNG, JPG, WebP, SVG, or PDF files.
       </span>
+      <span className="mt-2 max-w-56 text-xs leading-5 text-teal-900">
+        Artwork is placed on the sheet automatically after upload.
+      </span>
       <span className="mt-4 inline-flex h-10 items-center justify-center rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white">
         Choose files
       </span>
@@ -1236,6 +1242,19 @@ function ArtworkUploadDropZone({
         }}
       />
     </label>
+  );
+}
+
+function FirstRunGuide() {
+  return (
+    <div className="rounded border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+      <p className="font-semibold">Start with artwork</p>
+      <ol className="mt-2 space-y-1 text-xs leading-5">
+        <li>1. Upload a print-ready image, SVG, or PDF.</li>
+        <li>2. Confirm the automatic placement on the sheet.</li>
+        <li>3. Review preflight and order summary before submitting.</li>
+      </ol>
+    </div>
   );
 }
 

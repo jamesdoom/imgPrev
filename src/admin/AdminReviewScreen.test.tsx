@@ -279,6 +279,11 @@ describe("AdminReviewScreen", () => {
     expect(
       await screen.findByText("No submitted projects found.")
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Submit a proof request from the customer editor, then refresh this list."
+      )
+    ).toBeInTheDocument();
 
     fetchAdminProjectsMock.mockRejectedValueOnce(new Error("Backend offline."));
     await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
