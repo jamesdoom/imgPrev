@@ -111,20 +111,6 @@ interface SubmittedProofReceipt {
   projectId: string;
 }
 
-interface PrintOrderContact {
-  company: string;
-  email: string;
-  name: string;
-  note: string;
-}
-
-const EMPTY_PRINT_ORDER_CONTACT: PrintOrderContact = {
-  company: "",
-  email: "",
-  name: "",
-  note: "",
-};
-
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -167,9 +153,6 @@ export default function StickerSheetDesigner() {
   >({});
   const [submittedProof, setSubmittedProof] =
     useState<SubmittedProofReceipt | null>(null);
-  const [printOrderContact, setPrintOrderContact] = useState<PrintOrderContact>(
-    EMPTY_PRINT_ORDER_CONTACT,
-  );
   const [history, dispatchDocument] = useReducer(
     (state: SheetDocumentHistoryState, action: SheetDocumentHistoryAction) =>
       sheetDocumentHistoryReducer(state, action),
@@ -206,9 +189,7 @@ export default function StickerSheetDesigner() {
     () => estimateSheetOrder({ sheetCount: 1 }),
     [],
   );
-  const printOrderContactIsReady = isPrintOrderContactReady(printOrderContact);
-  const canSubmitForPrint =
-    canExport && document.items.length > 0 && printOrderContactIsReady;
+  const canSubmitForPrint = canExport && document.items.length > 0;
 
   const assetCountText = useMemo(() => {
     if (document.assets.length === 1) {
@@ -519,17 +500,11 @@ export default function StickerSheetDesigner() {
       return;
     }
 
-    if (!printOrderContactIsReady) {
-      toast.error("Enter a customer name and valid email before submitting.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
       const result = await submitProjectForReview({
         assetFiles,
-        customer: printOrderContact,
         document,
         preflightIssues,
       });
@@ -934,13 +909,9 @@ export default function StickerSheetDesigner() {
             documentItemCount={document.items.length}
             isExporting={isExporting}
             isSubmitting={isSubmitting}
-            printOrderContact={printOrderContact}
             submittedProof={submittedProof}
             onDownloadBundle={downloadAvailableBundleFiles}
             onDownloadPreviewPng={downloadPreviewPng}
-            onPrintOrderContactChange={(patch) =>
-              setPrintOrderContact((current) => ({ ...current, ...patch }))
-            }
             onSubmitForReview={submitForReview}
           />
         </aside>
@@ -1166,7 +1137,6 @@ export default function StickerSheetDesigner() {
             preflightErrorCount={preflightErrorCount}
             preflightWarningCount={preflightWarningCount}
             orderEstimate={orderEstimate}
-            printOrderContactIsReady={printOrderContactIsReady}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
             submittedProof={submittedProof}
@@ -1353,11 +1323,9 @@ function ProductionActionsPanel({
   documentItemCount,
   isExporting,
   isSubmitting,
-  printOrderContact,
   submittedProof,
   onDownloadBundle,
   onDownloadPreviewPng,
-  onPrintOrderContactChange,
   onSubmitForReview,
 }: {
   canExport: boolean;
@@ -1365,11 +1333,9 @@ function ProductionActionsPanel({
   documentItemCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
-  printOrderContact: PrintOrderContact;
   submittedProof: SubmittedProofReceipt | null;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
-  onPrintOrderContactChange: (patch: Partial<PrintOrderContact>) => void;
   onSubmitForReview: () => void;
 }) {
   const disabledReason = getProductionActionDisabledReason({
@@ -1378,73 +1344,11 @@ function ProductionActionsPanel({
   });
   const proofPngDisabledReason =
     documentItemCount === 0 ? "Add artwork to enable proof downloads." : null;
-  const submitDisabledReason =
-    disabledReason ??
-    (isPrintOrderContactReady(printOrderContact)
-      ? null
-      : "Enter customer name and email before submitting for print.");
+  const submitDisabledReason = disabledReason;
   const exportStatusId = "production-actions-status";
 
   return (
     <div className="space-y-2 px-4 pb-4">
-      <div className="space-y-2 rounded border border-neutral-200 bg-neutral-50 p-3">
-        <div>
-          <p className="text-sm font-semibold text-neutral-900">
-            Print order details
-          </p>
-          <p className="mt-1 text-xs leading-5 text-neutral-600">
-            These details travel with the printable PDF and order record.
-          </p>
-        </div>
-        <label className="block text-xs font-semibold uppercase text-neutral-500">
-          Customer name
-          <input
-            className={`mt-1 h-9 w-full rounded border border-neutral-300 bg-white px-2 text-sm font-normal normal-case text-neutral-950 ${INPUT_CLASS}`}
-            autoComplete="name"
-            required
-            type="text"
-            value={printOrderContact.name}
-            onChange={(event) =>
-              onPrintOrderContactChange({ name: event.target.value })
-            }
-          />
-        </label>
-        <label className="block text-xs font-semibold uppercase text-neutral-500">
-          Email
-          <input
-            className={`mt-1 h-9 w-full rounded border border-neutral-300 bg-white px-2 text-sm font-normal normal-case text-neutral-950 ${INPUT_CLASS}`}
-            autoComplete="email"
-            required
-            type="email"
-            value={printOrderContact.email}
-            onChange={(event) =>
-              onPrintOrderContactChange({ email: event.target.value })
-            }
-          />
-        </label>
-        <label className="block text-xs font-semibold uppercase text-neutral-500">
-          Company <span className="font-normal normal-case">(optional)</span>
-          <input
-            className={`mt-1 h-9 w-full rounded border border-neutral-300 bg-white px-2 text-sm font-normal normal-case text-neutral-950 ${INPUT_CLASS}`}
-            autoComplete="organization"
-            type="text"
-            value={printOrderContact.company}
-            onChange={(event) =>
-              onPrintOrderContactChange({ company: event.target.value })
-            }
-          />
-        </label>
-        <label className="block text-xs font-semibold uppercase text-neutral-500">
-          Print notes <span className="font-normal normal-case">(optional)</span>
-          <textarea
-            className={`mt-1 min-h-20 w-full resize-y rounded border border-neutral-300 bg-white px-2 py-2 text-sm font-normal normal-case text-neutral-950 ${INPUT_CLASS}`}
-            value={printOrderContact.note}
-            onChange={(event) =>
-              onPrintOrderContactChange({ note: event.target.value })
-            }
-          />
-        </label>
-      </div>
       {(disabledReason || proofPngDisabledReason || submitDisabledReason) && (
         <p
           className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900"
@@ -1554,7 +1458,6 @@ function ExportPanel({
   preflightErrorCount,
   preflightWarningCount,
   orderEstimate,
-  printOrderContactIsReady,
   sheetLabel,
   submittedProof,
 }: {
@@ -1564,7 +1467,6 @@ function ExportPanel({
   preflightErrorCount: number;
   preflightWarningCount: number;
   orderEstimate: SheetOrderEstimate;
-  printOrderContactIsReady: boolean;
   sheetLabel: string;
   submittedProof: SubmittedProofReceipt | null;
 }) {
@@ -1590,7 +1492,6 @@ function ExportPanel({
         documentItemCount={documentItemCount}
         estimate={orderEstimate}
         preflightErrorCount={preflightErrorCount}
-        printOrderContactIsReady={printOrderContactIsReady}
         submittedProof={submittedProof}
       />
     </div>
@@ -1643,14 +1544,12 @@ function OrderSummaryPanel({
   documentItemCount,
   estimate,
   preflightErrorCount,
-  printOrderContactIsReady,
   submittedProof,
 }: {
   canExport: boolean;
   documentItemCount: number;
   estimate: SheetOrderEstimate;
   preflightErrorCount: number;
-  printOrderContactIsReady: boolean;
   submittedProof: SubmittedProofReceipt | null;
 }) {
   const perSheetCents = estimate.subtotalCents / estimate.sheetCount;
@@ -1658,7 +1557,6 @@ function OrderSummaryPanel({
     canExport,
     documentItemCount,
     preflightErrorCount,
-    printOrderContactIsReady,
     submittedProof,
   });
 
@@ -1738,13 +1636,11 @@ function getSubmitProofReadiness({
   canExport,
   documentItemCount,
   preflightErrorCount,
-  printOrderContactIsReady,
   submittedProof,
 }: {
   canExport: boolean;
   documentItemCount: number;
   preflightErrorCount: number;
-  printOrderContactIsReady: boolean;
   submittedProof: SubmittedProofReceipt | null;
 }): {
   className: string;
@@ -1777,27 +1673,11 @@ function getSubmitProofReadiness({
     };
   }
 
-  if (!printOrderContactIsReady) {
-    return {
-      className: "border-amber-200 bg-amber-50 text-amber-900",
-      description: "Enter customer name and email before submitting for print.",
-      label: "Needs details",
-    };
-  }
-
   return {
     className: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    description: "Ready to submit once the print details and preview look correct.",
+    description: "Ready to submit once the preview looks correct.",
     label: "Ready",
   };
-}
-
-function isPrintOrderContactReady(contact: PrintOrderContact): boolean {
-  return contact.name.trim().length > 0 && isValidEmail(contact.email);
-}
-
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 function createSubmittedProofReceipt(

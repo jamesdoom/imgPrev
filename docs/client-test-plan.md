@@ -35,7 +35,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
 8. Review preflight messages and confirm warnings/errors explain the next action.
 9. Review order summary: sheet count, price, minimum order, free shipping threshold, and submit readiness.
 10. Reload the page and confirm artwork previews, placed decals, and order summary restore correctly.
-11. Enter customer details and submit the sheet for print.
+11. Submit the sheet for print.
 12. If Cloudinary mirroring is enabled, confirm the generated project appears under `decal-sheet/<projectId>` in Cloudinary.
 
 Pass criteria:

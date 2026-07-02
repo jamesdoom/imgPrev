@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const autosaveKey = "sticker-sheet-designer:autosave";
 const artworkFile = {
@@ -27,12 +27,6 @@ const emptySvgDataUrl =
   );
 
 interface SubmittedProofManifest {
-  customer: {
-    company?: string;
-    email?: string;
-    name?: string;
-    note?: string;
-  };
   document: {
     assets: Array<{
       fileName?: string;
@@ -233,7 +227,6 @@ test("customer editor remains reachable without page-level horizontal overflow o
   });
 
   await submitButton.scrollIntoViewIfNeeded();
-  await fillPrintOrderDetails(page);
   await expect(submitButton).toBeVisible();
   await expect(submitButton).toBeEnabled();
 });
@@ -262,7 +255,6 @@ test("customer can reach print readiness and submit a print order", async ({
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
-  await fillPrintOrderDetails(page);
 
   await expect(
     page.getByRole("button", { name: "Submit for Print" }),
@@ -333,12 +325,6 @@ test("customer main proof path preserves layout, order summary, submit payload, 
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
-  await fillPrintOrderDetails(page, {
-    company: "Playwright Print Co",
-    email: "qa@example.com",
-    name: "QA Buyer",
-    note: "Keep the duplicate centered.",
-  });
 
   await expect(
     page.getByRole("button", { name: /playwright-artwork\.svg Ready/ }),
@@ -409,12 +395,6 @@ test("customer main proof path preserves layout, order summary, submit payload, 
     }),
   ).toBeVisible();
   expect(submittedManifest).not.toBeNull();
-  expect(submittedManifest?.customer).toMatchObject({
-    company: "Playwright Print Co",
-    email: "qa@example.com",
-    name: "QA Buyer",
-    note: "Keep the duplicate centered.",
-  });
 
   await page.reload();
 
@@ -461,7 +441,6 @@ test("customer can recover after a failed print submission response", async ({
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
-  await fillPrintOrderDetails(page);
 
   await page.getByRole("button", { name: "Submit for Print" }).click();
 
@@ -479,27 +458,6 @@ test("customer can recover after a failed print submission response", async ({
     }),
   ).toBeVisible();
 });
-
-async function fillPrintOrderDetails(
-  page: Page,
-  details: {
-    company?: string;
-    email?: string;
-    name?: string;
-    note?: string;
-  } = {},
-) {
-  await page.getByLabel("Customer name").fill(details.name ?? "QA Customer");
-  await page.getByLabel("Email").fill(details.email ?? "qa@example.com");
-
-  if (details.company !== undefined) {
-    await page.getByLabel("Company (optional)").fill(details.company);
-  }
-
-  if (details.note !== undefined) {
-    await page.getByLabel("Print notes (optional)").fill(details.note);
-  }
-}
 
 function createSavedDocument({
   assets,

@@ -130,6 +130,6 @@ Keep this file short. Add one entry per meaningful change so future work can see
 
 - Automated: `npm run test -- src/domain/print/exportBundle.test.ts src/components/StickerSheetDesigner/renderProductionFiles.test.ts src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx src/admin/AdminReviewScreen.test.tsx backend/app.test.ts`, `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:quality`
 - Accessibility: submit action remains covered by editor accessibility checks with updated print submission copy
-- Manual: verify the customer can enter order details, submit for print, and see the saved project receipt
-- Regression added: print submissions include customer contact details and write `order.json` alongside `print.pdf`
+- Manual: verify the customer can submit for print and see the saved project receipt
+- Regression added: print submissions write `order.json` alongside `print.pdf` without requiring extra customer detail fields
 - Notes/follow-up: email delivery is intentionally marked `not-configured` until a provider and production recipient are selected

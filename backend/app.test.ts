@@ -41,12 +41,6 @@ afterEach(async () => {
 
 function renderManifest() {
   return {
-    customer: {
-      company: "Decal Buyer Co",
-      email: "buyer@example.com",
-      name: "Buyer Name",
-      note: "Please print this first.",
-    },
     document: {
       id: "project-1",
       version: 1,
@@ -283,10 +277,10 @@ describe("backend app", () => {
       projectId: response.body.projectId,
       status: "submitted",
       customer: {
-        company: "Decal Buyer Co",
-        email: "buyer@example.com",
-        name: "Buyer Name",
-        note: "Please print this first.",
+        company: "",
+        email: "",
+        name: "",
+        note: "",
       },
       files: {
         orderJson: `/projects/${response.body.projectId}/order.json`,
