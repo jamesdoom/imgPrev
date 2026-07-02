@@ -104,6 +104,7 @@ interface ProjectJsonReadResult {
 interface SubmittedProofReceipt {
   cloudinaryAssetPaths: string[];
   cloudinaryFolder?: string;
+  cloudinaryStatus?: "mirrored" | "skipped";
   cloudinaryWarnings: string[];
   projectId: string;
 }
@@ -1390,6 +1391,11 @@ function ProductionActionsPanel({
               Cloudinary folder: {submittedProof.cloudinaryFolder}
             </p>
           )}
+          {submittedProof.cloudinaryStatus === "skipped" && (
+            <p className="leading-5 text-amber-900">
+              Cloudinary mirror was skipped for this submission.
+            </p>
+          )}
           {submittedProof.cloudinaryAssetPaths.length > 0 && (
             <p>
               Mirrored artwork:{" "}
@@ -1662,6 +1668,7 @@ function createSubmittedProofReceipt(
   return {
     projectId: result.projectId,
     cloudinaryFolder: result.cloudinary?.folder,
+    cloudinaryStatus: result.cloudinary?.status,
     cloudinaryAssetPaths:
       result.cloudinary?.files
         .map((file) => file.path)

@@ -117,3 +117,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: real Cloudinary smoke uploaded to `decal-sheet/project-20260702153842668-4kj8pt`
 - Regression added: core proof files still create a Cloudinary folder when an artwork copy upload fails; the response records a warning instead of losing the whole submission
 - Notes/follow-up: Cloudinary artwork copies are optimized for review speed while original files remain stored in local project storage for admin/recovery
+
+## 2026-07-02 - Cloudinary Smoke Folder Separation
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run smoke:cloudinary`
+- Accessibility: not applicable; proof mirror diagnostics change
+- Manual: real Cloudinary smoke uploaded to `decal-sheet/_smoke/project-20260702154646504-5obekv`
+- Regression added: backend returns an explicit `skipped` Cloudinary status when mirror credentials are missing
+- Notes/follow-up: smoke submissions now write to `decal-sheet/_smoke/<projectId>` so test assets are not mistaken for real customer proof folders

@@ -33,6 +33,8 @@ async function main() {
     throw new Error(`Missing Cloudinary env: ${missingEnv.join(", ")}`);
   }
 
+  process.env.CLOUDINARY_PROOF_FOLDER = getSmokeProofFolder();
+
   const smokeAssets = await createSmokeAssets();
   const submission = request(createApp())
     .post("/submit-project")
@@ -90,6 +92,16 @@ async function main() {
     .forEach((file) => {
       console.log(`${file.resourceType}: ${file.path} -> ${file.secureUrl}`);
     });
+}
+
+function getSmokeProofFolder(): string {
+  const baseFolder = process.env.CLOUDINARY_PROOF_FOLDER?.trim() || "decal-sheet";
+  const normalizedBaseFolder = baseFolder
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/+/g, "/");
+
+  return `${normalizedBaseFolder || "decal-sheet"}/_smoke`;
 }
 
 interface SmokeAsset {

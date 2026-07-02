@@ -332,26 +332,24 @@ export function createApp() {
                 projectRecord,
                 renderedFiles,
               })
-            : null;
+            : createSkippedCloudinaryProof(projectId);
 
-          if (cloudinaryProof) {
-            await fs.promises.writeFile(
-              path.join(projectDir, "project.json"),
-              JSON.stringify(
-                {
-                  ...projectRecord,
-                  cloudinary: cloudinaryProof,
-                },
-                null,
-                2
-              )
-            );
-          }
+          await fs.promises.writeFile(
+            path.join(projectDir, "project.json"),
+            JSON.stringify(
+              {
+                ...projectRecord,
+                cloudinary: cloudinaryProof,
+              },
+              null,
+              2
+            )
+          );
 
           res.status(201).json({
             projectId,
             status: "submitted",
-            ...(cloudinaryProof ? { cloudinary: cloudinaryProof } : {}),
+            cloudinary: cloudinaryProof,
             files: {
               projectJson: `/projects/${projectId}/project.json`,
               previewPng: `/projects/${projectId}/preview.png`,
@@ -616,7 +614,19 @@ async function uploadSubmittedProofToCloudinary({
   return {
     folder,
     files: [...uploadedCoreFiles, ...uploadedAssetFiles],
+    status: "mirrored",
     ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+function createSkippedCloudinaryProof(projectId: string): CloudinaryProofUpload {
+  return {
+    files: [],
+    folder: getCloudinaryProofFolder(projectId),
+    status: "skipped",
+    warnings: [
+      "Cloudinary mirror skipped because the backend is missing CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET.",
+    ],
   };
 }
 
@@ -1130,6 +1140,7 @@ interface UploadedRenderFile {
 interface CloudinaryProofUpload {
   folder: string;
   files: CloudinaryProofFile[];
+  status: "mirrored" | "skipped";
   warnings?: string[];
 }
 

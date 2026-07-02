@@ -339,9 +339,11 @@ describe("backend app", () => {
     expect(response.body.cloudinary.folder).toBe(
       `decal-sheet/${response.body.projectId}`
     );
+    expect(response.body.cloudinary.status).toBe("mirrored");
     expect(projectJson.cloudinary.folder).toBe(
       `decal-sheet/${response.body.projectId}`
     );
+    expect(projectJson.cloudinary.status).toBe("mirrored");
     expect(uploadedPublicIds).toEqual(
       expect.arrayContaining([
         "assets/pixel",
@@ -416,6 +418,36 @@ describe("backend app", () => {
       error:
         "Cloudinary upload failed for project.json: Invalid Cloudinary credentials. HTTP 401 Error",
     });
+  });
+
+  test("reports when Cloudinary mirroring is skipped because config is missing", async () => {
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, response.body.projectId, "project.json"),
+        "utf8"
+      )
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.body.cloudinary).toEqual({
+      files: [],
+      folder: `decal-sheet/${response.body.projectId}`,
+      status: "skipped",
+      warnings: [
+        "Cloudinary mirror skipped because the backend is missing CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET.",
+      ],
+    });
+    expect(projectJson.cloudinary).toEqual(response.body.cloudinary);
   });
 
   test("keeps submitted proofs visible when a Cloudinary artwork copy fails", async () => {
