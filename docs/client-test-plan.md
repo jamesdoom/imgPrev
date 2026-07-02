@@ -19,6 +19,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
   - A low-resolution or warning-worthy image.
   - An unsupported file type for negative testing.
 - Confirm the customer app and admin backend are running and reachable.
+- If proof uploads should mirror to Cloudinary, confirm the backend has `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_PROOF_FOLDER=decal-sheet` configured.
 - Clear local storage or use a fresh browser profile if you need a clean first-run experience.
 - Keep `docs/qa-notes.md` open so any test deviation can be captured immediately.
 
@@ -35,6 +36,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
 9. Review order summary: sheet count, price, minimum order, free shipping threshold, and submit readiness.
 10. Reload the page and confirm artwork previews, placed decals, and order summary restore correctly.
 11. Submit a proof request.
+12. If Cloudinary mirroring is enabled, confirm the generated project appears under `decal-sheet/<projectId>` in Cloudinary.
 
 Pass criteria:
 

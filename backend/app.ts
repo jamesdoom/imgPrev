@@ -31,13 +31,17 @@ const storageRoot = path.resolve(__dirname, "storage");
 const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
 const projectsDir = path.join(storageRoot, "projects");
+const DEFAULT_CLOUDINARY_PROOF_FOLDER = "decal-sheet";
 
-const hasCloudinaryConfig =
-  !!process.env.CLOUDINARY_CLOUD_NAME &&
-  !!process.env.CLOUDINARY_API_KEY &&
-  !!process.env.CLOUDINARY_API_SECRET;
+function hasCloudinaryConfig() {
+  return (
+    !!process.env.CLOUDINARY_CLOUD_NAME &&
+    !!process.env.CLOUDINARY_API_KEY &&
+    !!process.env.CLOUDINARY_API_SECRET
+  );
+}
 
-if (hasCloudinaryConfig) {
+function configureCloudinary() {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -202,11 +206,12 @@ export function createApp() {
         return res.status(400).json({ error: "Invalid filename." });
       }
 
-      if (!hasCloudinaryConfig) {
+      if (!hasCloudinaryConfig()) {
         return res.status(500).json({ error: "Cloudinary is not configured." });
       }
 
       try {
+        configureCloudinary();
         const buffer = await fs.promises.readFile(filePath);
 
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -279,24 +284,22 @@ export function createApp() {
           const submittedAt = new Date().toISOString();
           const projectDir = path.join(projectsDir, projectId);
           const assetsDir = path.join(projectDir, "assets");
+          const initialReview = createInitialProjectReview(submittedAt);
+          const projectRecord = {
+            ...getRecord(manifest.raw),
+            submittedAt,
+            projectId,
+          };
 
           await fs.promises.mkdir(assetsDir, { recursive: true });
           await Promise.all([
             fs.promises.writeFile(
               path.join(projectDir, "project.json"),
-              JSON.stringify(
-                {
-                  ...getRecord(manifest.raw),
-                  submittedAt,
-                  projectId,
-                },
-                null,
-                2
-              )
+              JSON.stringify(projectRecord, null, 2)
             ),
             fs.promises.writeFile(
               path.join(projectDir, "review.json"),
-              JSON.stringify(createInitialProjectReview(submittedAt), null, 2)
+              JSON.stringify(initialReview, null, 2)
             ),
             fs.promises.writeFile(
               path.join(projectDir, "manifest.json"),
@@ -318,9 +321,35 @@ export function createApp() {
             ),
           ]);
 
+          const cloudinaryProof = hasCloudinaryConfig()
+            ? await uploadSubmittedProofToCloudinary({
+                files,
+                initialReview,
+                manifest: manifest.raw,
+                projectId,
+                projectRecord,
+                renderedFiles,
+              })
+            : null;
+
+          if (cloudinaryProof) {
+            await fs.promises.writeFile(
+              path.join(projectDir, "project.json"),
+              JSON.stringify(
+                {
+                  ...projectRecord,
+                  cloudinary: cloudinaryProof,
+                },
+                null,
+                2
+              )
+            );
+          }
+
           res.status(201).json({
             projectId,
             status: "submitted",
+            ...(cloudinaryProof ? { cloudinary: cloudinaryProof } : {}),
             files: {
               projectJson: `/projects/${projectId}/project.json`,
               previewPng: `/projects/${projectId}/preview.png`,
@@ -504,7 +533,9 @@ function parseRenderDocument(manifest: unknown): RenderSheetDocument {
   return parseRenderManifest(manifest).document;
 }
 
-function getUploadedRenderFiles(files: Express.Multer.File[] | unknown) {
+function getUploadedRenderFiles(
+  files: Express.Multer.File[] | unknown
+): UploadedRenderFile[] {
   return Array.isArray(files)
     ? files.map((file) => ({
         originalname: file.originalname,
@@ -512,6 +543,138 @@ function getUploadedRenderFiles(files: Express.Multer.File[] | unknown) {
         buffer: file.buffer,
       }))
     : [];
+}
+
+async function uploadSubmittedProofToCloudinary({
+  files,
+  initialReview,
+  manifest,
+  projectId,
+  projectRecord,
+  renderedFiles,
+}: {
+  files: UploadedRenderFile[];
+  initialReview: ProjectReview;
+  manifest: unknown;
+  projectId: string;
+  projectRecord: Record<string, unknown>;
+  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+}): Promise<CloudinaryProofUpload> {
+  configureCloudinary();
+
+  const folder = getCloudinaryProofFolder(projectId);
+  const proofFiles: CloudinaryProofUploadCandidate[] = [
+    {
+      buffer: Buffer.from(JSON.stringify(projectRecord, null, 2)),
+      contentType: "application/json",
+      relativePath: "project.json",
+    },
+    {
+      buffer: Buffer.from(JSON.stringify(manifest, null, 2)),
+      contentType: "application/json",
+      relativePath: "manifest.json",
+    },
+    {
+      buffer: Buffer.from(JSON.stringify(initialReview, null, 2)),
+      contentType: "application/json",
+      relativePath: "review.json",
+    },
+    {
+      buffer: renderedFiles.previewPng,
+      contentType: "image/png",
+      relativePath: "preview.png",
+    },
+    {
+      buffer: renderedFiles.printPdf,
+      contentType: "application/pdf",
+      relativePath: "print.pdf",
+    },
+    ...files.map((file) => ({
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      relativePath: path.posix.join("assets", path.basename(file.originalname)),
+    })),
+  ];
+
+  const uploadedFiles = await Promise.all(
+    proofFiles.map((file) => uploadProofFileToCloudinary(file, folder))
+  );
+
+  return {
+    folder,
+    files: uploadedFiles,
+  };
+}
+
+function getCloudinaryProofFolder(projectId: string): string {
+  const baseFolder =
+    normalizeCloudinaryPath(process.env.CLOUDINARY_PROOF_FOLDER) ??
+    DEFAULT_CLOUDINARY_PROOF_FOLDER;
+
+  return path.posix.join(baseFolder, projectId);
+}
+
+function normalizeCloudinaryPath(value: string | undefined): string | null {
+  const normalized = value
+    ?.trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/+/g, "/");
+
+  return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function uploadProofFileToCloudinary(
+  file: CloudinaryProofUploadCandidate,
+  folder: string
+): Promise<CloudinaryProofFile> {
+  const resourceType = getCloudinaryResourceType(file.contentType);
+  const publicId = getCloudinaryPublicId(file.relativePath, resourceType);
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        overwrite: true,
+        public_id: publicId,
+        resource_type: resourceType,
+      },
+      (error, result) => {
+        if (error || !result?.secure_url) {
+          reject(error ?? new Error("Cloudinary upload did not return a URL."));
+          return;
+        }
+
+        resolve({
+          fileName: path.posix.basename(file.relativePath),
+          path: file.relativePath,
+          publicId: result.public_id,
+          resourceType,
+          secureUrl: result.secure_url,
+        });
+      }
+    );
+
+    streamifier.createReadStream(file.buffer).pipe(uploadStream);
+  });
+}
+
+function getCloudinaryResourceType(contentType: string): "image" | "raw" {
+  return contentType.startsWith("image/") ? "image" : "raw";
+}
+
+function getCloudinaryPublicId(
+  relativePath: string,
+  resourceType: "image" | "raw"
+): string {
+  const normalizedPath =
+    normalizeCloudinaryPath(relativePath) ?? path.basename(relativePath);
+
+  if (resourceType === "raw") {
+    return normalizedPath;
+  }
+
+  return normalizedPath.replace(/\.[^/.]+$/, "");
 }
 
 function createProjectId(): string {
@@ -810,6 +973,31 @@ interface ProjectReviewEvent {
   note: string;
   reviewer: string;
   reviewedAt: string;
+}
+
+interface UploadedRenderFile {
+  originalname: string;
+  mimetype: string;
+  buffer: Buffer;
+}
+
+interface CloudinaryProofUpload {
+  folder: string;
+  files: CloudinaryProofFile[];
+}
+
+interface CloudinaryProofFile {
+  fileName: string;
+  path: string;
+  publicId: string;
+  resourceType: "image" | "raw";
+  secureUrl: string;
+}
+
+interface CloudinaryProofUploadCandidate {
+  buffer: Buffer;
+  contentType: string;
+  relativePath: string;
 }
 
 function getReviewStatus(status: unknown): ProjectReviewStatus | null {

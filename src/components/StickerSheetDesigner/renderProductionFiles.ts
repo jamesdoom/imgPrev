@@ -15,6 +15,16 @@ export interface RenderProductionFilesResult {
 export interface SubmitProjectForReviewResult {
   projectId: string;
   status: "submitted";
+  cloudinary?: {
+    folder: string;
+    files: Array<{
+      fileName: string;
+      path: string;
+      publicId: string;
+      resourceType: "image" | "raw";
+      secureUrl: string;
+    }>;
+  };
   files: {
     projectJson: string;
     previewPng: string;

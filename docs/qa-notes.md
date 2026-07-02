@@ -85,3 +85,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; first-run copy and admin empty state covered by automated assertions
 - Regression added: customer start-here guidance, automatic placement copy, and admin empty-state next action
 - Notes/follow-up: run the client checklist with realistic files for final presentation rehearsal
+
+## 2026-07-02 - Cloudinary Proof Mirroring
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:quality`
+- Accessibility: not applicable; backend proof storage change
+- Manual: confirm a real submitted proof appears in Cloudinary under `decal-sheet/<projectId>` when credentials are configured
+- Regression added: mocked Cloudinary upload stream verifies preview, PDF, manifest, review, project JSON, and original assets are mirrored
+- Notes/follow-up: keep local backend project storage as the admin/recovery source while Cloudinary acts as the external proof mirror

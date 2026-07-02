@@ -1,7 +1,9 @@
 import request from "supertest";
 import fs from "fs";
 import path from "path";
-import { afterEach, describe, expect, test } from "vitest";
+import { Writable } from "stream";
+import { v2 as cloudinary } from "cloudinary";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 
 const validPng = Buffer.from(
@@ -10,6 +12,19 @@ const validPng = Buffer.from(
 );
 const submittedProjectIds: string[] = [];
 const projectsDir = path.resolve(__dirname, "storage", "projects");
+const originalCloudinaryEnv = {
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_PROOF_FOLDER: process.env.CLOUDINARY_PROOF_FOLDER,
+};
+
+beforeEach(() => {
+  delete process.env.CLOUDINARY_API_KEY;
+  delete process.env.CLOUDINARY_API_SECRET;
+  delete process.env.CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_PROOF_FOLDER;
+});
 
 afterEach(async () => {
   await Promise.all(
@@ -20,6 +35,8 @@ afterEach(async () => {
       })
     )
   );
+  restoreCloudinaryEnv();
+  vi.restoreAllMocks();
 });
 
 function renderManifest() {
@@ -261,6 +278,93 @@ describe("backend app", () => {
     expect(originalAsset).toEqual(validPng);
   });
 
+  test("mirrors submitted proof files to the configured Cloudinary folder", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "demo";
+    process.env.CLOUDINARY_API_KEY = "key";
+    process.env.CLOUDINARY_API_SECRET = "secret";
+    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
+
+    const uploadedFiles: Array<{
+      bytes: number;
+      options: {
+        folder?: string;
+        public_id?: string;
+        resource_type?: string;
+      };
+    }> = [];
+
+    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
+      ((options, callback) => {
+        let bytes = 0;
+        const writable = new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            bytes += chunk.length;
+            done();
+          },
+        });
+
+        writable.on("finish", () => {
+          uploadedFiles.push({ bytes, options });
+          callback?.(undefined, {
+            public_id: `${options.folder}/${options.public_id}`,
+            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
+          });
+        });
+
+        return writable;
+      }) as typeof cloudinary.uploader.upload_stream
+    );
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, response.body.projectId, "project.json"),
+        "utf8"
+      )
+    );
+    const uploadedPublicIds = uploadedFiles.map(
+      (file) => file.options.public_id
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.body.cloudinary.folder).toBe(
+      `decal-sheet/${response.body.projectId}`
+    );
+    expect(projectJson.cloudinary.folder).toBe(
+      `decal-sheet/${response.body.projectId}`
+    );
+    expect(uploadedPublicIds).toEqual(
+      expect.arrayContaining([
+        "assets/pixel",
+        "manifest.json",
+        "preview",
+        "print.pdf",
+        "project.json",
+        "review.json",
+      ])
+    );
+    expect(uploadedFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          options: expect.objectContaining({ resource_type: "image" }),
+        }),
+        expect.objectContaining({
+          options: expect.objectContaining({ resource_type: "raw" }),
+        }),
+      ])
+    );
+    expect(uploadedFiles.every((file) => file.bytes > 0)).toBe(true);
+  });
+
   test("lists submitted projects for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)
@@ -482,3 +586,28 @@ describe("backend app", () => {
     expect(response.body).toEqual({ error: "Invalid review status." });
   });
 });
+
+function restoreCloudinaryEnv() {
+  restoreEnvValue("CLOUDINARY_API_KEY", originalCloudinaryEnv.CLOUDINARY_API_KEY);
+  restoreEnvValue(
+    "CLOUDINARY_API_SECRET",
+    originalCloudinaryEnv.CLOUDINARY_API_SECRET
+  );
+  restoreEnvValue(
+    "CLOUDINARY_CLOUD_NAME",
+    originalCloudinaryEnv.CLOUDINARY_CLOUD_NAME
+  );
+  restoreEnvValue(
+    "CLOUDINARY_PROOF_FOLDER",
+    originalCloudinaryEnv.CLOUDINARY_PROOF_FOLDER
+  );
+}
+
+function restoreEnvValue(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}

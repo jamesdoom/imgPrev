@@ -185,6 +185,7 @@ Current behavior:
 - Render and submit failures surface backend error messages when available.
 - Backend validates manifest presence, JSON shape, asset MIME types, missing uploaded asset files, and file size limits.
 - Submitted projects write `project.json`, `manifest.json`, `review.json`, `preview.png`, `print.pdf`, and original assets.
+- When `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` are configured, submitted proof packages are also mirrored to Cloudinary under `CLOUDINARY_PROOF_FOLDER` or `decal-sheet` by default. Each project uses a nested folder: `decal-sheet/<projectId>`.
 
 Existing coverage:
 
