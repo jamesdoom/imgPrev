@@ -61,3 +61,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: covered by mobile Playwright viewport check
 - Regression added: `src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx`, `tests/e2e/customer-editor.spec.ts`
 - Notes/follow-up: continue pairing visual polish with role/name based tests where browser behavior matters
+
+## 2026-07-02 - Operational Confidence Polish
+
+- Automated: `npm run test -- src/admin/adminReviewApi.test.ts src/admin/AdminReviewScreen.test.tsx`, `npm run build`, `npm run test:a11y`, `npm run test:e2e`, `npm run test:quality`
+- Accessibility: admin history/status and error messaging remain covered by `npm run test:a11y`
+- Manual: not required; admin workflow and warning cleanup covered by automated checks
+- Regression added: admin API network/status errors, admin review save-error preservation, and Playwright admin history assertions
+- Notes/follow-up: recurring canvas, Browserslist, and Playwright color warnings should stay quiet in the quality gate

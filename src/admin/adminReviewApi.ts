@@ -145,14 +145,26 @@ async function requestJson<T extends object>(
   init?: RequestInit
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
-  const response = init ? await fetch(url, init) : await fetch(url);
+  let response: Response;
+
+  try {
+    response = init ? await fetch(url, init) : await fetch(url);
+  } catch {
+    throw new Error(
+      `${fallbackMessage} Check that the review backend is running and try again.`
+    );
+  }
+
   const payload = (await response.json().catch(() => ({}))) as
     | T
     | { error?: string };
 
   if (!response.ok) {
+    const message =
+      "error" in payload && payload.error ? payload.error : fallbackMessage;
+
     throw new Error(
-      "error" in payload && payload.error ? payload.error : fallbackMessage
+      `${message} The backend returned HTTP ${response.status}.`
     );
   }
 

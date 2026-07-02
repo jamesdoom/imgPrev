@@ -115,6 +115,8 @@ test("admin can review downloadable previews and approve a project", async ({
   await page.getByRole("button", { name: "Approve" }).click();
 
   await expect(page.getByText("Approved").first()).toBeVisible();
+  await expect(page.getByText("Decision 1")).toBeVisible();
+  await expect(page.getByText("Latest reviewer")).toBeVisible();
   await expect(page.getByText("Looks production ready.")).toBeVisible();
 });
 
@@ -197,8 +199,9 @@ test("admin can inspect downloadable project files and reject a submitted proof"
   await page.getByRole("button", { name: "Reject" }).click();
 
   await expect(page.getByText("Rejected").first()).toBeVisible();
+  await expect(page.getByText("Decision 1")).toBeVisible();
   await expect(
     page.getByText("Artwork edge is too close to the cutline."),
   ).toBeVisible();
-  await expect(page.getByText("Print Desk")).toBeVisible();
+  await expect(page.getByText("Print Desk").first()).toBeVisible();
 });

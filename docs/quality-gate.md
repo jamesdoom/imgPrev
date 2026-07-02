@@ -60,9 +60,10 @@ Run the checks most relevant to the change:
 - Tab through affected controls and confirm focus is visible and order is sensible.
 - Check a narrow/mobile viewport for clipping, overlap, or unreachable controls.
 
-## Known Baseline Noise
+## Baseline Warning Discipline
 
-- Vite may warn that Browserslist data is stale.
-- Vitest may print jsdom canvas `getContext()` warnings for canvas-backed components.
+The gate should stay quiet enough that new warnings are easy to notice. When a recurring warning appears:
 
-Track these as maintenance cleanup when they become distracting, but they are not failures while the commands pass.
+- Fix it in setup, configuration, or code when practical.
+- If it cannot be fixed immediately, add a dated `docs/qa-notes.md` entry with the command, warning text, impact, and owner/follow-up.
+- Do not add broad permanent exceptions for warnings without a specific follow-up.

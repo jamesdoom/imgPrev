@@ -42,8 +42,7 @@ npm run test:a11y
 
 Current baseline notes:
 
-- The build may warn that Browserslist data is stale. Treat this as maintenance noise unless it becomes a failure.
-- Vitest may log jsdom canvas `getContext()` warnings from canvas-backed components. Existing tests still pass, but quieter canvas setup is a good future cleanup.
+- Baseline commands should not emit recurring expected warnings. Capture any new repeated warning in `docs/qa-notes.md` with the command, impact, and follow-up.
 
 ## Existing Automated Coverage
 
@@ -70,5 +69,5 @@ Run these in a browser after the automated gate when UI behavior changed:
 ## Step 1 Exit Criteria
 
 - `npm run test:baseline` passes.
-- Any warnings or manual issues are captured as follow-up work.
+- Any warnings or manual issues are fixed or captured as dated follow-up work.
 - No new feature work is introduced during the baseline pass.

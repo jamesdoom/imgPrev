@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+delete process.env.NO_COLOR;
+
 export default defineConfig({
   expect: {
     timeout: 10_000,

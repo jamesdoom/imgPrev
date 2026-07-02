@@ -161,13 +161,22 @@ describe("adminReviewApi", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
+        status: 404,
         json: () => Promise.resolve({ error: "Project not found." }),
       })
     );
 
     await expect(
       fetchAdminProjectDetail("project-20260625120000-missing")
-    ).rejects.toThrow("Project not found.");
+    ).rejects.toThrow("Project not found. The backend returned HTTP 404.");
+  });
+
+  test("throws actionable network errors", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed")));
+
+    await expect(fetchAdminProjects()).rejects.toThrow(
+      "Could not load submitted projects. Check that the review backend is running and try again."
+    );
   });
 
   test("builds absolute file URLs from backend paths", () => {

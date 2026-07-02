@@ -242,6 +242,7 @@ function SubmissionList({
     return (
       <StatusBlock
         actionLabel="Retry"
+        detail="The submissions list could not be refreshed. Check the backend connection and try again."
         title={error ?? "Could not load submissions."}
         tone="error"
         onAction={onRetry}
@@ -344,6 +345,7 @@ function ProjectDetail({
   if (state === "error") {
     return (
       <StatusBlock
+        detail="The project may have been removed, or the backend may be unavailable. Refresh the submissions list and try again."
         title={error ?? "Could not load project details."}
         tone="error"
       />
@@ -433,7 +435,7 @@ function ProjectDetail({
 
         <div className="rounded border border-neutral-300 bg-white">
           <SectionTitle title="Review history" />
-          <ReviewHistory project={project} />
+          <ReviewHistory project={project} submittedAt={project.submittedAt} />
         </div>
       </div>
 
@@ -516,7 +518,8 @@ function ReviewDecisionPanel({
           className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900"
           role="alert"
         >
-          {error}
+          <p className="font-semibold">Could not save review decision.</p>
+          <p className="mt-1 leading-5">{error}</p>
         </div>
       )}
 
@@ -586,29 +589,123 @@ function ReviewActionButton({
   );
 }
 
-function ReviewHistory({ project }: { project: AdminReviewProjectDetail }) {
+function ReviewHistory({
+  project,
+  submittedAt,
+}: {
+  project: AdminReviewProjectDetail;
+  submittedAt: string;
+}) {
+  const lastEvent =
+    project.review.history[project.review.history.length - 1];
+
   if (project.review.history.length === 0) {
     return (
-      <div className="p-3 text-sm text-neutral-500">
-        No review decisions yet.
+      <div className="space-y-3 p-3 text-sm">
+        <ReviewHistorySummary
+          status={project.review.status}
+          submittedAt={submittedAt}
+          updatedAt={project.review.updatedAt}
+        />
+        <div className="rounded border border-dashed border-neutral-300 bg-neutral-50 p-3 text-neutral-600">
+          No review decisions yet. The submission is waiting for an approve,
+          reject, or needs changes decision.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-neutral-200">
-      {project.review.history.map((event) => (
-        <div key={`${event.reviewedAt}-${event.status}`} className="p-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <ReviewStatusBadge status={event.status} />
-            <span className="text-xs text-neutral-500">
-              {formatDateTime(event.reviewedAt)}
-            </span>
-          </div>
-          {event.note && <p className="mt-2 text-neutral-800">{event.note}</p>}
-          <p className="mt-1 text-xs text-neutral-500">{event.reviewer}</p>
-        </div>
-      ))}
+    <div className="space-y-3 p-3 text-sm">
+      <ReviewHistorySummary
+        latestReviewer={lastEvent?.reviewer}
+        status={project.review.status}
+        submittedAt={submittedAt}
+        updatedAt={project.review.updatedAt}
+      />
+      <ol className="divide-y divide-neutral-200 rounded border border-neutral-200">
+        {project.review.history.map((event, index) => (
+          <li key={`${event.reviewedAt}-${event.status}`} className="p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-600">
+                Decision {index + 1}
+              </span>
+              <ReviewStatusBadge status={event.status} />
+              <span className="text-xs text-neutral-500">
+                {formatDateTime(event.reviewedAt)}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-semibold uppercase text-neutral-500">
+              Reviewer
+            </p>
+            <p className="mt-1 text-neutral-800">{event.reviewer}</p>
+            {event.note ? (
+              <>
+                <p className="mt-3 text-xs font-semibold uppercase text-neutral-500">
+                  Note
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-neutral-800">
+                  {event.note}
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-neutral-500">No note was provided.</p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ReviewHistorySummary({
+  latestReviewer,
+  status,
+  submittedAt,
+  updatedAt,
+}: {
+  latestReviewer?: string;
+  status: AdminProjectReviewStatus;
+  submittedAt: string;
+  updatedAt: string;
+}) {
+  return (
+    <dl className="grid gap-2 rounded border border-neutral-200 bg-neutral-50 p-3 text-xs sm:grid-cols-2">
+      <div>
+        <dt className="font-semibold uppercase text-neutral-500">
+          Current status
+        </dt>
+        <dd className="mt-1">
+          <ReviewStatusBadge status={status} />
+        </dd>
+      </div>
+      <ReviewHistoryMetric
+        label="Submitted"
+        value={formatDateTime(submittedAt)}
+      />
+      <ReviewHistoryMetric
+        label="Last updated"
+        value={formatDateTime(updatedAt)}
+      />
+      <ReviewHistoryMetric
+        label="Latest reviewer"
+        value={latestReviewer ?? "Not reviewed yet"}
+      />
+    </dl>
+  );
+}
+
+function ReviewHistoryMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <dt className="font-semibold uppercase text-neutral-500">{label}</dt>
+      <dd className="mt-1 font-medium text-neutral-900">{value}</dd>
     </div>
   );
 }
@@ -817,11 +914,13 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 
 function StatusBlock({
   actionLabel,
+  detail,
   title,
   tone = "neutral",
   onAction,
 }: {
   actionLabel?: string;
+  detail?: string;
   title: string;
   tone?: "neutral" | "error";
   onAction?: () => void;
@@ -835,7 +934,8 @@ function StatusBlock({
             : "border-dashed border-neutral-300 bg-white text-neutral-500"
         }`}
       >
-        <p>{title}</p>
+        <p className="font-medium">{title}</p>
+        {detail && <p className="mt-2 leading-5">{detail}</p>}
         {actionLabel && onAction && (
           <button
             className={`mt-3 inline-flex h-9 items-center rounded border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}

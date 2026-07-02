@@ -109,7 +109,10 @@ describe("AdminReviewScreen", () => {
       screen.getByText("Artwork is below the preferred DPI.")
     ).toBeInTheDocument();
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
-    expect(screen.getByText("No review decisions yet.")).toBeInTheDocument();
+    expect(screen.getByText("Current status")).toBeInTheDocument();
+    expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
+    expect(screen.getByText("Not reviewed yet")).toBeInTheDocument();
+    expect(screen.getByText(/No review decisions yet/)).toBeInTheDocument();
     expect(screen.getByText("Original artwork")).toBeInTheDocument();
     expect(screen.getByText("pixel.png")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
@@ -181,7 +184,7 @@ describe("AdminReviewScreen", () => {
 
     render(<AdminReviewScreen />);
 
-    await screen.findByText("No review decisions yet.");
+    await screen.findByText(/No review decisions yet/);
     await userEvent.type(
       screen.getByPlaceholderText("Admin reviewer"),
       "Production lead"
@@ -204,6 +207,68 @@ describe("AdminReviewScreen", () => {
     });
     expect(await screen.findByText("Ready for production.")).toBeInTheDocument();
     expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
+    expect(screen.getByText("Decision 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Reviewer").length).toBeGreaterThan(0);
+    expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
+    expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
+  });
+
+  test("shows actionable review update errors and keeps entered notes", async () => {
+    fetchAdminProjectsMock.mockResolvedValue([
+      {
+        projectId: "project-20260625120000-abc123",
+        submittedAt: "2026-06-25T12:00:00.000Z",
+        sheet: { sizeId: "11x17", widthIn: 11, heightIn: 17, dpi: 300 },
+        counts: { assets: 1, items: 1 },
+        files: {},
+        review: {
+          status: "submitted",
+          updatedAt: "2026-06-25T12:00:00.000Z",
+          history: [],
+        },
+      },
+    ]);
+    fetchAdminProjectDetailMock.mockResolvedValue({
+      projectId: "project-20260625120000-abc123",
+      submittedAt: "2026-06-25T12:00:00.000Z",
+      sheet: { sizeId: "11x17", widthIn: 11, heightIn: 17, dpi: 300 },
+      counts: { assets: 1, items: 1 },
+      files: {},
+      review: {
+        status: "submitted",
+        updatedAt: "2026-06-25T12:00:00.000Z",
+        history: [],
+      },
+      manifest: {
+        document: {
+          settings: { background: { type: "transparent" } },
+        },
+      },
+    });
+    updateAdminProjectReviewMock.mockRejectedValue(
+      new Error("Review note is too long. The backend returned HTTP 400.")
+    );
+
+    render(<AdminReviewScreen />);
+
+    await screen.findByText(/No review decisions yet/);
+    await userEvent.type(screen.getByPlaceholderText("Admin reviewer"), "QA");
+    await userEvent.type(
+      screen.getByPlaceholderText("Decision note"),
+      "Please shorten this note."
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(
+      await screen.findByText("Could not save review decision.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Review note is too long. The backend returned HTTP 400.")
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Admin reviewer")).toHaveValue("QA");
+    expect(screen.getByPlaceholderText("Decision note")).toHaveValue(
+      "Please shorten this note."
+    );
   });
 
   test("shows empty and retry states", async () => {
