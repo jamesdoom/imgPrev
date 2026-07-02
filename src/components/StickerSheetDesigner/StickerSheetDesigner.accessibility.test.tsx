@@ -66,11 +66,41 @@ describe("StickerSheetDesigner accessibility", () => {
 
     expect(screen.getByRole("heading", { name: "Custom decal sheet" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Auto-arrange" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Grid")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Grid" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        description: "Show measured gaps around selected decals.",
+        name: "Spacing guides",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        description: 'Snap moved decals to the 1/4" grid.',
+        name: "Snap to grid",
+      }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Select first decal" }));
     expect(screen.getByLabelText("Rotation")).toBeInTheDocument();
 
     await expectNoA11yViolations(container);
+  });
+
+  test("explains disabled production actions before artwork is placed", async () => {
+    render(<StickerSheetDesigner />);
+
+    const disabledReason =
+      "Add artwork to enable proof downloads, exports, and proof submission.";
+
+    expect(screen.getByText(disabledReason)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Proof PNG" })).toHaveAccessibleDescription(
+      disabledReason,
+    );
+    expect(screen.getByRole("button", { name: "Export Files" })).toHaveAccessibleDescription(
+      disabledReason,
+    );
+    expect(
+      screen.getByRole("button", { name: "Submit Proof Request" }),
+    ).toHaveAccessibleDescription(disabledReason);
   });
 });
 

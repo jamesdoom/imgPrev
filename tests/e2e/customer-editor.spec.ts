@@ -195,6 +195,38 @@ test("customer invalid uploads show errors and keep the empty artwork state", as
   await expect(page.getByText("Drag files here or choose PNG")).toBeVisible();
 });
 
+test("customer editor remains reachable without page-level horizontal overflow on mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+
+  await expect(
+    page.getByRole("region", { name: "Sticker sheet canvas" }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Editor controls and order summary"),
+  ).toBeVisible();
+
+  const pageLevelOverflowPx = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+
+  expect(pageLevelOverflowPx).toBeLessThanOrEqual(1);
+
+  const submitButton = page.getByRole("button", {
+    name: "Submit Proof Request",
+  });
+
+  await submitButton.scrollIntoViewIfNeeded();
+  await expect(submitButton).toBeVisible();
+  await expect(submitButton).toBeEnabled();
+});
+
 test("customer can reach submit proof readiness and submit a proof request", async ({
   page,
 }) => {

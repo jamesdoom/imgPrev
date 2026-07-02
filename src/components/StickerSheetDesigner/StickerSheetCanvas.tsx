@@ -147,7 +147,17 @@ export const StickerSheetCanvas = forwardRef<
   );
 
   return (
-    <div className="h-full overflow-auto bg-neutral-200 p-3 sm:p-6">
+    <div
+      aria-describedby="sticker-sheet-canvas-help"
+      aria-label="Sticker sheet canvas"
+      className="h-full overflow-auto bg-neutral-200 p-3 sm:p-6"
+      role="region"
+    >
+      <p className="sr-only" id="sticker-sheet-canvas-help">
+        Pointer users can drag selected decals on the sheet. Keyboard users can
+        use the artwork list, selection controls, and production controls around
+        the canvas.
+      </p>
       <div className="relative mx-auto w-fit rounded-sm border border-neutral-300 bg-white shadow-sm">
         <GuideStatusChip viewState={viewState} />
         <Stage
@@ -559,7 +569,11 @@ function GuideStatusChip({ viewState }: { viewState: SheetViewState }) {
   ].filter(Boolean);
 
   return (
-    <div className="pointer-events-none absolute left-3 top-3 z-10 rounded border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm">
+    <div
+      aria-live="polite"
+      className="pointer-events-none absolute left-3 top-3 z-10 rounded border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm"
+      role="status"
+    >
       <span className="text-neutral-900">
         Snap {snapTargets.length > 0 ? snapTargets.join(" + ") : "off"}
       </span>

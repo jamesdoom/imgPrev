@@ -53,3 +53,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; parser, hook, and backend storage regression coverage change
 - Regression added: malformed DPI metadata, DPI parser failure fallback, stale project JSON filtering, and missing generated project file handling
 - Notes/follow-up: keep admin missing-file states visible while hiding malformed stale project folders
+
+## 2026-07-02 - Editor Usability And Accessibility Polish
+
+- Automated: `npm run test -- src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx`, `npm run test:a11y`, `npm run test:e2e`, `npm run test:quality`
+- Accessibility: editor control names, descriptions, disabled reasons, and canvas guide status
+- Manual: covered by mobile Playwright viewport check
+- Regression added: `src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx`, `tests/e2e/customer-editor.spec.ts`
+- Notes/follow-up: continue pairing visual polish with role/name based tests where browser behavior matters

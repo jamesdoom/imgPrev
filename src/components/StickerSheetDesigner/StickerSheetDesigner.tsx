@@ -79,6 +79,10 @@ const FOCUS_RING_CLASS =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2";
 const FOCUS_WITHIN_RING_CLASS =
   "focus-within:ring-2 focus-within:ring-teal-700 focus-within:ring-offset-2";
+const INPUT_CLASS =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2";
+const SUMMARY_CLASS =
+  "cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-700";
 
 interface InitialDesignerState {
   document: SheetDocument;
@@ -758,7 +762,7 @@ export default function StickerSheetDesigner() {
       <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
         <aside
           aria-label="Sheet setup and artwork"
-          className="border-b border-neutral-300 bg-white lg:min-h-0 lg:border-b-0 lg:border-r"
+          className="border-b border-neutral-300 bg-white lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
           <PanelTitle title="Sheet" />
           <div className="space-y-3 px-4 pb-4">
@@ -770,7 +774,7 @@ export default function StickerSheetDesigner() {
             </label>
             <select
               id="sheet-size-select"
-              className="h-10 w-full rounded border border-neutral-300 bg-white px-3 text-sm"
+              className={`h-10 w-full rounded border border-neutral-300 bg-white px-3 text-sm ${INPUT_CLASS}`}
               title="Sheet size"
               value={document.sheet.sizeId}
               onChange={(event) =>
@@ -893,7 +897,7 @@ export default function StickerSheetDesigner() {
           />
         </aside>
 
-        <main className="min-h-[480px] min-w-0 lg:min-h-0">
+        <main className="min-h-[480px] min-w-0 overflow-hidden sm:min-h-[560px] lg:min-h-0">
           <StickerSheetCanvas
             ref={canvasRef}
             document={document}
@@ -915,17 +919,17 @@ export default function StickerSheetDesigner() {
 
         <aside
           aria-label="Editor controls and order summary"
-          className="border-t border-neutral-300 bg-white lg:min-h-0 lg:border-l lg:border-t-0"
+          className="border-t border-neutral-300 bg-white lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0"
         >
           <details className="m-4 rounded border border-neutral-200 bg-neutral-50">
-            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
+            <summary className={SUMMARY_CLASS}>
               View
             </summary>
             <div className="space-y-3 border-t border-neutral-200 p-3">
               <label className="flex items-center justify-between gap-3 text-sm">
                 <span>Zoom</span>
                 <input
-                  className="w-36 accent-teal-700"
+                  className={`w-36 accent-teal-700 ${INPUT_CLASS}`}
                   type="range"
                   min="0.4"
                   max="1.5"
@@ -1080,7 +1084,8 @@ export default function StickerSheetDesigner() {
             ) : (
               <div className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
                 Select a decal on the sheet to edit its size, position, and
-                rotation.
+                rotation. Keyboard users can tab through artwork, view toggles,
+                and proof controls.
               </div>
             )}
           </div>
@@ -1296,11 +1301,29 @@ function ProductionActionsPanel({
   onDownloadPreviewPng: () => void;
   onSubmitForReview: () => void;
 }) {
+  const disabledReason = getProductionActionDisabledReason({
+    canExport,
+    documentItemCount,
+  });
+  const proofPngDisabledReason =
+    documentItemCount === 0 ? "Add artwork to enable proof downloads." : null;
+  const exportStatusId = "production-actions-status";
+
   return (
     <div className="space-y-2 px-4 pb-4">
+      {(disabledReason || proofPngDisabledReason) && (
+        <p
+          className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900"
+          id={exportStatusId}
+        >
+          {disabledReason ?? proofPngDisabledReason}
+        </p>
+      )}
       <button
         className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_CLASS}`}
+        aria-describedby={proofPngDisabledReason ? exportStatusId : undefined}
         disabled={documentItemCount === 0}
+        title={proofPngDisabledReason ?? undefined}
         type="button"
         onClick={onDownloadPreviewPng}
       >
@@ -1309,7 +1332,9 @@ function ProductionActionsPanel({
       </button>
       <button
         className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
+        aria-describedby={disabledReason ? exportStatusId : undefined}
         disabled={!canExport || documentItemCount === 0 || isExporting}
+        title={disabledReason ?? undefined}
         type="button"
         onClick={onDownloadBundle}
       >
@@ -1318,7 +1343,9 @@ function ProductionActionsPanel({
       </button>
       <button
         className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
+        aria-describedby={disabledReason ? exportStatusId : undefined}
         disabled={!canExport || documentItemCount === 0 || isSubmitting}
+        title={disabledReason ?? undefined}
         type="button"
         onClick={onSubmitForReview}
       >
@@ -1332,6 +1359,24 @@ function ProductionActionsPanel({
       )}
     </div>
   );
+}
+
+function getProductionActionDisabledReason({
+  canExport,
+  documentItemCount,
+}: {
+  canExport: boolean;
+  documentItemCount: number;
+}): string | null {
+  if (documentItemCount === 0) {
+    return "Add artwork to enable proof downloads, exports, and proof submission.";
+  }
+
+  if (!canExport) {
+    return "Resolve preflight errors before exporting or submitting a proof.";
+  }
+
+  return null;
 }
 
 function ExportPanel({
@@ -1390,7 +1435,7 @@ function ProjectToolsPanel({
 }) {
   return (
     <details className="mx-4 mb-4 rounded border border-neutral-200 bg-neutral-50">
-      <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-neutral-700">
+      <summary className={SUMMARY_CLASS}>
         Project tools
       </summary>
       <div className="space-y-2 border-t border-neutral-200 p-2">
@@ -1972,23 +2017,36 @@ function OverlayToggle({
   label: string;
   onChange: (checked: boolean) => void;
 }) {
+  const inputId = `overlay-toggle-${label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")}`;
+  const descriptionId = description ? `${inputId}-description` : undefined;
+
   return (
-    <label className="flex items-start justify-between gap-3 text-sm">
+    <div className="flex items-start justify-between gap-3 text-sm">
       <span className="min-w-0">
-        <span className="block font-medium text-neutral-800">{label}</span>
+        <label className="block font-medium text-neutral-800" htmlFor={inputId}>
+          {label}
+        </label>
         {description && (
-          <span className="mt-1 block text-xs leading-5 text-neutral-500">
+          <span
+            className="mt-1 block text-xs leading-5 text-neutral-500"
+            id={descriptionId}
+          >
             {description}
           </span>
         )}
       </span>
       <input
-        className="mt-1 h-4 w-4 shrink-0 accent-teal-700"
+        aria-describedby={descriptionId}
+        className={`mt-1 h-4 w-4 shrink-0 accent-teal-700 ${INPUT_CLASS}`}
         checked={checked}
+        id={inputId}
         type="checkbox"
         onChange={(event) => onChange(event.target.checked)}
       />
-    </label>
+    </div>
   );
 }
 
@@ -2007,7 +2065,7 @@ function NumberField({
     <label className="block text-xs font-semibold uppercase text-neutral-500">
       {label}
       <input
-        className="mt-1 h-9 w-full rounded border border-neutral-300 px-2 text-sm font-normal normal-case text-neutral-950"
+        className={`mt-1 h-9 w-full rounded border border-neutral-300 px-2 text-sm font-normal normal-case text-neutral-950 ${INPUT_CLASS}`}
         min={min}
         step="0.01"
         type="number"
