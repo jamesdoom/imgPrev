@@ -45,6 +45,11 @@ describe("buildExportBundleManifest", () => {
 
     expect(
       buildExportBundleManifest({
+        customer: {
+          company: "Sticker Co",
+          email: " print@example.com ",
+          name: " Print Buyer ",
+        },
         document,
         exportedAt: "2026-06-23T12:00:00.000Z",
         customerNote: " Keep decals grouped by design. ",
@@ -69,6 +74,9 @@ describe("buildExportBundleManifest", () => {
         dpi: 300,
       },
       customer: {
+        company: "Sticker Co",
+        email: "print@example.com",
+        name: "Print Buyer",
         note: "Keep decals grouped by design.",
       },
       assets: [

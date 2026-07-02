@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "../../config/appEnv";
 import {
   buildExportBundleManifest,
+  type ExportBundleCustomer,
   type PreflightIssue,
   type SheetDocument,
 } from "../../domain/print";
@@ -29,20 +30,27 @@ export interface SubmitProjectForReviewResult {
   };
   files: {
     projectJson: string;
+    orderJson?: string;
     previewPng: string;
     printPdf: string;
     manifestJson?: string;
     assets: string;
   };
+  email?: {
+    status: "not-configured" | "queued" | "sent" | "failed";
+    message?: string;
+  };
 }
 
 export async function renderProductionFiles({
   assetFiles,
+  customer,
   customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customer?: ExportBundleCustomer;
   customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
@@ -51,6 +59,7 @@ export async function renderProductionFiles({
     method: "POST",
     body: buildProductionFormData({
       assetFiles,
+      customer,
       customerNote,
       document,
       preflightIssues,
@@ -73,11 +82,13 @@ export async function renderProductionFiles({
 
 export async function submitProjectForReview({
   assetFiles,
+  customer,
   customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customer?: ExportBundleCustomer;
   customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
@@ -86,6 +97,7 @@ export async function submitProjectForReview({
     method: "POST",
     body: buildProductionFormData({
       assetFiles,
+      customer,
       customerNote,
       document,
       preflightIssues,
@@ -140,11 +152,13 @@ function isSubmitProjectForReviewResult(
 
 function buildProductionFormData({
   assetFiles,
+  customer,
   customerNote,
   document,
   preflightIssues,
 }: {
   assetFiles: Record<string, File>;
+  customer?: ExportBundleCustomer;
   customerNote?: string;
   document: SheetDocument;
   preflightIssues: PreflightIssue[];
@@ -152,6 +166,7 @@ function buildProductionFormData({
   const formData = new FormData();
   const productionDocument = createProductionDocument(document);
   const manifest = buildExportBundleManifest({
+    customer,
     customerNote,
     document: productionDocument,
     exportedAt: new Date().toISOString(),

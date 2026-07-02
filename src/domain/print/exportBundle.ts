@@ -27,6 +27,9 @@ export interface ExportBundleManifest {
     dpi: number;
   };
   customer: {
+    company: string;
+    email: string;
+    name: string;
     note: string;
   };
   document: SheetDocument;
@@ -48,13 +51,22 @@ export interface ExportBundleAsset {
   hasTransparency?: boolean;
 }
 
+export interface ExportBundleCustomer {
+  company?: string;
+  email?: string;
+  name?: string;
+  note?: string;
+}
+
 export function buildExportBundleManifest({
+  customer,
   document,
   exportedAt,
   customerNote = "",
   preflightIssues,
   profile = STICKER_SHEET_MVP_PROFILE,
 }: {
+  customer?: ExportBundleCustomer;
   document: SheetDocument;
   exportedAt: string;
   customerNote?: string;
@@ -86,7 +98,10 @@ export function buildExportBundleManifest({
       dpi: document.sheet.dpi,
     },
     customer: {
-      note: customerNote.trim(),
+      company: customer?.company?.trim() ?? "",
+      email: customer?.email?.trim() ?? "",
+      name: customer?.name?.trim() ?? "",
+      note: customer?.note?.trim() ?? customerNote.trim(),
     },
     document,
     assets: document.assets.map(toExportBundleAsset),

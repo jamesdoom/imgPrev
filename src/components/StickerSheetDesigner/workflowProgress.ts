@@ -38,7 +38,7 @@ export function getWorkflowSteps({
       status: proofReady ? "complete" : hasDecals ? "current" : "waiting",
     },
     {
-      description: isSubmitted ? "Sent for review" : "Send proof request",
+      description: isSubmitted ? "Sent for print" : "Submit for print",
       label: "Submit",
       status: isSubmitted ? "complete" : proofReady ? "current" : "waiting",
     },

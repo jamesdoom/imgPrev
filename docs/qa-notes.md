@@ -125,3 +125,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: real Cloudinary smoke uploaded to `decal-sheet/_smoke/project-20260702154646504-5obekv`
 - Regression added: backend returns an explicit `skipped` Cloudinary status when mirror credentials are missing
 - Notes/follow-up: smoke submissions now write to `decal-sheet/_smoke/<projectId>` so test assets are not mistaken for real customer proof folders
+
+## 2026-07-02 - Print Order Submission Foundation
+
+- Automated: `npm run test -- src/domain/print/exportBundle.test.ts src/components/StickerSheetDesigner/renderProductionFiles.test.ts src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx src/admin/AdminReviewScreen.test.tsx backend/app.test.ts`, `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:quality`
+- Accessibility: submit action remains covered by editor accessibility checks with updated print submission copy
+- Manual: verify the customer can enter order details, submit for print, and see the saved project receipt
+- Regression added: print submissions include customer contact details and write `order.json` alongside `print.pdf`
+- Notes/follow-up: email delivery is intentionally marked `not-configured` until a provider and production recipient are selected

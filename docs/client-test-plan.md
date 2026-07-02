@@ -4,7 +4,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
 
 ## Test Session Goals
 
-- Confirm the customer can upload artwork, place decals, understand warnings, and submit a proof request.
+- Confirm the customer can upload artwork, place decals, understand warnings, and submit a print order.
 - Confirm the admin reviewer can inspect submitted files, record a decision, and understand review history.
 - Identify confusing copy, missing fallback states, layout issues, and any broken data/file paths before broader rollout.
 - Capture feedback in a consistent format.
@@ -35,7 +35,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
 8. Review preflight messages and confirm warnings/errors explain the next action.
 9. Review order summary: sheet count, price, minimum order, free shipping threshold, and submit readiness.
 10. Reload the page and confirm artwork previews, placed decals, and order summary restore correctly.
-11. Submit a proof request.
+11. Enter customer details and submit the sheet for print.
 12. If Cloudinary mirroring is enabled, confirm the generated project appears under `decal-sheet/<projectId>` in Cloudinary.
 
 Pass criteria:
@@ -43,7 +43,7 @@ Pass criteria:
 - The next step is clear at each stage.
 - No critical controls are hidden, clipped, or unreachable on desktop or mobile.
 - Failed or unsupported uploads do not corrupt the current project.
-- The proof request either succeeds or shows a recoverable error.
+- The print submission either succeeds or shows a recoverable error.
 
 ## Admin Workflow
 
@@ -91,7 +91,7 @@ Use one entry per issue:
 
 ## Triage Rules
 
-- Blocker: prevents proof submission, corrupts project data, or blocks admin review.
+- Blocker: prevents print submission, corrupts project data, or blocks admin review.
 - High: causes incorrect pricing, metadata, production file status, or reviewer decision state.
 - Medium: confusing copy, awkward workflow, recoverable upload/admin errors, or layout friction.
 - Low: visual polish, minor spacing, or non-blocking wording improvements.

@@ -9,7 +9,7 @@ Use this as the standard definition of done for changes to the app. Keep the gat
 - `npm run build` passes.
 - `npm run test` passes.
 - `npm run test:a11y` passes when UI labels, controls, forms, landmarks, focus states, or layout structure changed.
-- `npm run test:e2e` passes when upload, editor, save/reload, proof submission, admin review, or responsive browser behavior changed.
+- `npm run test:e2e` passes when upload, editor, save/reload, print submission, admin review, or responsive browser behavior changed.
 - The relevant manual smoke checks in `docs/qa-baseline.md` have been completed or intentionally skipped with a note.
 - For client-facing test sessions, the walkthrough in `docs/client-test-plan.md` has been completed or intentionally scoped with a note.
 - `docs/qa-notes.md` has a short entry for the change, including tests run, manual checks, and follow-up risks.
@@ -57,7 +57,7 @@ Run the checks most relevant to the change:
 - Move, resize, rotate, duplicate, delete, and undo/redo a selected decal.
 - Toggle grid, spacing guides, proof overlays, and snapping.
 - Reload the page and confirm saved artwork previews remain usable.
-- Submit a proof request and confirm the admin review flow can open files and update review status.
+- Submit a print order and confirm the admin review flow can open files and update review status.
 - Tab through affected controls and confirm focus is visible and order is sensible.
 - Check a narrow/mobile viewport for clipping, overlap, or unreachable controls.
 

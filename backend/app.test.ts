@@ -41,6 +41,12 @@ afterEach(async () => {
 
 function renderManifest() {
   return {
+    customer: {
+      company: "Decal Buyer Co",
+      email: "buyer@example.com",
+      name: "Buyer Name",
+      note: "Please print this first.",
+    },
     document: {
       id: "project-1",
       version: 1,
@@ -244,6 +250,9 @@ describe("backend app", () => {
     const manifestJson = JSON.parse(
       await fs.promises.readFile(path.join(projectDir, "manifest.json"), "utf8")
     );
+    const orderJson = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "order.json"), "utf8")
+    );
     const reviewJson = JSON.parse(
       await fs.promises.readFile(path.join(projectDir, "review.json"), "utf8")
     );
@@ -254,8 +263,12 @@ describe("backend app", () => {
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
       status: "submitted",
+      email: {
+        status: "not-configured",
+      },
       files: {
         projectJson: expect.stringMatching(/^\/projects\/project-/),
+        orderJson: expect.stringMatching(/^\/projects\/project-/),
         previewPng: expect.stringMatching(/^\/projects\/project-/),
         printPdf: expect.stringMatching(/^\/projects\/project-/),
         manifestJson: expect.stringMatching(/^\/projects\/project-/),
@@ -265,6 +278,24 @@ describe("backend app", () => {
     expect(response.body.projectId).toMatch(/^project-\d+-[a-z0-9]+$/);
     expect(projectJson.projectId).toBe(response.body.projectId);
     expect(projectJson.submittedAt).toEqual(expect.any(String));
+    expect(orderJson).toMatchObject({
+      orderId: response.body.projectId,
+      projectId: response.body.projectId,
+      status: "submitted",
+      customer: {
+        company: "Decal Buyer Co",
+        email: "buyer@example.com",
+        name: "Buyer Name",
+        note: "Please print this first.",
+      },
+      files: {
+        orderJson: `/projects/${response.body.projectId}/order.json`,
+        printPdf: `/projects/${response.body.projectId}/print.pdf`,
+      },
+      email: {
+        status: "not-configured",
+      },
+    });
     expect(previewPng.subarray(0, 8)).toEqual(
       Buffer.from("89504e470d0a1a0a", "hex")
     );

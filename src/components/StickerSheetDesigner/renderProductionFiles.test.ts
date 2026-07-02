@@ -63,6 +63,11 @@ describe("renderProductionFiles", () => {
     await expect(
       renderProductionFiles({
         document: documentWithAsset(),
+        customer: {
+          company: "Decal Shop",
+          email: "buyer@example.com",
+          name: "Buyer Name",
+        },
         customerNote: "Please keep the blue decal near the top.",
         preflightIssues: [],
         assetFiles: {
@@ -85,9 +90,12 @@ describe("renderProductionFiles", () => {
     );
     const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
     const manifest = JSON.parse(String(body.get("manifest"))) as {
-      customer: { note: string };
+      customer: { company: string; email: string; name: string; note: string };
     };
 
+    expect(manifest.customer.company).toBe("Decal Shop");
+    expect(manifest.customer.email).toBe("buyer@example.com");
+    expect(manifest.customer.name).toBe("Buyer Name");
     expect(manifest.customer.note).toBe(
       "Please keep the blue decal near the top."
     );
@@ -273,7 +281,7 @@ describe("renderProductionFiles", () => {
     );
   });
 
-  test("omits unplaced stale library assets from proof submissions", async () => {
+  test("omits unplaced stale library assets from print submissions", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -323,7 +331,7 @@ describe("renderProductionFiles", () => {
     ]);
   });
 
-  test("rejects proof submissions when placed artwork no longer has an original file", async () => {
+  test("rejects print submissions when placed artwork no longer has an original file", async () => {
     const fetchMock = vi.fn();
 
     vi.stubGlobal("fetch", fetchMock);

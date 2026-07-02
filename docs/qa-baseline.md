@@ -53,7 +53,7 @@ Current baseline notes:
 - Editor controls: transform, crop, export, keyboard shortcut, and accessibility coverage.
 - Admin review: API client behavior, review screen behavior, project status updates, reviewer notes, and downloadable previews.
 - Backend API: project submission, stored project access, review updates, and generated/downloadable file behavior.
-- Browser smoke tests: customer artwork upload/reload, proof request submission readiness, and admin review decision controls.
+- Browser smoke tests: customer artwork upload/reload, print submission readiness, and admin review decision controls.
 
 ## Manual Smoke Checks
 
@@ -64,8 +64,8 @@ Run these in a browser after the automated gate when UI behavior changed:
 - Toggle grid, spacing guides, proof overlays, and snapping without visual overlap or layout shift.
 - Save or reload a project and confirm thumbnails/artwork previews remain available.
 - Review order summary values, minimum order messaging, free shipping threshold, and submit readiness.
-- Submit a proof request and verify the admin review screen can open previews, add notes, reject, approve, and change status.
-- Check keyboard focus states and basic keyboard navigation through upload, editor, proof request, and admin controls.
+- Submit a print order and verify the admin review screen can open previews, add notes, reject, approve, and change status.
+- Check keyboard focus states and basic keyboard navigation through upload, editor, print submission, and admin controls.
 - Resize to a narrow/mobile viewport and confirm controls remain usable without clipping.
 
 For client presentation readiness, use `docs/client-test-plan.md` instead of this shorter smoke list.

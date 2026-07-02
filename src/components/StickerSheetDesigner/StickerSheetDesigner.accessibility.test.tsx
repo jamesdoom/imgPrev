@@ -89,7 +89,7 @@ describe("StickerSheetDesigner accessibility", () => {
     render(<StickerSheetDesigner />);
 
     const disabledReason =
-      "Add artwork to enable proof downloads, exports, and proof submission.";
+      "Add artwork to enable proof downloads, exports, and print submission.";
 
     expect(screen.getByText("Start with artwork")).toBeInTheDocument();
     expect(
@@ -103,7 +103,7 @@ describe("StickerSheetDesigner accessibility", () => {
       disabledReason,
     );
     expect(
-      screen.getByRole("button", { name: "Submit Proof Request" }),
+      screen.getByRole("button", { name: "Submit for Print" }),
     ).toHaveAccessibleDescription(disabledReason);
   });
 });

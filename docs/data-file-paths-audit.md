@@ -10,7 +10,7 @@ Reviewed paths:
 - DPI detection and image metadata fallback.
 - Thumbnail creation and persisted preview behavior.
 - Autosave restore and project JSON import/export.
-- Proof rendering and proof request submission.
+- Proof rendering and print submission.
 - Admin project listing, detail loading, file previews, downloads, and review updates.
 
 ## Customer Upload Paths

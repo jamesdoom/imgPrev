@@ -333,6 +333,15 @@ export function createApp() {
                 renderedFiles,
               })
             : createSkippedCloudinaryProof(projectId);
+          const emailDelivery = createPrintOrderEmailDelivery();
+          const orderRecord = createPrintOrderRecord({
+            cloudinaryProof,
+            emailDelivery,
+            files,
+            manifest: manifest.raw,
+            projectId,
+            submittedAt,
+          });
 
           await fs.promises.writeFile(
             path.join(projectDir, "project.json"),
@@ -345,13 +354,19 @@ export function createApp() {
               2
             )
           );
+          await fs.promises.writeFile(
+            path.join(projectDir, "order.json"),
+            JSON.stringify(orderRecord, null, 2)
+          );
 
           res.status(201).json({
             projectId,
             status: "submitted",
             cloudinary: cloudinaryProof,
+            email: emailDelivery,
             files: {
               projectJson: `/projects/${projectId}/project.json`,
+              orderJson: `/projects/${projectId}/order.json`,
               previewPng: `/projects/${projectId}/preview.png`,
               printPdf: `/projects/${projectId}/print.pdf`,
               manifestJson: `/projects/${projectId}/manifest.json`,
@@ -543,6 +558,89 @@ function getUploadedRenderFiles(
         buffer: file.buffer,
       }))
     : [];
+}
+
+function createPrintOrderEmailDelivery(): PrintOrderEmailDelivery {
+  return {
+    status: "not-configured",
+    message:
+      "Email delivery is not configured yet. The printable PDF and order files were saved for admin review.",
+  };
+}
+
+function createPrintOrderRecord({
+  cloudinaryProof,
+  emailDelivery,
+  files,
+  manifest,
+  projectId,
+  submittedAt,
+}: {
+  cloudinaryProof: CloudinaryProofUpload;
+  emailDelivery: PrintOrderEmailDelivery;
+  files: UploadedRenderFile[];
+  manifest: unknown;
+  projectId: string;
+  submittedAt: string;
+}): PrintOrderRecord {
+  const rawManifest = getRecord(manifest);
+  const document = getRecord(rawManifest.document);
+  const sheet = getRecord(document.sheet);
+  const assets = Array.isArray(document.assets) ? document.assets : [];
+  const items = Array.isArray(document.items) ? document.items : [];
+
+  return {
+    orderId: projectId,
+    projectId,
+    status: "submitted",
+    submittedAt,
+    customer: getPrintOrderCustomer(rawManifest),
+    sheet: {
+      widthIn: getFiniteNumber(sheet.widthIn),
+      heightIn: getFiniteNumber(sheet.heightIn),
+      dpi: getFiniteNumber(sheet.dpi),
+    },
+    counts: {
+      assets: assets.length,
+      decals: items.length,
+    },
+    files: {
+      projectJson: `/projects/${projectId}/project.json`,
+      orderJson: `/projects/${projectId}/order.json`,
+      previewPng: `/projects/${projectId}/preview.png`,
+      printPdf: `/projects/${projectId}/print.pdf`,
+      manifestJson: `/projects/${projectId}/manifest.json`,
+      assets: `/projects/${projectId}/assets/`,
+      assetFiles: files
+        .map((file) => path.basename(file.originalname))
+        .sort((first, second) => first.localeCompare(second)),
+    },
+    cloudinary: {
+      folder: cloudinaryProof.folder,
+      status: cloudinaryProof.status,
+      warnings: cloudinaryProof.warnings ?? [],
+    },
+    email: emailDelivery,
+  };
+}
+
+function getPrintOrderCustomer(manifest: Record<string, unknown>) {
+  const customer = getRecord(manifest.customer);
+
+  return {
+    company: getStringValue(customer.company),
+    email: getStringValue(customer.email),
+    name: getStringValue(customer.name),
+    note: getStringValue(customer.note),
+  };
+}
+
+function getStringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function getFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 async function uploadSubmittedProofToCloudinary({
@@ -1018,9 +1116,18 @@ function readProjectReviewEvent(value: unknown): ProjectReviewEvent | null {
 }
 
 async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
-  const [projectJson, previewPng, printPdf, manifestJson, assets, assetFiles] =
+  const [
+    projectJson,
+    orderJson,
+    previewPng,
+    printPdf,
+    manifestJson,
+    assets,
+    assetFiles,
+  ] =
     await Promise.all([
       getProjectFileUrl(projectId, projectDir, "project.json"),
+      getProjectFileUrl(projectId, projectDir, "order.json"),
       getProjectFileUrl(projectId, projectDir, "preview.png"),
       getProjectFileUrl(projectId, projectDir, "print.pdf"),
       getProjectFileUrl(projectId, projectDir, "manifest.json"),
@@ -1030,6 +1137,7 @@ async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
 
   return {
     projectJson,
+    orderJson,
     previewPng,
     printPdf,
     manifestJson,
@@ -1135,6 +1243,48 @@ interface UploadedRenderFile {
   originalname: string;
   mimetype: string;
   buffer: Buffer;
+}
+
+interface PrintOrderRecord {
+  orderId: string;
+  projectId: string;
+  status: "submitted";
+  submittedAt: string;
+  customer: {
+    company: string;
+    email: string;
+    name: string;
+    note: string;
+  };
+  sheet: {
+    widthIn: number | null;
+    heightIn: number | null;
+    dpi: number | null;
+  };
+  counts: {
+    assets: number;
+    decals: number;
+  };
+  files: {
+    projectJson: string;
+    orderJson: string;
+    previewPng: string;
+    printPdf: string;
+    manifestJson: string;
+    assets: string;
+    assetFiles: string[];
+  };
+  cloudinary: {
+    folder: string;
+    status: "mirrored" | "skipped";
+    warnings: string[];
+  };
+  email: PrintOrderEmailDelivery;
+}
+
+interface PrintOrderEmailDelivery {
+  status: "not-configured" | "queued" | "sent" | "failed";
+  message?: string;
 }
 
 interface CloudinaryProofUpload {

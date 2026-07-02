@@ -281,7 +281,7 @@ describe("AdminReviewScreen", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Submit a proof request from the customer editor, then refresh this list."
+        "Submit a print order from the customer editor, then refresh this list."
       )
     ).toBeInTheDocument();
 

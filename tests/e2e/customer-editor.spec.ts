@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const autosaveKey = "sticker-sheet-designer:autosave";
 const artworkFile = {
@@ -27,6 +27,12 @@ const emptySvgDataUrl =
   );
 
 interface SubmittedProofManifest {
+  customer: {
+    company?: string;
+    email?: string;
+    name?: string;
+    note?: string;
+  };
   document: {
     assets: Array<{
       fileName?: string;
@@ -83,7 +89,7 @@ test("customer sees empty artwork state after malformed saved project JSON", asy
   await expect(
     page.getByText("Artwork is placed on the sheet automatically after upload."),
   ).toBeVisible();
-  await expect(page.getByText("Upload and place artwork before requesting a proof.")).toBeVisible();
+  await expect(page.getByText("Upload and place artwork before submitting for print.")).toBeVisible();
 });
 
 test("customer restore filters stale blob-only artwork and keeps durable missing-thumbnail artwork", async ({
@@ -223,15 +229,16 @@ test("customer editor remains reachable without page-level horizontal overflow o
   expect(pageLevelOverflowPx).toBeLessThanOrEqual(1);
 
   const submitButton = page.getByRole("button", {
-    name: "Submit Proof Request",
+    name: "Submit for Print",
   });
 
   await submitButton.scrollIntoViewIfNeeded();
+  await fillPrintOrderDetails(page);
   await expect(submitButton).toBeVisible();
   await expect(submitButton).toBeEnabled();
 });
 
-test("customer can reach submit proof readiness and submit a proof request", async ({
+test("customer can reach print readiness and submit a print order", async ({
   page,
 }) => {
   await page.route("http://localhost:4000/submit-project", async (route) => {
@@ -241,6 +248,7 @@ test("customer can reach submit proof readiness and submit a proof request", asy
         files: {
           assets: "/projects/project-playwright/assets/",
           manifestJson: "/projects/project-playwright/manifest.json",
+          orderJson: "/projects/project-playwright/order.json",
           previewPng: "/projects/project-playwright/preview.png",
           printPdf: "/projects/project-playwright/print.pdf",
           projectJson: "/projects/project-playwright/project.json",
@@ -254,16 +262,17 @@ test("customer can reach submit proof readiness and submit a proof request", asy
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+  await fillPrintOrderDetails(page);
 
   await expect(
-    page.getByRole("button", { name: "Submit Proof Request" }),
+    page.getByRole("button", { name: "Submit for Print" }),
   ).toBeEnabled();
   await expect(page.getByText("Ready to submit once")).toBeVisible();
 
-  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+  await page.getByRole("button", { name: "Submit for Print" }).click();
 
   await expect(
-    page.getByText("Submitted as project-playwright", { exact: true }),
+    page.getByText("Submitted for print as project-playwright", { exact: true }),
   ).toBeVisible();
 });
 
@@ -299,6 +308,7 @@ test("customer main proof path preserves layout, order summary, submit payload, 
         files: {
           assets: "/projects/project-playwright-main/assets/",
           manifestJson: "/projects/project-playwright-main/manifest.json",
+          orderJson: "/projects/project-playwright-main/order.json",
           previewPng: "/projects/project-playwright-main/preview.png",
           printPdf: "/projects/project-playwright-main/print.pdf",
           projectJson: "/projects/project-playwright-main/project.json",
@@ -323,6 +333,12 @@ test("customer main proof path preserves layout, order summary, submit payload, 
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+  await fillPrintOrderDetails(page, {
+    company: "Playwright Print Co",
+    email: "qa@example.com",
+    name: "QA Buyer",
+    note: "Keep the duplicate centered.",
+  });
 
   await expect(
     page.getByRole("button", { name: /playwright-artwork\.svg Ready/ }),
@@ -375,10 +391,12 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   ).toBeVisible();
   await expect(editorSummary.getByText("Ready", { exact: true })).toHaveCount(2);
 
-  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+  await page.getByRole("button", { name: "Submit for Print" }).click();
 
   await expect(
-    page.getByText("Submitted as project-playwright-main", { exact: true }),
+    page.getByText("Submitted for print as project-playwright-main", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByText("Cloudinary folder: decal-sheet/project-playwright-main", {
@@ -391,6 +409,12 @@ test("customer main proof path preserves layout, order summary, submit payload, 
     }),
   ).toBeVisible();
   expect(submittedManifest).not.toBeNull();
+  expect(submittedManifest?.customer).toMatchObject({
+    company: "Playwright Print Co",
+    email: "qa@example.com",
+    name: "QA Buyer",
+    note: "Keep the duplicate centered.",
+  });
 
   await page.reload();
 
@@ -400,7 +424,7 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   await expect(page.getByLabel("Editor controls and order summary").getByText("2", { exact: true })).toBeVisible();
 });
 
-test("customer can recover after a failed proof submission response", async ({
+test("customer can recover after a failed print submission response", async ({
   page,
 }) => {
   let submitAttempts = 0;
@@ -423,6 +447,7 @@ test("customer can recover after a failed proof submission response", async ({
         files: {
           assets: "/projects/project-playwright-retry/assets/",
           manifestJson: "/projects/project-playwright-retry/manifest.json",
+          orderJson: "/projects/project-playwright-retry/order.json",
           previewPng: "/projects/project-playwright-retry/preview.png",
           printPdf: "/projects/project-playwright-retry/print.pdf",
           projectJson: "/projects/project-playwright-retry/project.json",
@@ -436,21 +461,45 @@ test("customer can recover after a failed proof submission response", async ({
 
   await page.goto("/");
   await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+  await fillPrintOrderDetails(page);
 
-  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+  await page.getByRole("button", { name: "Submit for Print" }).click();
 
   await expect(page.getByText("Proof service temporarily unavailable.")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Submit Proof Request" }),
+    page.getByRole("button", { name: "Submit for Print" }),
   ).toBeEnabled();
-  await expect(page.getByText("Submitted as project-playwright")).toHaveCount(0);
+  await expect(page.getByText("Submitted for print as project-playwright")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Submit Proof Request" }).click();
+  await page.getByRole("button", { name: "Submit for Print" }).click();
 
   await expect(
-    page.getByText("Submitted as project-playwright-retry", { exact: true }),
+    page.getByText("Submitted for print as project-playwright-retry", {
+      exact: true,
+    }),
   ).toBeVisible();
 });
+
+async function fillPrintOrderDetails(
+  page: Page,
+  details: {
+    company?: string;
+    email?: string;
+    name?: string;
+    note?: string;
+  } = {},
+) {
+  await page.getByLabel("Customer name").fill(details.name ?? "QA Customer");
+  await page.getByLabel("Email").fill(details.email ?? "qa@example.com");
+
+  if (details.company !== undefined) {
+    await page.getByLabel("Company (optional)").fill(details.company);
+  }
+
+  if (details.note !== undefined) {
+    await page.getByLabel("Print notes (optional)").fill(details.note);
+  }
+}
 
 function createSavedDocument({
   assets,
