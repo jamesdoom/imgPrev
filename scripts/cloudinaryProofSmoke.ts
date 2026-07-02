@@ -3,6 +3,7 @@ dotenv.config();
 
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 import request from "supertest";
 import { createApp } from "../backend/app";
 
@@ -11,11 +12,6 @@ const requiredEnv = [
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
 ] as const;
-
-const validPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
-  "base64"
-);
 
 interface SmokeResponse {
   cloudinary?: {
@@ -37,13 +33,19 @@ async function main() {
     throw new Error(`Missing Cloudinary env: ${missingEnv.join(", ")}`);
   }
 
-  const response = await request(createApp())
+  const smokeAssets = await createSmokeAssets();
+  const submission = request(createApp())
     .post("/submit-project")
-    .field("manifest", JSON.stringify(createRenderManifest()))
-    .attach("assets", validPng, {
-      contentType: "image/png",
-      filename: "cloudinary-smoke.png",
+    .field("manifest", JSON.stringify(createRenderManifest(smokeAssets)));
+
+  smokeAssets.forEach((asset) => {
+    submission.attach("assets", asset.buffer, {
+      contentType: asset.contentType,
+      filename: asset.fileName,
     });
+  });
+
+  const response = await submission;
   const body = response.body as SmokeResponse;
 
   if (response.status !== 201 || body.status !== "submitted") {
@@ -60,7 +62,7 @@ async function main() {
 
   const uploadedPaths = body.cloudinary.files.map((file) => file.path).sort();
   const expectedPaths = [
-    "assets/cloudinary-smoke.png",
+    ...smokeAssets.map((asset) => `assets/${asset.fileName}`),
     "manifest.json",
     "preview.png",
     "print.pdf",
@@ -90,35 +92,102 @@ async function main() {
     });
 }
 
-function createRenderManifest() {
+interface SmokeAsset {
+  buffer: Buffer;
+  contentType: "image/png";
+  fileName: string;
+  id: string;
+}
+
+async function createSmokeAssets(): Promise<SmokeAsset[]> {
+  const assets = [
+    {
+      accent: "#0f766e",
+      background: "#5eead4",
+      fileName: "cloudinary-smoke-teal.png",
+      id: "asset-teal",
+      label: "TEAL DECAL",
+    },
+    {
+      accent: "#c2410c",
+      background: "#fdba74",
+      fileName: "cloudinary-smoke-orange.png",
+      id: "asset-orange",
+      label: "ORANGE DECAL",
+    },
+  ];
+
+  return Promise.all(
+    assets.map(async (asset) => ({
+      buffer: await renderSmokePng(asset),
+      contentType: "image/png" as const,
+      fileName: asset.fileName,
+      id: asset.id,
+    }))
+  );
+}
+
+async function renderSmokePng({
+  accent,
+  background,
+  label,
+}: {
+  accent: string;
+  background: string;
+  label: string;
+}) {
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <rect width="900" height="600" rx="48" fill="${background}"/>
+  <rect x="42" y="42" width="816" height="516" rx="36" fill="none" stroke="${accent}" stroke-width="24" stroke-dasharray="44 28"/>
+  <circle cx="190" cy="190" r="88" fill="${accent}" opacity="0.9"/>
+  <circle cx="710" cy="410" r="118" fill="${accent}" opacity="0.22"/>
+  <text x="450" y="276" text-anchor="middle" font-family="Arial, sans-serif" font-size="82" font-weight="700" fill="#111827">Cloudinary</text>
+  <text x="450" y="376" text-anchor="middle" font-family="Arial, sans-serif" font-size="58" font-weight="700" fill="#111827">${label}</text>
+</svg>`;
+
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+function createRenderManifest(smokeAssets: SmokeAsset[]) {
   return {
     document: {
-      assets: [
-        {
-          fileName: "cloudinary-smoke.png",
-          fileType: "image/png",
-          id: "asset-1",
-          sourceUrl: "blob:asset-1",
-        },
-      ],
+      assets: smokeAssets.map((asset) => ({
+        fileName: asset.fileName,
+        fileType: asset.contentType,
+        id: asset.id,
+        sourceUrl: `smoke://${asset.id}`,
+      })),
       id: "cloudinary-smoke-project",
       items: [
         {
-          assetId: "asset-1",
-          heightIn: 0.75,
-          id: "item-1",
+          assetId: "asset-teal",
+          heightIn: 4,
+          id: "item-teal",
           rotationDeg: 0,
           scaleX: 1,
           scaleY: 1,
-          widthIn: 0.75,
-          xIn: 0.5,
-          yIn: 0.5,
+          widthIn: 6,
+          xIn: 0.75,
+          yIn: 0.75,
+        },
+        {
+          assetId: "asset-orange",
+          heightIn: 4,
+          id: "item-orange",
+          rotationDeg: -8,
+          scaleX: 1,
+          scaleY: 1,
+          widthIn: 6,
+          xIn: 4.25,
+          yIn: 6.25,
         },
       ],
       productionProfileId: "sticker-sheet-mvp",
       settings: {
         background: {
-          type: "transparent",
+          color: "#f8fafc",
+          type: "solid",
         },
       },
       sheet: {
