@@ -93,3 +93,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirm a real submitted proof appears in Cloudinary under `decal-sheet/<projectId>` when credentials are configured
 - Regression added: mocked Cloudinary upload stream verifies preview, PDF, manifest, review, project JSON, and original assets are mirrored
 - Notes/follow-up: keep local backend project storage as the admin/recovery source while Cloudinary acts as the external proof mirror
+
+## 2026-07-02 - Cloudinary Proof Smoke Command
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:quality`
+- Accessibility: not applicable; backend smoke tooling
+- Manual: `npm run smoke:cloudinary` passed with `.env` credentials and uploaded to `decal-sheet/project-20260702125157528-b5g41x`
+- Regression added: Cloudinary mirror failures identify the failed file path and returned HTTP code
+- Notes/follow-up: the smoke command creates a small Cloudinary test folder that can be deleted from Cloudinary after verification

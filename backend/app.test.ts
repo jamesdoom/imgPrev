@@ -365,6 +365,59 @@ describe("backend app", () => {
     expect(uploadedFiles.every((file) => file.bytes > 0)).toBe(true);
   });
 
+  test("reports Cloudinary proof mirror failures with the failed file path", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "demo";
+    process.env.CLOUDINARY_API_KEY = "key";
+    process.env.CLOUDINARY_API_SECRET = "secret";
+    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
+
+    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
+      ((options, callback) => {
+        const writable = new Writable({
+          write(_chunk: Buffer, _encoding, done) {
+            done();
+          },
+        });
+
+        writable.on("finish", () => {
+          if (options.public_id === "project.json") {
+            callback?.(
+              Object.assign(new Error("Invalid Cloudinary credentials."), {
+                http_code: 401,
+              })
+            );
+            return;
+          }
+
+          callback?.(undefined, {
+            public_id: `${options.folder}/${options.public_id}`,
+            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
+          });
+        });
+
+        return writable;
+      }) as typeof cloudinary.uploader.upload_stream
+    );
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    if (response.body.projectId) {
+      submittedProjectIds.push(response.body.projectId);
+    }
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error:
+        "Cloudinary upload failed for project.json: Invalid Cloudinary credentials. HTTP 401 Error",
+    });
+  });
+
   test("lists submitted projects for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)

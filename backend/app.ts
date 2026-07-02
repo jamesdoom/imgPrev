@@ -641,7 +641,13 @@ function uploadProofFileToCloudinary(
       },
       (error, result) => {
         if (error || !result?.secure_url) {
-          reject(error ?? new Error("Cloudinary upload did not return a URL."));
+          reject(
+            new Error(
+              `Cloudinary upload failed for ${file.relativePath}: ${formatCloudinaryError(
+                error
+              )}`
+            )
+          );
           return;
         }
 
@@ -657,6 +663,22 @@ function uploadProofFileToCloudinary(
 
     streamifier.createReadStream(file.buffer).pipe(uploadStream);
   });
+}
+
+function formatCloudinaryError(error: unknown): string {
+  const record = getRecord(error);
+  const message =
+    typeof record.message === "string" && record.message.trim().length > 0
+      ? record.message
+      : null;
+  const httpCode =
+    typeof record.http_code === "number" ? `HTTP ${record.http_code}` : null;
+  const name =
+    typeof record.name === "string" && record.name.trim().length > 0
+      ? record.name
+      : null;
+
+  return [message, httpCode, name].filter(Boolean).join(" ") || "unknown error";
 }
 
 function getCloudinaryResourceType(contentType: string): "image" | "raw" {
