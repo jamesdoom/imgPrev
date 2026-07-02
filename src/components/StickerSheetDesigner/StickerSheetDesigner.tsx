@@ -59,6 +59,7 @@ import {
 import {
   renderProductionFiles,
   submitProjectForReview,
+  type SubmitProjectForReviewResult,
 } from "./renderProductionFiles";
 import { getDpi } from "../ImageUploader/utils/getDpi";
 import {
@@ -98,6 +99,12 @@ interface ProjectJsonReadResult {
   document: SheetDocument;
   droppedAssetCount: number;
   droppedItemCount: number;
+}
+
+interface SubmittedProofReceipt {
+  cloudinaryAssetPaths: string[];
+  cloudinaryFolder?: string;
+  projectId: string;
 }
 
 function createId(prefix: string): string {
@@ -140,9 +147,8 @@ export default function StickerSheetDesigner() {
   const [assetQuantities, setAssetQuantities] = useState<
     Record<string, number>
   >({});
-  const [submittedProjectId, setSubmittedProjectId] = useState<string | null>(
-    null,
-  );
+  const [submittedProof, setSubmittedProof] =
+    useState<SubmittedProofReceipt | null>(null);
   const [history, dispatchDocument] = useReducer(
     (state: SheetDocumentHistoryState, action: SheetDocumentHistoryAction) =>
       sheetDocumentHistoryReducer(state, action),
@@ -172,7 +178,7 @@ export default function StickerSheetDesigner() {
     assetCount: document.assets.length,
     canExport,
     decalCount: document.items.length,
-    isSubmitted: submittedProjectId !== null,
+    isSubmitted: submittedProof !== null,
   });
   const proofGuidance = useMemo(() => buildProofGuidance(), []);
   const orderEstimate = useMemo(
@@ -191,6 +197,10 @@ export default function StickerSheetDesigner() {
   useEffect(() => {
     saveDocumentLocally(document);
   }, [document]);
+
+  useEffect(() => {
+    setSubmittedProof(null);
+  }, [document.updatedAt]);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) {
@@ -494,7 +504,7 @@ export default function StickerSheetDesigner() {
         preflightIssues,
       });
 
-      setSubmittedProjectId(result.projectId);
+      setSubmittedProof(createSubmittedProofReceipt(result));
       toast.success(`Submitted ${result.projectId}`);
     } catch (error) {
       toast.error(
@@ -519,7 +529,7 @@ export default function StickerSheetDesigner() {
       });
       setAssetFiles({});
       setAssetQuantities({});
-      setSubmittedProjectId(null);
+      setSubmittedProof(null);
       setRestoreNotice(getProjectRestoreNotice(loadedProject));
       dispatchView({ type: "selection/clear" });
       toast.success("Project JSON loaded");
@@ -893,7 +903,7 @@ export default function StickerSheetDesigner() {
             documentItemCount={document.items.length}
             isExporting={isExporting}
             isSubmitting={isSubmitting}
-            submittedProjectId={submittedProjectId}
+            submittedProof={submittedProof}
             onDownloadBundle={downloadAvailableBundleFiles}
             onDownloadPreviewPng={downloadPreviewPng}
             onSubmitForReview={submitForReview}
@@ -1123,7 +1133,7 @@ export default function StickerSheetDesigner() {
             orderEstimate={orderEstimate}
             sheetLabel={`${document.sheet.widthIn}" x ${document.sheet.heightIn}"`}
             assetCount={document.assets.length}
-            submittedProjectId={submittedProjectId}
+            submittedProof={submittedProof}
           />
         </aside>
       </div>
@@ -1306,7 +1316,7 @@ function ProductionActionsPanel({
   documentItemCount,
   isExporting,
   isSubmitting,
-  submittedProjectId,
+  submittedProof,
   onDownloadBundle,
   onDownloadPreviewPng,
   onSubmitForReview,
@@ -1315,7 +1325,7 @@ function ProductionActionsPanel({
   documentItemCount: number;
   isExporting: boolean;
   isSubmitting: boolean;
-  submittedProjectId: string | null;
+  submittedProof: SubmittedProofReceipt | null;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
   onSubmitForReview: () => void;
@@ -1371,9 +1381,22 @@ function ProductionActionsPanel({
         <CloudArrowUpIcon className="h-5 w-5" />
         {isSubmitting ? "Submitting..." : "Submit Proof Request"}
       </button>
-      {submittedProjectId && (
-        <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-          Submitted as {submittedProjectId}
+      {submittedProof && (
+        <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+          <p className="font-semibold">Submitted as {submittedProof.projectId}</p>
+          {submittedProof.cloudinaryFolder && (
+            <p className="break-all">
+              Cloudinary folder: {submittedProof.cloudinaryFolder}
+            </p>
+          )}
+          {submittedProof.cloudinaryAssetPaths.length > 0 && (
+            <p>
+              Mirrored artwork:{" "}
+              {submittedProof.cloudinaryAssetPaths
+                .map((assetPath) => assetPath.replace(/^assets\//, ""))
+                .join(", ")}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -1406,7 +1429,7 @@ function ExportPanel({
   preflightWarningCount,
   orderEstimate,
   sheetLabel,
-  submittedProjectId,
+  submittedProof,
 }: {
   assetCount: number;
   canExport: boolean;
@@ -1415,7 +1438,7 @@ function ExportPanel({
   preflightWarningCount: number;
   orderEstimate: SheetOrderEstimate;
   sheetLabel: string;
-  submittedProjectId: string | null;
+  submittedProof: SubmittedProofReceipt | null;
 }) {
   return (
     <div className="space-y-2 px-4 pb-4">
@@ -1439,7 +1462,7 @@ function ExportPanel({
         documentItemCount={documentItemCount}
         estimate={orderEstimate}
         preflightErrorCount={preflightErrorCount}
-        submittedProjectId={submittedProjectId}
+        submittedProof={submittedProof}
       />
     </div>
   );
@@ -1491,20 +1514,20 @@ function OrderSummaryPanel({
   documentItemCount,
   estimate,
   preflightErrorCount,
-  submittedProjectId,
+  submittedProof,
 }: {
   canExport: boolean;
   documentItemCount: number;
   estimate: SheetOrderEstimate;
   preflightErrorCount: number;
-  submittedProjectId: string | null;
+  submittedProof: SubmittedProofReceipt | null;
 }) {
   const perSheetCents = estimate.subtotalCents / estimate.sheetCount;
   const readiness = getSubmitProofReadiness({
     canExport,
     documentItemCount,
     preflightErrorCount,
-    submittedProjectId,
+    submittedProof,
   });
 
   return (
@@ -1583,21 +1606,21 @@ function getSubmitProofReadiness({
   canExport,
   documentItemCount,
   preflightErrorCount,
-  submittedProjectId,
+  submittedProof,
 }: {
   canExport: boolean;
   documentItemCount: number;
   preflightErrorCount: number;
-  submittedProjectId: string | null;
+  submittedProof: SubmittedProofReceipt | null;
 }): {
   className: string;
   description: string;
   label: string;
 } {
-  if (submittedProjectId) {
+  if (submittedProof) {
     return {
       className: "border-emerald-200 bg-emerald-50 text-emerald-800",
-      description: `Submitted as ${submittedProjectId}.`,
+      description: `Submitted as ${submittedProof.projectId}.`,
       label: "Submitted",
     };
   }
@@ -1624,6 +1647,20 @@ function getSubmitProofReadiness({
     className: "border-emerald-200 bg-emerald-50 text-emerald-800",
     description: "Ready to submit once the proof preview looks correct.",
     label: "Ready",
+  };
+}
+
+function createSubmittedProofReceipt(
+  result: SubmitProjectForReviewResult,
+): SubmittedProofReceipt {
+  return {
+    projectId: result.projectId,
+    cloudinaryFolder: result.cloudinary?.folder,
+    cloudinaryAssetPaths:
+      result.cloudinary?.files
+        .map((file) => file.path)
+        .filter((filePath) => filePath.startsWith("assets/"))
+        .sort((first, second) => first.localeCompare(second)) ?? [],
   };
 }
 

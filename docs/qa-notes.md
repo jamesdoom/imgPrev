@@ -101,3 +101,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: `npm run smoke:cloudinary` passed with `.env` credentials and uploaded the original visible test decals plus the rendered preview to `decal-sheet/project-20260702130758649-ngneym`; downloaded the Cloudinary preview URL and confirmed it is visibly rendered
 - Regression added: Cloudinary mirror failures identify the failed file path and returned HTTP code
 - Notes/follow-up: the smoke command creates a small Cloudinary test folder that can be deleted from Cloudinary after verification
+
+## 2026-07-02 - Proof Submission Asset Verification
+
+- Automated: `npm run test -- src/components/StickerSheetDesigner/renderProductionFiles.test.ts`, `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:quality`
+- Accessibility: not applicable; proof submission payload and receipt clarity change
+- Manual: not required; browser coverage verifies the submitted Cloudinary folder and mirrored artwork names are shown after submit
+- Regression added: multi-image proof payloads include the placed uploaded filenames, stale unplaced library artwork is omitted, and placed artwork without an original file fails before submission
+- Notes/follow-up: actual Cloudinary submissions now show the returned folder and mirrored artwork names in the proof panel so the newest submitted project is easier to inspect

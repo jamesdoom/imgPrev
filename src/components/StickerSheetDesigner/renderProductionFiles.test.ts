@@ -19,6 +19,25 @@ function documentWithAsset() {
         fileType: "image/png",
       },
     ],
+    items: [
+      {
+        assetId: "asset-1",
+        heightIn: 1,
+        id: "item-1",
+        rotationDeg: 0,
+        scaleX: 1,
+        scaleY: 1,
+        widthIn: 1,
+        xIn: 0.5,
+        yIn: 0.5,
+      },
+    ],
+  };
+}
+
+function assetFileMap() {
+  return {
+    "asset-1": new File(["asset"], "decal.png", { type: "image/png" }),
   };
 }
 
@@ -127,7 +146,7 @@ describe("renderProductionFiles", () => {
       renderProductionFiles({
         document: documentWithAsset(),
         preflightIssues: [],
-        assetFiles: {},
+        assetFiles: assetFileMap(),
       })
     ).rejects.toThrow("Missing uploaded asset file.");
   });
@@ -154,9 +173,7 @@ describe("renderProductionFiles", () => {
       submitProjectForReview({
         document: documentWithAsset(),
         preflightIssues: [],
-        assetFiles: {
-          "asset-1": new File(["asset"], "decal.png", { type: "image/png" }),
-        },
+        assetFiles: assetFileMap(),
       })
     ).resolves.toMatchObject({
       projectId: "project-20260623120000-abc123",
@@ -172,6 +189,157 @@ describe("renderProductionFiles", () => {
     );
   });
 
+  test("posts each placed uploaded asset when submitting a multi-image sheet", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          cloudinary: {
+            files: [
+              { path: "assets/left.png" },
+              { path: "assets/center.png" },
+              { path: "assets/right.png" },
+            ],
+            folder: "decal-sheet/project-20260623120000-multi1",
+          },
+          projectId: "project-20260623120000-multi1",
+          status: "submitted",
+          files: {
+            projectJson: "/projects/project-20260623120000-multi1/project.json",
+            previewPng: "/projects/project-20260623120000-multi1/preview.png",
+            printPdf: "/projects/project-20260623120000-multi1/print.pdf",
+            assets: "/projects/project-20260623120000-multi1/assets/",
+          },
+        }),
+    });
+    const document = {
+      ...createSheetDocument({
+        id: "project-1",
+        sheetSizeId: "11x17",
+      }),
+      assets: ["left", "center", "right"].map((name) => ({
+        id: `asset-${name}`,
+        sourceUrl: `blob:asset-${name}`,
+        fileName: `${name}.png`,
+        fileType: "image/png",
+      })),
+      items: ["left", "center", "right"].map((name, index) => ({
+        assetId: `asset-${name}`,
+        heightIn: 1,
+        id: `item-${name}`,
+        rotationDeg: 0,
+        scaleX: 1,
+        scaleY: 1,
+        widthIn: 1,
+        xIn: 0.5 + index,
+        yIn: 0.5,
+      })),
+    };
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await submitProjectForReview({
+      document,
+      preflightIssues: [],
+      assetFiles: {
+        "asset-left": new File(["left"], "left.png", { type: "image/png" }),
+        "asset-center": new File(["center"], "center.png", {
+          type: "image/png",
+        }),
+        "asset-right": new File(["right"], "right.png", {
+          type: "image/png",
+        }),
+      },
+    });
+
+    const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    const assetFiles = body.getAll("assets") as File[];
+    const manifest = JSON.parse(String(body.get("manifest"))) as {
+      document: { assets: Array<{ fileName: string }> };
+    };
+
+    expect(assetFiles.map((file) => file.name)).toEqual([
+      "left.png",
+      "center.png",
+      "right.png",
+    ]);
+    expect(manifest.document.assets.map((asset) => asset.fileName)).toEqual([
+      "left.png",
+      "center.png",
+      "right.png",
+    ]);
+    expect(assetFiles.map((file) => file.name)).not.toContain(
+      "cloudinary-smoke-teal.png"
+    );
+  });
+
+  test("omits unplaced stale library assets from proof submissions", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          projectId: "project-20260623120000-placed",
+          status: "submitted",
+          files: {
+            projectJson: "/projects/project-20260623120000-placed/project.json",
+            previewPng: "/projects/project-20260623120000-placed/preview.png",
+            printPdf: "/projects/project-20260623120000-placed/print.pdf",
+            assets: "/projects/project-20260623120000-placed/assets/",
+          },
+        }),
+    });
+    const document = {
+      ...documentWithAsset(),
+      assets: [
+        ...documentWithAsset().assets,
+        {
+          id: "asset-stale",
+          sourceUrl: "data:image/png;base64,c3RhbGU=",
+          fileName: "cloudinary-smoke-teal.png",
+          fileType: "image/png",
+        },
+      ],
+    };
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await submitProjectForReview({
+      document,
+      preflightIssues: [],
+      assetFiles: {
+        "asset-1": new File(["asset"], "decal.png", { type: "image/png" }),
+      },
+    });
+
+    const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    const assetFiles = body.getAll("assets") as File[];
+    const manifest = JSON.parse(String(body.get("manifest"))) as {
+      document: { assets: Array<{ fileName: string }> };
+    };
+
+    expect(assetFiles.map((file) => file.name)).toEqual(["decal.png"]);
+    expect(manifest.document.assets.map((asset) => asset.fileName)).toEqual([
+      "decal.png",
+    ]);
+  });
+
+  test("rejects proof submissions when placed artwork no longer has an original file", async () => {
+    const fetchMock = vi.fn();
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      submitProjectForReview({
+        document: documentWithAsset(),
+        preflightIssues: [],
+        assetFiles: {},
+      })
+    ).rejects.toThrow(
+      "Missing original artwork for decal.png. Re-upload this artwork before submitting or exporting a proof."
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("throws backend submission errors", async () => {
     vi.stubGlobal(
       "fetch",
@@ -185,7 +353,7 @@ describe("renderProductionFiles", () => {
       submitProjectForReview({
         document: documentWithAsset(),
         preflightIssues: [],
-        assetFiles: {},
+        assetFiles: assetFileMap(),
       })
     ).rejects.toThrow("Project submission failed.");
   });
@@ -203,7 +371,7 @@ describe("renderProductionFiles", () => {
       submitProjectForReview({
         document: documentWithAsset(),
         preflightIssues: [],
-        assetFiles: {},
+        assetFiles: assetFileMap(),
       })
     ).rejects.toThrow("Project submission failed.");
   });
@@ -225,7 +393,7 @@ describe("renderProductionFiles", () => {
       submitProjectForReview({
         document: documentWithAsset(),
         preflightIssues: [],
-        assetFiles: {},
+        assetFiles: assetFileMap(),
       })
     ).rejects.toThrow(
       "Project submission could not be confirmed. Please try again."

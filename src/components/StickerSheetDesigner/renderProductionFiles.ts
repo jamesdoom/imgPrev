@@ -148,26 +148,48 @@ function buildProductionFormData({
   preflightIssues: PreflightIssue[];
 }) {
   const formData = new FormData();
+  const productionDocument = createProductionDocument(document);
   const manifest = buildExportBundleManifest({
     customerNote,
-    document,
+    document: productionDocument,
     exportedAt: new Date().toISOString(),
     preflightIssues,
   });
 
   formData.append("manifest", JSON.stringify(manifest));
 
-  for (const asset of document.assets) {
-    const file =
-      assetFiles[asset.id] ??
-      dataUrlToFile(asset.sourceUrl, asset.fileName, asset.fileType);
+  for (const asset of productionDocument.assets) {
+    const file = getProductionAssetFile(assetFiles, asset);
 
-    if (file) {
-      formData.append("assets", file, asset.fileName);
+    if (!file) {
+      throw new Error(
+        `Missing original artwork for ${asset.fileName}. Re-upload this artwork before submitting or exporting a proof.`
+      );
     }
+
+    formData.append("assets", file, asset.fileName);
   }
 
   return formData;
+}
+
+function createProductionDocument(document: SheetDocument): SheetDocument {
+  const placedAssetIds = new Set(document.items.map((item) => item.assetId));
+
+  return {
+    ...document,
+    assets: document.assets.filter((asset) => placedAssetIds.has(asset.id)),
+  };
+}
+
+function getProductionAssetFile(
+  assetFiles: Record<string, File>,
+  asset: SheetDocument["assets"][number]
+): File | null {
+  return (
+    assetFiles[asset.id] ??
+    dataUrlToFile(asset.sourceUrl, asset.fileName, asset.fileType)
+  );
 }
 
 function dataUrlToFile(

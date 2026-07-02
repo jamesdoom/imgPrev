@@ -303,6 +303,17 @@ test("customer main proof path preserves layout, order summary, submit payload, 
           printPdf: "/projects/project-playwright-main/print.pdf",
           projectJson: "/projects/project-playwright-main/project.json",
         },
+        cloudinary: {
+          files: [
+            {
+              path: "assets/playwright-artwork.svg",
+            },
+            {
+              path: "preview.png",
+            },
+          ],
+          folder: "decal-sheet/project-playwright-main",
+        },
         projectId: "project-playwright-main",
         status: "submitted",
       },
@@ -368,6 +379,16 @@ test("customer main proof path preserves layout, order summary, submit payload, 
 
   await expect(
     page.getByText("Submitted as project-playwright-main", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Cloudinary folder: decal-sheet/project-playwright-main", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Mirrored artwork: playwright-artwork.svg", {
+      exact: true,
+    }),
   ).toBeVisible();
   expect(submittedManifest).not.toBeNull();
 
