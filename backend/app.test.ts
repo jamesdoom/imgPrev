@@ -418,6 +418,79 @@ describe("backend app", () => {
     });
   });
 
+  test("keeps submitted proofs visible when a Cloudinary artwork copy fails", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "demo";
+    process.env.CLOUDINARY_API_KEY = "key";
+    process.env.CLOUDINARY_API_SECRET = "secret";
+    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
+
+    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
+      ((options, callback) => {
+        const writable = new Writable({
+          write(_chunk: Buffer, _encoding, done) {
+            done();
+          },
+        });
+
+        writable.on("finish", () => {
+          if (options.public_id === "assets/pixel") {
+            callback?.(
+              Object.assign(new Error("Asset upload timed out."), {
+                http_code: 499,
+              })
+            );
+            return;
+          }
+
+          callback?.(undefined, {
+            public_id: `${options.folder}/${options.public_id}`,
+            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
+          });
+        });
+
+        return writable;
+      }) as typeof cloudinary.uploader.upload_stream
+    );
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, response.body.projectId, "project.json"),
+        "utf8"
+      )
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.body.cloudinary.folder).toBe(
+      `decal-sheet/${response.body.projectId}`
+    );
+    expect(response.body.cloudinary.files.map((file: { path: string }) => file.path))
+      .toEqual(
+        expect.arrayContaining([
+          "manifest.json",
+          "preview.png",
+          "print.pdf",
+          "project.json",
+          "review.json",
+        ])
+      );
+    expect(response.body.cloudinary.files.map((file: { path: string }) => file.path))
+      .not.toContain("assets/pixel.png");
+    expect(response.body.cloudinary.warnings).toEqual([
+      "Cloudinary upload failed for assets/pixel.png: Asset upload timed out. HTTP 499 Error",
+    ]);
+    expect(projectJson.cloudinary.warnings).toEqual(response.body.cloudinary.warnings);
+  });
+
   test("lists submitted projects for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)

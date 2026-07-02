@@ -104,6 +104,7 @@ interface ProjectJsonReadResult {
 interface SubmittedProofReceipt {
   cloudinaryAssetPaths: string[];
   cloudinaryFolder?: string;
+  cloudinaryWarnings: string[];
   projectId: string;
 }
 
@@ -1397,6 +1398,11 @@ function ProductionActionsPanel({
                 .join(", ")}
             </p>
           )}
+          {submittedProof.cloudinaryWarnings.length > 0 && (
+            <p className="leading-5 text-amber-900">
+              Cloudinary warning: {submittedProof.cloudinaryWarnings.join(" ")}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -1661,6 +1667,7 @@ function createSubmittedProofReceipt(
         .map((file) => file.path)
         .filter((filePath) => filePath.startsWith("assets/"))
         .sort((first, second) => first.localeCompare(second)) ?? [],
+    cloudinaryWarnings: result.cloudinary?.warnings ?? [],
   };
 }
 

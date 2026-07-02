@@ -32,6 +32,8 @@ const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
 const projectsDir = path.join(storageRoot, "projects");
 const DEFAULT_CLOUDINARY_PROOF_FOLDER = "decal-sheet";
+const CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX = 2400;
+const DEFAULT_CLOUDINARY_UPLOAD_TIMEOUT_MS = 45000;
 
 function hasCloudinaryConfig() {
   return (
@@ -563,7 +565,7 @@ async function uploadSubmittedProofToCloudinary({
   configureCloudinary();
 
   const folder = getCloudinaryProofFolder(projectId);
-  const proofFiles: CloudinaryProofUploadCandidate[] = [
+  const coreFiles: CloudinaryProofUploadCandidate[] = [
     {
       buffer: Buffer.from(JSON.stringify(projectRecord, null, 2)),
       contentType: "application/json",
@@ -589,21 +591,92 @@ async function uploadSubmittedProofToCloudinary({
       contentType: "application/pdf",
       relativePath: "print.pdf",
     },
-    ...files.map((file) => ({
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      relativePath: path.posix.join("assets", path.basename(file.originalname)),
-    })),
   ];
-
-  const uploadedFiles = await Promise.all(
-    proofFiles.map((file) => uploadProofFileToCloudinary(file, folder))
+  const uploadedCoreFiles = await Promise.all(
+    coreFiles.map((file) => uploadProofFileToCloudinary(file, folder))
   );
+  const assetFiles = await Promise.all(
+    files.map((file) => createCloudinaryArtworkCandidate(file))
+  );
+  const assetUploadResults = await Promise.allSettled(
+    assetFiles.map((file) => uploadProofFileToCloudinary(file, folder))
+  );
+  const uploadedAssetFiles = assetUploadResults
+    .filter(
+      (result): result is PromiseFulfilledResult<CloudinaryProofFile> =>
+        result.status === "fulfilled"
+    )
+    .map((result) => result.value);
+  const warnings = assetUploadResults
+    .filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected"
+    )
+    .map((result) => formatCloudinaryWarning(result.reason));
 
   return {
     folder,
-    files: uploadedFiles,
+    files: [...uploadedCoreFiles, ...uploadedAssetFiles],
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
+}
+
+async function createCloudinaryArtworkCandidate(
+  file: UploadedRenderFile
+): Promise<CloudinaryProofUploadCandidate> {
+  const relativePath = path.posix.join(
+    "assets",
+    path.basename(file.originalname)
+  );
+
+  if (!isOptimizableCloudinaryImage(file.mimetype)) {
+    return {
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      relativePath,
+    };
+  }
+
+  try {
+    return {
+      buffer: await optimizeCloudinaryArtworkImage(file.buffer, file.mimetype),
+      contentType: file.mimetype,
+      relativePath,
+    };
+  } catch {
+    return {
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      relativePath,
+    };
+  }
+}
+
+function isOptimizableCloudinaryImage(contentType: string): boolean {
+  return ["image/jpeg", "image/png", "image/webp"].includes(contentType);
+}
+
+async function optimizeCloudinaryArtworkImage(
+  buffer: Buffer,
+  contentType: string
+): Promise<Buffer> {
+  const image = sharp(buffer)
+    .rotate()
+    .resize({
+      fit: "inside",
+      height: CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX,
+      width: CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX,
+      withoutEnlargement: true,
+    });
+
+  if (contentType === "image/jpeg") {
+    return image.jpeg({ quality: 85 }).toBuffer();
+  }
+
+  if (contentType === "image/webp") {
+    return image.webp({ quality: 85 }).toBuffer();
+  }
+
+  return image.png({ compressionLevel: 9 }).toBuffer();
 }
 
 function getCloudinaryProofFolder(projectId: string): string {
@@ -630,18 +703,46 @@ function uploadProofFileToCloudinary(
 ): Promise<CloudinaryProofFile> {
   const resourceType = getCloudinaryResourceType(file.contentType);
   const publicId = getCloudinaryPublicId(file.relativePath, resourceType);
+  const timeoutMs = getCloudinaryUploadTimeoutMs();
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finishWithError = (error: Error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(uploadTimeout);
+      reject(error);
+    };
+    const finishWithSuccess = (uploadedFile: CloudinaryProofFile) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(uploadTimeout);
+      resolve(uploadedFile);
+    };
+    const uploadTimeout = setTimeout(() => {
+      finishWithError(
+        new Error(
+          `Cloudinary upload timed out for ${file.relativePath} after ${timeoutMs}ms.`
+        )
+      );
+    }, timeoutMs);
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
         overwrite: true,
         public_id: publicId,
         resource_type: resourceType,
+        timeout: timeoutMs,
       },
       (error, result) => {
         if (error || !result?.secure_url) {
-          reject(
+          finishWithError(
             new Error(
               `Cloudinary upload failed for ${file.relativePath}: ${formatCloudinaryError(
                 error
@@ -651,7 +752,7 @@ function uploadProofFileToCloudinary(
           return;
         }
 
-        resolve({
+        finishWithSuccess({
           fileName: path.posix.basename(file.relativePath),
           path: file.relativePath,
           publicId: result.public_id,
@@ -661,8 +762,25 @@ function uploadProofFileToCloudinary(
       }
     );
 
-    streamifier.createReadStream(file.buffer).pipe(uploadStream);
+    streamifier
+      .createReadStream(file.buffer)
+      .on("error", (error) => {
+        finishWithError(
+          error instanceof Error
+            ? error
+            : new Error(`Could not read ${file.relativePath} for upload.`)
+        );
+      })
+      .pipe(uploadStream);
   });
+}
+
+function getCloudinaryUploadTimeoutMs(): number {
+  const configuredTimeout = Number(process.env.CLOUDINARY_UPLOAD_TIMEOUT_MS);
+
+  return Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : DEFAULT_CLOUDINARY_UPLOAD_TIMEOUT_MS;
 }
 
 function formatCloudinaryError(error: unknown): string {
@@ -679,6 +797,12 @@ function formatCloudinaryError(error: unknown): string {
       : null;
 
   return [message, httpCode, name].filter(Boolean).join(" ") || "unknown error";
+}
+
+function formatCloudinaryWarning(reason: unknown): string {
+  return reason instanceof Error
+    ? reason.message
+    : `Cloudinary upload warning: ${String(reason)}`;
 }
 
 function getCloudinaryResourceType(contentType: string): "image" | "raw" {
@@ -1006,6 +1130,7 @@ interface UploadedRenderFile {
 interface CloudinaryProofUpload {
   folder: string;
   files: CloudinaryProofFile[];
+  warnings?: string[];
 }
 
 interface CloudinaryProofFile {

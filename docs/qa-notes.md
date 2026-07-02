@@ -109,3 +109,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; browser coverage verifies the submitted Cloudinary folder and mirrored artwork names are shown after submit
 - Regression added: multi-image proof payloads include the placed uploaded filenames, stale unplaced library artwork is omitted, and placed artwork without an original file fails before submission
 - Notes/follow-up: actual Cloudinary submissions now show the returned folder and mirrored artwork names in the proof panel so the newest submitted project is easier to inspect
+
+## 2026-07-02 - Cloudinary Submit Reliability
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run smoke:cloudinary`, `npm run test:quality`
+- Accessibility: not applicable; backend proof mirror reliability change
+- Manual: real Cloudinary smoke uploaded to `decal-sheet/project-20260702153842668-4kj8pt`
+- Regression added: core proof files still create a Cloudinary folder when an artwork copy upload fails; the response records a warning instead of losing the whole submission
+- Notes/follow-up: Cloudinary artwork copies are optimized for review speed while original files remain stored in local project storage for admin/recovery

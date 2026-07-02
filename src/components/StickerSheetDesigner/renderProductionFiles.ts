@@ -24,6 +24,7 @@ export interface SubmitProjectForReviewResult {
       resourceType: "image" | "raw";
       secureUrl: string;
     }>;
+    warnings?: string[];
   };
   files: {
     projectJson: string;
