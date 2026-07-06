@@ -401,6 +401,8 @@ function ProjectDetail({
         </div>
       )}
 
+      <PrintHandoffPanel files={project.files} />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded border border-neutral-300 bg-white">
           <SectionTitle title="Production metadata" />
@@ -697,6 +699,92 @@ function ReviewHistorySummary({
         value={latestReviewer ?? "Not reviewed yet"}
       />
     </dl>
+  );
+}
+
+function PrintHandoffPanel({ files }: { files: AdminReviewProjectFiles }) {
+  const hasPrintPdf = Boolean(files.printPdf);
+  const hasPreview = Boolean(files.previewPng);
+  const hasOrderRecord = Boolean(files.orderJson);
+  const originalArtworkCount = files.assetFiles?.length ?? 0;
+  const isReady = hasPrintPdf && hasPreview && hasOrderRecord;
+
+  return (
+    <section
+      aria-labelledby="print-handoff-heading"
+      className="rounded border border-neutral-300 bg-white"
+    >
+      <div className="flex flex-col gap-2 border-b border-neutral-200 px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 id="print-handoff-heading" className="text-sm font-semibold">
+            Print handoff
+          </h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Use the PDF as the print file. The preview and JSON record support
+            production review.
+          </p>
+        </div>
+        <span
+          className={`inline-flex h-8 shrink-0 items-center gap-2 rounded border px-2 text-xs font-semibold ${
+            isReady
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          {isReady ? (
+            <CheckCircleIcon className="h-4 w-4" />
+          ) : (
+            <ExclamationTriangleIcon className="h-4 w-4" />
+          )}
+          {isReady ? "Ready for print review" : "Needs file review"}
+        </span>
+      </div>
+      <dl className="grid gap-px bg-neutral-200 text-sm sm:grid-cols-4">
+        <HandoffStatusItem available={hasPrintPdf} label="PDF file" />
+        <HandoffStatusItem available={hasPreview} label="Preview image" />
+        <HandoffStatusItem available={hasOrderRecord} label="Order JSON" />
+        <div className="bg-white p-3">
+          <dt className="text-xs font-semibold uppercase text-neutral-500">
+            Original files
+          </dt>
+          <dd className="mt-2 font-medium text-neutral-900">
+            {originalArtworkCount > 0
+              ? `${originalArtworkCount} ${
+                  originalArtworkCount === 1 ? "file" : "files"
+                }`
+              : "Not included"}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function HandoffStatusItem({
+  available,
+  label,
+}: {
+  available: boolean;
+  label: string;
+}) {
+  return (
+    <div className="bg-white p-3">
+      <dt className="text-xs font-semibold uppercase text-neutral-500">
+        {label}
+      </dt>
+      <dd
+        className={`mt-2 inline-flex items-center gap-1 font-medium ${
+          available ? "text-emerald-800" : "text-amber-900"
+        }`}
+      >
+        {available ? (
+          <CheckCircleIcon className="h-4 w-4" />
+        ) : (
+          <ExclamationTriangleIcon className="h-4 w-4" />
+        )}
+        {available ? "Ready" : "Missing"}
+      </dd>
+    </div>
   );
 }
 

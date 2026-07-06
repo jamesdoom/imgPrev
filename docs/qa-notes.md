@@ -173,3 +173,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verify a submitted proof receipt focuses on the print PDF, proof preview, and order record without listing Cloudinary folder or mirrored artwork names
 - Regression added: customer browser coverage confirms routine Cloudinary storage details stay hidden after submit
 - Notes/follow-up: customer receipts still show storage warnings when the backend reports an actionable storage issue
+
+## 2026-07-06 - Admin Print Handoff Readiness
+
+- Automated: `npm run test -- src/admin/AdminReviewScreen.test.tsx`, `npm run test:e2e -- tests/e2e/admin-review.spec.ts`, `npm run test:quality`
+- Accessibility: admin handoff summary uses a labelled section heading and text status for readiness
+- Manual: verify the admin detail view clearly identifies the PDF as the print file before client testing
+- Regression added: component and browser coverage confirm the Print handoff panel appears with ready status when PDF, preview, and order record files exist
+- Notes/follow-up: use `docs/client-test-plan.md` for a final rehearsal with realistic artwork before sharing the app with the client

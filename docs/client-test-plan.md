@@ -19,7 +19,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
   - A low-resolution or warning-worthy image.
   - An unsupported file type for negative testing.
 - Confirm the customer app and admin backend are running and reachable.
-- If proof uploads should mirror to Cloudinary, confirm the backend has `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_PROOF_FOLDER=decal-sheet` configured. Run `npm run smoke:cloudinary` to submit a visible two-decal proof package under `decal-sheet/_smoke/<projectId>` and print the Cloudinary folder/URLs without exposing secrets.
+- If proof uploads should mirror to Cloudinary, confirm the backend has `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_PROOF_FOLDER=decal-sheet` configured. Run `npm run smoke:cloudinary` to validate storage privately; client testers should not need to inspect Cloudinary directly.
 - Clear local storage or use a fresh browser profile if you need a clean first-run experience.
 - Keep `docs/qa-notes.md` open so any test deviation can be captured immediately.
 
@@ -36,7 +36,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
 9. Review order summary: sheet count, price, minimum order, free shipping threshold, and submit readiness.
 10. Reload the page and confirm artwork previews, placed decals, and order summary restore correctly.
 11. Submit the sheet for print.
-12. If Cloudinary mirroring is enabled, confirm the generated project appears under `decal-sheet/<projectId>` in Cloudinary.
+12. Confirm the receipt shows the saved print files: PDF, proof preview, and order record.
 
 Pass criteria:
 
@@ -49,13 +49,14 @@ Pass criteria:
 
 1. Open the admin review screen.
 2. Select the submitted project.
-3. Confirm the proof preview, project JSON, manifest, print PDF, and original artwork links are visible or clearly marked missing.
-4. Review production metadata, preflight issues, and file status.
-5. Add reviewer name and note.
-6. Submit an approve decision.
-7. Confirm the review history shows current status, last update, latest reviewer, numbered decision, reviewer, and note.
-8. Repeat with a reject or needs changes decision on a separate project if available.
-9. Simulate or observe failed review update handling if the backend is unavailable.
+3. Confirm the Print handoff panel says the submission is ready for print review.
+4. Confirm the proof preview, print PDF, order record, project JSON, manifest, and original artwork links are visible or clearly marked missing.
+5. Review production metadata, preflight issues, and file status.
+6. Add reviewer name and note.
+7. Submit an approve decision.
+8. Confirm the review history shows current status, last update, latest reviewer, numbered decision, reviewer, and note.
+9. Repeat with a reject or needs changes decision on a separate project if available.
+10. Simulate or observe failed review update handling if the backend is unavailable.
 
 Pass criteria:
 

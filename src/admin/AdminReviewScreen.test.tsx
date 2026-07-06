@@ -110,6 +110,18 @@ describe("AdminReviewScreen", () => {
     expect(
       screen.getByText("Artwork is below the preferred DPI.")
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Print handoff" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use the PDF as the print file. The preview and JSON record support production review."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("Ready for print review")).toBeInTheDocument();
+    expect(screen.getByText("PDF file")).toBeInTheDocument();
+    expect(screen.getByText("Preview image")).toBeInTheDocument();
+    expect(screen.getByText("Order JSON")).toBeInTheDocument();
+    expect(screen.getByText("Original files")).toBeInTheDocument();
+    expect(screen.getByText("1 file")).toBeInTheDocument();
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
     expect(screen.getByText("Current status")).toBeInTheDocument();
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();

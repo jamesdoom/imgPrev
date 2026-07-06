@@ -105,6 +105,13 @@ test("admin can review downloadable previews and approve a project", async ({
   await page.getByRole("button", { name: new RegExp(projectId) }).click();
 
   await expect(page.getByRole("img", { name: "Submitted sheet preview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Print handoff" })).toBeVisible();
+  await expect(page.getByText("Ready for print review")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Use the PDF as the print file. The preview and JSON record support production review.",
+    ),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /Download PNG/ }).first()).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/preview.png",
