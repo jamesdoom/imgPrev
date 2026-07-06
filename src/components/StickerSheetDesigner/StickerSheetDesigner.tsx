@@ -1511,27 +1511,9 @@ function ProductionActionsPanel({
           {submittedProof.emailMessage && submittedProof.emailStatus !== "not-configured" && (
             <p className="leading-5">{submittedProof.emailMessage}</p>
           )}
-          {submittedProof.cloudinaryFolder && (
-            <p className="break-all">
-              Cloudinary folder: {submittedProof.cloudinaryFolder}
-            </p>
-          )}
-          {submittedProof.cloudinaryStatus === "skipped" && (
-            <p className="leading-5 text-amber-900">
-              Cloudinary mirror was skipped for this submission.
-            </p>
-          )}
-          {submittedProof.cloudinaryAssetPaths.length > 0 && (
-            <p>
-              Mirrored artwork:{" "}
-              {submittedProof.cloudinaryAssetPaths
-                .map((assetPath) => assetPath.replace(/^assets\//, ""))
-                .join(", ")}
-            </p>
-          )}
           {submittedProof.cloudinaryWarnings.length > 0 && (
             <p className="leading-5 text-amber-900">
-              Cloudinary warning: {submittedProof.cloudinaryWarnings.join(" ")}
+              Storage warning: {submittedProof.cloudinaryWarnings.join(" ")}
             </p>
           )}
         </div>

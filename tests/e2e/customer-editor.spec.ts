@@ -399,16 +399,8 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   await expect(page.getByText("Print PDF")).toBeVisible();
   await expect(page.getByText("Proof preview")).toBeVisible();
   await expect(page.getByText("Order record")).toBeVisible();
-  await expect(
-    page.getByText("Cloudinary folder: decal-sheet/project-playwright-main", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Mirrored artwork: playwright-artwork.svg", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByText("Cloudinary folder:")).toHaveCount(0);
+  await expect(page.getByText("Mirrored artwork:")).toHaveCount(0);
   expect(submittedManifest).not.toBeNull();
 
   await page.reload();

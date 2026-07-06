@@ -165,3 +165,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required; browser coverage verifies in-flight progress, inline retry guidance, and successful retry recovery
 - Regression added: print submissions show preparing/uploading/finalizing progress and preserve the layout after a failed submit
 - Notes/follow-up: keep Cloudinary/storage diagnostics secondary to the main print PDF and order record handoff
+
+## 2026-07-06 - Quiet Customer Storage Details
+
+- Automated: `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:quality`
+- Accessibility: not applicable; customer receipt wording only
+- Manual: verify a submitted proof receipt focuses on the print PDF, proof preview, and order record without listing Cloudinary folder or mirrored artwork names
+- Regression added: customer browser coverage confirms routine Cloudinary storage details stay hidden after submit
+- Notes/follow-up: customer receipts still show storage warnings when the backend reports an actionable storage issue
