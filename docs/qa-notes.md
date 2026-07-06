@@ -149,3 +149,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: not required for this structural guardrail; visually inspect a real client PDF before presentation
 - Regression added: generated print PDFs must be one page, match sheet dimensions, and embed the rendered sheet at production pixel size
 - Notes/follow-up: add visual PDF rendering smoke checks if the renderer starts adding marks, labels, or multi-page output
+
+## 2026-07-06 - Quality Gate Cleanup
+
+- Automated: `npm run test:e2e`, `npm run test:quality`
+- Accessibility: not applicable; test runner cleanup fix
+- Manual: confirmed no leftover Node/Vite process remains after the quality gate exits
+- Regression added: Playwright runner now owns the Vite server lifecycle and shuts it down after browser tests
+- Notes/follow-up: keep Playwright server startup in `scripts/runPlaywright.js` so local and CI quality gates use the same cleanup path
