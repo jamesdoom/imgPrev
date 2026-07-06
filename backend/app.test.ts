@@ -5,6 +5,7 @@ import { Writable } from "stream";
 import { v2 as cloudinary } from "cloudinary";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
+import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
 
 const validPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -218,6 +219,31 @@ describe("backend app", () => {
       Buffer.from("89504e470d0a1a0a", "hex")
     );
     expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(inspectProductionPdf(printPdf)).toMatchObject({
+      imageCount: 2,
+      imageHeightPx: 5100,
+      imageWidthPx: 3300,
+      pageCount: 1,
+      pageHeightPt: 1224,
+      pageWidthPt: 792,
+    });
+    expect(() =>
+      validateProductionPdf(printPdf, {
+        dpi: 300,
+        heightPx: 5100,
+        widthPx: 3300,
+      })
+    ).not.toThrow();
+  });
+
+  test("rejects invalid production PDF structure during validation", () => {
+    expect(() =>
+      validateProductionPdf(Buffer.from("%PDF-1.4\n%%EOF\n"), {
+        dpi: 300,
+        heightPx: 5100,
+        widthPx: 3300,
+      })
+    ).toThrow("Generated print PDF must contain exactly one page.");
   });
 
   test("submits a rendered project for internal review", async () => {
@@ -294,6 +320,13 @@ describe("backend app", () => {
       Buffer.from("89504e470d0a1a0a", "hex")
     );
     expect(printPdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(() =>
+      validateProductionPdf(printPdf, {
+        dpi: 300,
+        heightPx: 5100,
+        widthPx: 3300,
+      })
+    ).not.toThrow();
     expect(manifestJson.document.id).toBe("project-1");
     expect(reviewJson).toMatchObject({
       status: "submitted",

@@ -47,6 +47,15 @@ export interface RenderSheetResult {
   heightPx: number;
 }
 
+export interface ProductionPdfInfo {
+  imageCount: number;
+  imageHeightPx: number | null;
+  imageWidthPx: number | null;
+  pageCount: number;
+  pageHeightPt: number | null;
+  pageWidthPt: number | null;
+}
+
 interface Bounds {
   minX: number;
   minY: number;
@@ -134,6 +143,12 @@ export async function renderSheetToFiles(
     heightPx,
     document.sheet.dpi
   );
+
+  validateProductionPdf(printPdf, {
+    dpi: document.sheet.dpi,
+    heightPx,
+    widthPx,
+  });
 
   return {
     previewPng,
@@ -282,4 +297,67 @@ function formatPdfNumber(value: number): string {
 
 function formatPdfOffset(value: number): string {
   return String(value).padStart(10, "0");
+}
+
+export function inspectProductionPdf(pdf: Buffer): ProductionPdfInfo {
+  const source = pdf.toString("latin1");
+  const mediaBoxMatch = source.match(
+    /\/MediaBox\s*\[\s*0\s+0\s+([0-9.]+)\s+([0-9.]+)\s*\]/
+  );
+  const imageMatches = Array.from(
+    source.matchAll(/\/Subtype\s+\/Image\s+\/Width\s+(\d+)\s+\/Height\s+(\d+)/g)
+  );
+  const firstImageMatch = imageMatches[0];
+
+  return {
+    imageCount: imageMatches.length,
+    imageHeightPx: firstImageMatch ? Number(firstImageMatch[2]) : null,
+    imageWidthPx: firstImageMatch ? Number(firstImageMatch[1]) : null,
+    pageCount: (source.match(/\/Type\s+\/Page\b/g) ?? []).length,
+    pageHeightPt: mediaBoxMatch ? Number(mediaBoxMatch[2]) : null,
+    pageWidthPt: mediaBoxMatch ? Number(mediaBoxMatch[1]) : null,
+  };
+}
+
+export function validateProductionPdf(
+  pdf: Buffer,
+  expected: {
+    dpi: number;
+    heightPx: number;
+    widthPx: number;
+  }
+): void {
+  if (pdf.subarray(0, 5).toString() !== "%PDF-") {
+    throw new Error("Generated print PDF is missing a valid PDF header.");
+  }
+
+  const info = inspectProductionPdf(pdf);
+  const expectedWidthPt = (expected.widthPx / expected.dpi) * PDF_POINTS_PER_INCH;
+  const expectedHeightPt =
+    (expected.heightPx / expected.dpi) * PDF_POINTS_PER_INCH;
+
+  if (info.pageCount !== 1) {
+    throw new Error("Generated print PDF must contain exactly one page.");
+  }
+
+  if (
+    !numbersAreClose(info.pageWidthPt, expectedWidthPt) ||
+    !numbersAreClose(info.pageHeightPt, expectedHeightPt)
+  ) {
+    throw new Error("Generated print PDF page size does not match the sheet.");
+  }
+
+  if (
+    info.imageCount < 2 ||
+    info.imageWidthPx !== expected.widthPx ||
+    info.imageHeightPx !== expected.heightPx
+  ) {
+    throw new Error(
+      "Generated print PDF image dimensions do not match the rendered sheet."
+    );
+  }
+}
+
+function numbersAreClose(actual: number | null, expected: number): boolean {
+  return actual !== null && Math.abs(actual - expected) <= 0.01;
 }

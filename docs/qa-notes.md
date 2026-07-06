@@ -141,3 +141,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verify a submitted sheet shows PDF, preview, and order record saved in the customer receipt and admin file list
 - Regression added: customer receipt and admin review expose the saved print PDF, proof preview, and order record
 - Notes/follow-up: keep using the generated PDF/order record as the print handoff foundation before adding email delivery
+
+## 2026-07-06 - Print PDF Output Guardrails
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:baseline`, `npm run test:e2e`
+- Accessibility: not applicable; print-rendering backend guardrails
+- Manual: not required for this structural guardrail; visually inspect a real client PDF before presentation
+- Regression added: generated print PDFs must be one page, match sheet dimensions, and embed the rendered sheet at production pixel size
+- Notes/follow-up: add visual PDF rendering smoke checks if the renderer starts adding marks, labels, or multi-page output
