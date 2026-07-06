@@ -8,6 +8,8 @@
     "test:baseline": "npm-run-all --sequential lint build test",
     "test:e2e": "node scripts/runPlaywright.js",
     "test:quality": "npm-run-all --sequential test:baseline test:e2e",
+    "check:client-ready": "node scripts/checkClientReadiness.js",
+    "test:client-ready": "npm-run-all --sequential test:quality check:client-ready",
     "smoke:cloudinary": "ts-node --project tsconfig.node.json scripts/cloudinaryProofSmoke.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",

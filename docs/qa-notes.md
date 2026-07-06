@@ -181,3 +181,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verify the admin detail view clearly identifies the PDF as the print file before client testing
 - Regression added: component and browser coverage confirm the Print handoff panel appears with ready status when PDF, preview, and order record files exist
 - Notes/follow-up: use `docs/client-test-plan.md` for a final rehearsal with realistic artwork before sharing the app with the client
+
+## 2026-07-06 - Client Readiness Rehearsal Gate
+
+- Automated: `npm run check:client-ready`, `npm run test:client-ready`
+- Accessibility: not applicable; readiness command and documentation workflow only
+- Manual: use the command output to start the final client rehearsal from the quality gate, client walkthrough, and QA notes
+- Regression added: readiness script fails when the client walkthrough, quality gate, QA baseline, QA notes, or required npm scripts drift out of place
+- Notes/follow-up: run the full client walkthrough with realistic artwork and record findings here before inviting client testers

@@ -29,6 +29,20 @@ This runs the existing baseline and browser smoke suite:
 - `npm run test:baseline`
 - `npm run test:e2e`
 
+Run the final client-readiness rehearsal gate:
+
+```sh
+npm run test:client-ready
+```
+
+This runs the full automated quality gate, then confirms the client test plan, QA baseline, quality gate, and QA notes are present with the expected handoff guidance.
+
+Run only the lightweight readiness document check:
+
+```sh
+npm run check:client-ready
+```
+
 Run only axe-style accessibility checks:
 
 ```sh
