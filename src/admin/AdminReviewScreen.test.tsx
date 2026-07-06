@@ -45,6 +45,7 @@ describe("AdminReviewScreen", () => {
         counts: { assets: 2, items: 5 },
         files: {
           projectJson: "/projects/project-20260625120000-abc123/project.json",
+          orderJson: "/projects/project-20260625120000-abc123/order.json",
           previewPng: "/projects/project-20260625120000-abc123/preview.png",
           printPdf: "/projects/project-20260625120000-abc123/print.pdf",
           manifestJson: "/projects/project-20260625120000-abc123/manifest.json",
@@ -63,6 +64,7 @@ describe("AdminReviewScreen", () => {
       counts: { assets: 2, items: 5 },
       files: {
         projectJson: "/projects/project-20260625120000-abc123/project.json",
+        orderJson: "/projects/project-20260625120000-abc123/order.json",
         previewPng: "/projects/project-20260625120000-abc123/preview.png",
         printPdf: "/projects/project-20260625120000-abc123/print.pdf",
         manifestJson: "/projects/project-20260625120000-abc123/manifest.json",
@@ -116,9 +118,14 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("Original artwork")).toBeInTheDocument();
     expect(screen.getByText("pixel.png")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Download PNG/ })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Download PNG/ })[0]).toHaveAttribute(
       "download",
       "preview.png"
+    );
+    expect(screen.getByText("Order record")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download order/ })).toHaveAttribute(
+      "download",
+      "order.json"
     );
     expect(fetchAdminProjectDetailMock).toHaveBeenCalledWith(
       "project-20260625120000-abc123"

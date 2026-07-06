@@ -266,6 +266,10 @@ test("customer can reach print readiness and submit a print order", async ({
   await expect(
     page.getByText("Submitted for print as project-playwright", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Saved for print")).toBeVisible();
+  await expect(page.getByText("Print PDF")).toBeVisible();
+  await expect(page.getByText("Proof preview")).toBeVisible();
+  await expect(page.getByText("Order record")).toBeVisible();
 });
 
 test("customer main proof path preserves layout, order summary, submit payload, and reload", async ({
@@ -384,6 +388,10 @@ test("customer main proof path preserves layout, order summary, submit payload, 
       exact: true,
     }),
   ).toBeVisible();
+  await expect(page.getByText("Saved for print")).toBeVisible();
+  await expect(page.getByText("Print PDF")).toBeVisible();
+  await expect(page.getByText("Proof preview")).toBeVisible();
+  await expect(page.getByText("Order record")).toBeVisible();
   await expect(
     page.getByText("Cloudinary folder: decal-sheet/project-playwright-main", {
       exact: true,

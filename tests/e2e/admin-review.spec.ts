@@ -16,6 +16,7 @@ const submittedProject = {
     ],
     assets: `/projects/${projectId}/assets/`,
     manifestJson: `/projects/${projectId}/manifest.json`,
+    orderJson: `/projects/${projectId}/order.json`,
     previewPng: `/projects/${projectId}/preview.png`,
     printPdf: `/projects/${projectId}/print.pdf`,
     projectJson: `/projects/${projectId}/project.json`,
@@ -104,11 +105,16 @@ test("admin can review downloadable previews and approve a project", async ({
   await page.getByRole("button", { name: new RegExp(projectId) }).click();
 
   await expect(page.getByRole("img", { name: "Submitted sheet preview" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Download PNG/ })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: /Download PNG/ }).first()).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/preview.png",
   );
   await expect(page.getByText("Print PDF")).toBeVisible();
+  await expect(page.getByText("Order record")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Download order/ })).toHaveAttribute(
+    "href",
+    "http://localhost:4000/projects/project-playwright-admin/order.json",
+  );
 
   await page.getByPlaceholder("Admin reviewer").fill("Playwright QA");
   await page.getByPlaceholder("Decision note").fill("Looks production ready.");

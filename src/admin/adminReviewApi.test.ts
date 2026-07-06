@@ -24,6 +24,7 @@ describe("adminReviewApi", () => {
               counts: { assets: 2, items: 5 },
               files: {
                 projectJson: "/projects/project-1/project.json",
+                orderJson: "/projects/project-1/order.json",
                 assetFiles: [
                   {
                     fileName: "pixel.png",
@@ -47,6 +48,7 @@ describe("adminReviewApi", () => {
     await expect(fetchAdminProjects()).resolves.toMatchObject([
       {
         files: {
+          orderJson: "/projects/project-1/order.json",
           assetFiles: [
             {
               fileName: "pixel.png",

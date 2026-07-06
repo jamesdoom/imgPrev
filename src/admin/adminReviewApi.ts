@@ -24,6 +24,7 @@ export interface AdminReviewProjectDetail extends AdminReviewProjectSummary {
 
 export interface AdminReviewProjectFiles {
   projectJson?: string;
+  orderJson?: string;
   previewPng?: string;
   printPdf?: string;
   manifestJson?: string;

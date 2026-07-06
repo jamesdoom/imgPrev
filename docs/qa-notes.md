@@ -133,3 +133,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verify the customer can submit for print and see the saved project receipt
 - Regression added: print submissions write `order.json` alongside `print.pdf` without requiring extra customer detail fields
 - Notes/follow-up: email delivery is intentionally marked `not-configured` until a provider and production recipient are selected
+
+## 2026-07-06 - Print Handoff Receipt
+
+- Automated: `npm run test -- src/components/StickerSheetDesigner/renderProductionFiles.test.ts src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx src/admin/adminReviewApi.test.ts src/admin/AdminReviewScreen.test.tsx src/admin/AdminReviewScreen.accessibility.test.tsx`, `npm run test:e2e -- tests/e2e/customer-editor.spec.ts tests/e2e/admin-review.spec.ts`; `npm run test:quality` printed passing lint, build, 154 unit tests, and 11 Playwright tests, then the wrapper hung during Playwright cleanup and was stopped
+- Accessibility: admin file downloads use file-specific labels such as `Download PDF` and `Download order`
+- Manual: verify a submitted sheet shows PDF, preview, and order record saved in the customer receipt and admin file list
+- Regression added: customer receipt and admin review expose the saved print PDF, proof preview, and order record
+- Notes/follow-up: keep using the generated PDF/order record as the print handoff foundation before adding email delivery

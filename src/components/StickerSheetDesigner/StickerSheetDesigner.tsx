@@ -108,6 +108,12 @@ interface SubmittedProofReceipt {
   cloudinaryWarnings: string[];
   emailMessage?: string;
   emailStatus?: "not-configured" | "queued" | "sent" | "failed";
+  files: {
+    orderJson?: string;
+    previewPng?: string;
+    printPdf?: string;
+    projectJson?: string;
+  };
   projectId: string;
 }
 
@@ -1395,6 +1401,23 @@ function ProductionActionsPanel({
           <p className="font-semibold">
             Submitted for print as {submittedProof.projectId}
           </p>
+          <div className="rounded border border-emerald-200 bg-white/70 p-2">
+            <p className="font-semibold text-emerald-900">Saved for print</p>
+            <dl className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
+              <ReceiptFileStatus
+                available={!!submittedProof.files.printPdf}
+                label="Print PDF"
+              />
+              <ReceiptFileStatus
+                available={!!submittedProof.files.previewPng}
+                label="Proof preview"
+              />
+              <ReceiptFileStatus
+                available={!!submittedProof.files.orderJson}
+                label="Order record"
+              />
+            </dl>
+          </div>
           {submittedProof.emailStatus === "not-configured" && (
             <p className="leading-5 text-amber-900">
               Email delivery is not configured yet; the PDF and order files were
@@ -1695,7 +1718,30 @@ function createSubmittedProofReceipt(
     cloudinaryWarnings: result.cloudinary?.warnings ?? [],
     emailMessage: result.email?.message,
     emailStatus: result.email?.status,
+    files: {
+      orderJson: result.files.orderJson,
+      previewPng: result.files.previewPng,
+      printPdf: result.files.printPdf,
+      projectJson: result.files.projectJson,
+    },
   };
+}
+
+function ReceiptFileStatus({
+  available,
+  label,
+}: {
+  available: boolean;
+  label: string;
+}) {
+  return (
+    <>
+      <dt className="text-emerald-900">{label}</dt>
+      <dd className="font-semibold text-emerald-950">
+        {available ? "Saved" : "Missing"}
+      </dd>
+    </>
+  );
 }
 
 function ProofGuideLegend({ guidance }: { guidance: ProofGuidance }) {

@@ -53,6 +53,7 @@ function createProjectSummary() {
     counts: { assets: 1, items: 2 },
     files: {
       projectJson: "/projects/project-20260625120000-abc123/project.json",
+      orderJson: "/projects/project-20260625120000-abc123/order.json",
       previewPng: "/projects/project-20260625120000-abc123/preview.png",
       printPdf: "/projects/project-20260625120000-abc123/print.pdf",
       manifestJson: "/projects/project-20260625120000-abc123/manifest.json",

@@ -287,7 +287,7 @@ function SubmissionList({
             <Metric label="Decals" value={project.counts.items} />
             <Metric
               label="Files"
-              value={`${countAvailableFiles(project.files)}/4`}
+              value={`${countAvailableFiles(project.files)}/5`}
             />
           </span>
         </button>
@@ -717,17 +717,18 @@ function ReviewHistoryMetric({
 
 function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
   const links = [
-    ["Project JSON", "project.json", files.projectJson],
-    ["Proof preview", "preview.png", files.previewPng],
-    ["Print PDF", "print.pdf", files.printPdf],
-    ["Manifest", "manifest.json", files.manifestJson],
+    ["Print PDF", "print.pdf", files.printPdf, "Download PDF"],
+    ["Proof preview", "preview.png", files.previewPng, "Download PNG"],
+    ["Order record", "order.json", files.orderJson, "Download order"],
+    ["Project JSON", "project.json", files.projectJson, "Download project"],
+    ["Manifest", "manifest.json", files.manifestJson, "Download manifest"],
   ] as const;
   const assetFiles = files.assetFiles ?? [];
 
   return (
     <div>
       <div className="divide-y divide-neutral-200">
-        {links.map(([label, fileName, filePath]) => (
+        {links.map(([label, fileName, filePath, downloadLabel]) => (
           <div
             key={label}
             className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
@@ -737,7 +738,11 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
               <span className="truncate">{label}</span>
             </span>
             {filePath ? (
-              <FileActionLinks fileName={fileName} filePath={filePath} />
+              <FileActionLinks
+                downloadLabel={downloadLabel}
+                fileName={fileName}
+                filePath={filePath}
+              />
             ) : (
               <span className="rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-500">
                 Missing
@@ -958,6 +963,7 @@ function StatusBlock({
 function countAvailableFiles(files: AdminReviewProjectFiles): number {
   return [
     files.projectJson,
+    files.orderJson,
     files.previewPng,
     files.printPdf,
     files.manifestJson,
