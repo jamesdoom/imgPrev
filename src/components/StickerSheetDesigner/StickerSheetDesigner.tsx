@@ -117,6 +117,23 @@ interface SubmittedProofReceipt {
   projectId: string;
 }
 
+type SubmitProgressPhase =
+  | "idle"
+  | "preparing"
+  | "uploading"
+  | "finalizing"
+  | "failed";
+
+interface SubmitProgress {
+  message: string;
+  phase: SubmitProgressPhase;
+}
+
+const IDLE_SUBMIT_PROGRESS: SubmitProgress = {
+  message: "",
+  phase: "idle",
+};
+
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -154,6 +171,8 @@ export default function StickerSheetDesigner() {
   const [assetFiles, setAssetFiles] = useState<Record<string, File>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] =
+    useState<SubmitProgress>(IDLE_SUBMIT_PROGRESS);
   const [assetQuantities, setAssetQuantities] = useState<
     Record<string, number>
   >({});
@@ -211,6 +230,7 @@ export default function StickerSheetDesigner() {
 
   useEffect(() => {
     setSubmittedProof(null);
+    setSubmitProgress(IDLE_SUBMIT_PROGRESS);
   }, [document.updatedAt]);
 
   const handleFiles = async (files: FileList | null) => {
@@ -507,19 +527,43 @@ export default function StickerSheetDesigner() {
     }
 
     setIsSubmitting(true);
+    setSubmittedProof(null);
+    setSubmitProgress({
+      message: "Preparing artwork and print settings.",
+      phase: "preparing",
+    });
 
     try {
+      await waitForSubmitProgressPaint();
+      setSubmitProgress({
+        message: "Uploading artwork and requesting the print PDF.",
+        phase: "uploading",
+      });
+
       const result = await submitProjectForReview({
         assetFiles,
         document,
         preflightIssues,
       });
 
+      setSubmitProgress({
+        message: "Finalizing the saved print files.",
+        phase: "finalizing",
+      });
+      await waitForSubmitProgressPaint();
       setSubmittedProof(createSubmittedProofReceipt(result));
+      setSubmitProgress(IDLE_SUBMIT_PROGRESS);
       toast.success(`Submitted for print ${result.projectId}`);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Project submission failed.";
+
+      setSubmitProgress({
+        message: `${message} Check your connection and try again.`,
+        phase: "failed",
+      });
       toast.error(
-        error instanceof Error ? error.message : "Project submission failed.",
+        message,
       );
     } finally {
       setIsSubmitting(false);
@@ -916,6 +960,7 @@ export default function StickerSheetDesigner() {
             isExporting={isExporting}
             isSubmitting={isSubmitting}
             submittedProof={submittedProof}
+            submitProgress={submitProgress}
             onDownloadBundle={downloadAvailableBundleFiles}
             onDownloadPreviewPng={downloadPreviewPng}
             onSubmitForReview={submitForReview}
@@ -1330,6 +1375,7 @@ function ProductionActionsPanel({
   isExporting,
   isSubmitting,
   submittedProof,
+  submitProgress,
   onDownloadBundle,
   onDownloadPreviewPng,
   onSubmitForReview,
@@ -1340,6 +1386,7 @@ function ProductionActionsPanel({
   isExporting: boolean;
   isSubmitting: boolean;
   submittedProof: SubmittedProofReceipt | null;
+  submitProgress: SubmitProgress;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
   onSubmitForReview: () => void;
@@ -1352,6 +1399,12 @@ function ProductionActionsPanel({
     documentItemCount === 0 ? "Add artwork to enable proof downloads." : null;
   const submitDisabledReason = disabledReason;
   const exportStatusId = "production-actions-status";
+  const submitProgressId = "production-submit-progress";
+  const submitFailureId = "production-submit-failure";
+  const submitButtonLabel = getSubmitButtonLabel({
+    isSubmitting,
+    submitProgress,
+  });
 
   return (
     <div className="space-y-2 px-4 pb-4">
@@ -1387,15 +1440,46 @@ function ProductionActionsPanel({
       </button>
       <button
         className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
-        aria-describedby={submitDisabledReason ? exportStatusId : undefined}
+        aria-describedby={
+          submitDisabledReason
+            ? exportStatusId
+            : isSubmitting
+              ? submitProgressId
+              : submitProgress.phase === "failed"
+                ? submitFailureId
+                : undefined
+        }
         disabled={!canSubmitForPrint || isSubmitting}
         title={submitDisabledReason ?? undefined}
         type="button"
         onClick={onSubmitForReview}
       >
         <CloudArrowUpIcon className="h-5 w-5" />
-        {isSubmitting ? "Submitting..." : "Submit for Print"}
+        {submitButtonLabel}
       </button>
+      {isSubmitting && (
+        <div
+          className="rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950"
+          id={submitProgressId}
+          role="status"
+        >
+          <p className="font-semibold">Submitting for print</p>
+          <p className="mt-1 leading-5">{submitProgress.message}</p>
+        </div>
+      )}
+      {!isSubmitting && submitProgress.phase === "failed" && (
+        <div
+          className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+          id={submitFailureId}
+          role="alert"
+        >
+          <p className="font-semibold">Submission did not complete.</p>
+          <p className="mt-1 leading-5">{submitProgress.message}</p>
+          <p className="mt-2 leading-5">
+            Your layout is still here. Use Submit for Print to try again.
+          </p>
+        </div>
+      )}
       {submittedProof && (
         <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
           <p className="font-semibold">
@@ -1472,6 +1556,35 @@ function getProductionActionDisabledReason({
   }
 
   return null;
+}
+
+function getSubmitButtonLabel({
+  isSubmitting,
+  submitProgress,
+}: {
+  isSubmitting: boolean;
+  submitProgress: SubmitProgress;
+}): string {
+  if (!isSubmitting) {
+    return "Submit for Print";
+  }
+
+  switch (submitProgress.phase) {
+    case "preparing":
+      return "Preparing...";
+    case "uploading":
+      return "Uploading...";
+    case "finalizing":
+      return "Finalizing...";
+    default:
+      return "Submitting...";
+  }
+}
+
+function waitForSubmitProgressPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
 }
 
 function ExportPanel({

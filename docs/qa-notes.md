@@ -157,3 +157,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirmed no leftover Node/Vite process remains after the quality gate exits
 - Regression added: Playwright runner now owns the Vite server lifecycle and shuts it down after browser tests
 - Notes/follow-up: keep Playwright server startup in `scripts/runPlaywright.js` so local and CI quality gates use the same cleanup path
+
+## 2026-07-06 - Submit Progress And Retry
+
+- Automated: `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`
+- Accessibility: submit progress uses `role=status`; failed submissions use `role=alert`
+- Manual: not required; browser coverage verifies in-flight progress, inline retry guidance, and successful retry recovery
+- Regression added: print submissions show preparing/uploading/finalizing progress and preserve the layout after a failed submit
+- Notes/follow-up: keep Cloudinary/storage diagnostics secondary to the main print PDF and order record handoff

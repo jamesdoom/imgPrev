@@ -235,6 +235,7 @@ test("customer can reach print readiness and submit a print order", async ({
   page,
 }) => {
   await page.route("http://localhost:4000/submit-project", async (route) => {
+    await delay(300);
     await route.fulfill({
       contentType: "application/json",
       json: {
@@ -263,6 +264,12 @@ test("customer can reach print readiness and submit a print order", async ({
 
   await page.getByRole("button", { name: "Submit for Print" }).click();
 
+  const submitProgress = page.locator("#production-submit-progress");
+
+  await expect(submitProgress).toContainText("Submitting for print");
+  await expect(submitProgress).toContainText(
+    "Uploading artwork and requesting the print PDF.",
+  );
   await expect(
     page.getByText("Submitted for print as project-playwright", { exact: true }),
   ).toBeVisible();
@@ -452,7 +459,15 @@ test("customer can recover after a failed print submission response", async ({
 
   await page.getByRole("button", { name: "Submit for Print" }).click();
 
-  await expect(page.getByText("Proof service temporarily unavailable.")).toBeVisible();
+  const submitAlert = page.locator("#production-submit-failure");
+
+  await expect(submitAlert).toContainText("Proof service temporarily unavailable.");
+  await expect(submitAlert).toContainText(
+    "Submission did not complete.",
+  );
+  await expect(submitAlert).toContainText(
+    "Check your connection and try again.",
+  );
   await expect(
     page.getByRole("button", { name: "Submit for Print" }),
   ).toBeEnabled();
@@ -465,7 +480,12 @@ test("customer can recover after a failed print submission response", async ({
       exact: true,
     }),
   ).toBeVisible();
+  await expect(page.locator("#production-submit-failure")).toHaveCount(0);
 });
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function createSavedDocument({
   assets,
