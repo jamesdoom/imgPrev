@@ -401,6 +401,20 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   await expect(page.getByText("Order record")).toBeVisible();
   await expect(page.getByText("Cloudinary folder:")).toHaveCount(0);
   await expect(page.getByText("Mirrored artwork:")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "View application instructions" }).click();
+  const instructionsDialog = page.getByRole("dialog", {
+    name: "Application instructions",
+  });
+  await expect(instructionsDialog).toBeVisible();
+  await expect(instructionsDialog.getByText("Prep + pre-squeegee")).toBeVisible();
+  await expect(
+    instructionsDialog.getByRole("link", {
+      name: "Download instructions PDF",
+    }),
+  ).toHaveAttribute("href", "/uv-dtf-sticker-application-instructions.pdf");
+  await page.keyboard.press("Escape");
+  await expect(instructionsDialog).toHaveCount(0);
   expect(submittedManifest).not.toBeNull();
 
   await page.reload();

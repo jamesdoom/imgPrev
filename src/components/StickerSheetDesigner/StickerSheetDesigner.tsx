@@ -19,10 +19,12 @@ import {
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   FolderOpenIcon,
+  QuestionMarkCircleIcon,
   PhotoIcon,
   SparklesIcon,
   Squares2X2Icon,
   TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import {
@@ -76,6 +78,8 @@ const MIN_ARTWORK_QUANTITY = 1;
 const MAX_ARTWORK_QUANTITY = 99;
 const PLACED_ITEM_STAGGER_IN = 0.12;
 const PERSISTED_THUMBNAIL_MAX_PX = 320;
+const APPLICATION_INSTRUCTIONS_PDF_PATH =
+  "/uv-dtf-sticker-application-instructions.pdf";
 const FOCUS_RING_CLASS =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2";
 const FOCUS_WITHIN_RING_CLASS =
@@ -171,6 +175,8 @@ export default function StickerSheetDesigner() {
   const [assetFiles, setAssetFiles] = useState<Record<string, File>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isApplicationInstructionsOpen, setIsApplicationInstructionsOpen] =
+    useState(false);
   const [submitProgress, setSubmitProgress] =
     useState<SubmitProgress>(IDLE_SUBMIT_PROGRESS);
   const [assetQuantities, setAssetQuantities] = useState<
@@ -215,6 +221,12 @@ export default function StickerSheetDesigner() {
     [],
   );
   const canSubmitForPrint = canExport && document.items.length > 0;
+  const openApplicationInstructions = useCallback(() => {
+    setIsApplicationInstructionsOpen(true);
+  }, []);
+  const closeApplicationInstructions = useCallback(() => {
+    setIsApplicationInstructionsOpen(false);
+  }, []);
 
   const assetCountText = useMemo(() => {
     if (document.assets.length === 1) {
@@ -963,6 +975,7 @@ export default function StickerSheetDesigner() {
             submitProgress={submitProgress}
             onDownloadBundle={downloadAvailableBundleFiles}
             onDownloadPreviewPng={downloadPreviewPng}
+            onOpenApplicationInstructions={openApplicationInstructions}
             onSubmitForReview={submitForReview}
           />
         </aside>
@@ -1079,6 +1092,7 @@ export default function StickerSheetDesigner() {
           <ProjectToolsPanel
             onDownloadProjectJson={downloadProjectJson}
             onImportProjectJson={importProjectJson}
+            onOpenApplicationInstructions={openApplicationInstructions}
           />
 
           <PanelTitle title="Selection" />
@@ -1194,6 +1208,10 @@ export default function StickerSheetDesigner() {
           />
         </aside>
       </div>
+      <ApplicationInstructionsModal
+        isOpen={isApplicationInstructionsOpen}
+        onClose={closeApplicationInstructions}
+      />
     </div>
   );
 }
@@ -1378,6 +1396,7 @@ function ProductionActionsPanel({
   submitProgress,
   onDownloadBundle,
   onDownloadPreviewPng,
+  onOpenApplicationInstructions,
   onSubmitForReview,
 }: {
   canExport: boolean;
@@ -1389,6 +1408,7 @@ function ProductionActionsPanel({
   submitProgress: SubmitProgress;
   onDownloadBundle: () => void;
   onDownloadPreviewPng: () => void;
+  onOpenApplicationInstructions: () => void;
   onSubmitForReview: () => void;
 }) {
   const disabledReason = getProductionActionDisabledReason({
@@ -1516,6 +1536,14 @@ function ProductionActionsPanel({
               Storage warning: {submittedProof.cloudinaryWarnings.join(" ")}
             </p>
           )}
+          <button
+            className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded border border-emerald-200 bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-white ${FOCUS_RING_CLASS}`}
+            type="button"
+            onClick={onOpenApplicationInstructions}
+          >
+            <QuestionMarkCircleIcon className="h-4 w-4" />
+            View application instructions
+          </button>
         </div>
       )}
     </div>
@@ -1619,9 +1647,11 @@ function ExportPanel({
 function ProjectToolsPanel({
   onDownloadProjectJson,
   onImportProjectJson,
+  onOpenApplicationInstructions,
 }: {
   onDownloadProjectJson: () => void;
   onImportProjectJson: (file: File | undefined) => void;
+  onOpenApplicationInstructions: () => void;
 }) {
   return (
     <details className="mx-4 mb-4 rounded border border-neutral-200 bg-neutral-50">
@@ -1652,8 +1682,235 @@ function ProjectToolsPanel({
           <ArrowDownTrayIcon className="h-5 w-5" />
           Download project JSON
         </button>
+        <button
+          className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
+          type="button"
+          onClick={onOpenApplicationInstructions}
+        >
+          <QuestionMarkCircleIcon className="h-5 w-5" />
+          Application instructions
+        </button>
       </div>
     </details>
+  );
+}
+
+function ApplicationInstructionsModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      const focusable = Array.from(focusableElements ?? []);
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+
+      if (previousFocusRef.current?.isConnected) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-labelledby="application-instructions-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 p-4"
+      role="dialog"
+      onMouseDown={onClose}
+    >
+      <div
+        ref={dialogRef}
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded border border-neutral-300 bg-white shadow-xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase text-teal-700">
+              UV DTF decals
+            </p>
+            <h2
+              className="mt-1 text-lg font-semibold text-neutral-950"
+              id="application-instructions-title"
+            >
+              Application instructions
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              For clean, bubble-controlled application on hard goods.
+            </p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            aria-label="Close application instructions"
+            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
+            type="button"
+            onClick={onClose}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-4 py-4">
+          <div className="rounded border border-lime-200 bg-lime-50 p-3 text-sm text-neutral-900">
+            <p className="font-semibold">You need</p>
+            <ul className="mt-2 grid gap-1 sm:grid-cols-3">
+              <li>UV squeegee</li>
+              <li>UV DTF sticker</li>
+              <li>Clean hard-good surface</li>
+            </ul>
+          </div>
+
+          <ol className="grid gap-3 md:grid-cols-2">
+            <InstructionStep title="Prep + pre-squeegee" stepNumber={1}>
+              Clean the surface when needed with soap and water or a 50/50
+              rubbing alcohol and water mix. Cut out the sticker, place it face
+              down with the carrier side up, then squeegee firmly back and
+              forth 2-4 passes. Use extra pressure on thin lines or small text.
+            </InstructionStep>
+            <InstructionStep title="Peel the backing" stepNumber={2}>
+              Gently separate the sheets while watching the design lift onto
+              the clear carrier. Peel slowly, especially around small separated
+              details. If any part stays behind, lay it back down, re-squeegee
+              from the back, and peel again from a different angle.
+            </InstructionStep>
+            <InstructionStep title="Place on item" stepNumber={3}>
+              Line up the design on the hard good. For designs 4 in. or
+              smaller, place with two hands. For designs 6 in. or larger, start
+              at one side and lay it down toward the other side to reduce
+              bubbles and wrinkles.
+            </InstructionStep>
+            <InstructionStep title="Squeegee + final peel" stepNumber={4}>
+              Once placed, squeegee firmly over the whole design 2-4 passes.
+              Peel the carrier slowly while watching every element stick. If
+              anything lifts, lay the carrier back down, squeegee again, and
+              peel from another angle.
+            </InstructionStep>
+          </ol>
+
+          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-semibold">Important application tips</p>
+            <ul className="mt-2 space-y-1">
+              <li>Watch the design, not just your hands.</li>
+              <li>Peel slowly and confirm every detail transfers cleanly.</li>
+              <li>
+                Do not fully press one carrier corner onto the product; leaving
+                a loose corner makes the final peel easier.
+              </li>
+              <li>
+                Thin lines, small text, and separated elements need slower
+                peeling plus extra squeegee pressure.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+            <p className="font-semibold">
+              If the design does not lift or adhere properly
+            </p>
+            <p className="mt-1">
+              Lay the carrier or backing down, squeegee again with firm
+              pressure, then peel slowly from a different angle.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-neutral-200 px-4 py-3 sm:flex-row sm:justify-end">
+          <a
+            className={`inline-flex min-h-10 items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_RING_CLASS}`}
+            download
+            href={APPLICATION_INSTRUCTIONS_PDF_PATH}
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            Download instructions PDF
+          </a>
+          <button
+            className={`inline-flex min-h-10 items-center justify-center rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
+            type="button"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstructionStep({
+  children,
+  stepNumber,
+  title,
+}: {
+  children: ReactNode;
+  stepNumber: number;
+  title: string;
+}) {
+  return (
+    <li className="rounded border border-neutral-200 bg-neutral-50 p-3">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lime-400 text-sm font-bold text-neutral-950">
+          {stepNumber}
+        </span>
+        <h3 className="text-base font-semibold text-neutral-950">{title}</h3>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-neutral-700">{children}</p>
+    </li>
   );
 }
 

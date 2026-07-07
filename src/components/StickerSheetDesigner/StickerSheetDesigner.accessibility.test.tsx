@@ -79,6 +79,18 @@ describe("StickerSheetDesigner accessibility", () => {
         name: "Snap to grid",
       }),
     ).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Project tools"));
+    await userEvent.click(screen.getByRole("button", { name: "Application instructions" }));
+    expect(
+      screen.getByRole("dialog", { name: "Application instructions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Download instructions PDF" }),
+    ).toHaveAttribute("href", "/uv-dtf-sticker-application-instructions.pdf");
+    await userEvent.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Application instructions" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Select first decal" }));
     expect(screen.getByLabelText("Rotation")).toBeInTheDocument();
 

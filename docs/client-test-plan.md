@@ -35,8 +35,10 @@ Use this checklist when preparing the app for a client-led test session. The goa
 8. Review preflight messages and confirm warnings/errors explain the next action.
 9. Review order summary: sheet count, price, minimum order, free shipping threshold, and submit readiness.
 10. Reload the page and confirm artwork previews, placed decals, and order summary restore correctly.
-11. Submit the sheet for print.
-12. Confirm the receipt shows the saved print files: PDF, proof preview, and order record.
+11. Open Application instructions from Project tools and confirm the modal text and PDF download are available.
+12. Submit the sheet for print.
+13. Confirm the receipt shows the saved print files: PDF, proof preview, and order record.
+14. Open Application instructions from the receipt and confirm it does not add noise to the main editor flow.
 
 Pass criteria:
 

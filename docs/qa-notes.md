@@ -189,3 +189,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: use the command output to start the final client rehearsal from the quality gate, client walkthrough, and QA notes
 - Regression added: readiness script fails when the client walkthrough, quality gate, QA baseline, QA notes, or required npm scripts drift out of place
 - Notes/follow-up: run the full client walkthrough with realistic artwork and record findings here before inviting client testers
+
+## 2026-07-07 - Application Instructions Help
+
+- Automated: `npm run test -- src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx`, `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:client-ready`
+- Accessibility: application instructions open in a labelled dialog with Escape close behavior and a text-first instruction summary
+- Manual: confirm the PDF download opens the client-provided application instruction sheet from the modal
+- Regression added: customer browser coverage verifies the post-submit instructions link, dialog content, and downloadable PDF path
+- Notes/follow-up: keep the instructions in collapsed Project tools and the receipt so the main editor remains focused on sheet design

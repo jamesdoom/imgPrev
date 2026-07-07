@@ -17,6 +17,7 @@ const requiredDocs = [
     filePath: "docs/client-test-plan.md",
     phrases: [
       "Confirm the receipt shows the saved print files",
+      "Open Application instructions",
       "Print handoff panel",
       "Feedback Template",
       "Triage Rules",
