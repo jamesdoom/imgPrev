@@ -108,7 +108,7 @@ interface ProjectJsonReadResult {
 interface SubmittedProofReceipt {
   cloudinaryAssetPaths: string[];
   cloudinaryFolder?: string;
-  cloudinaryStatus?: "mirrored" | "skipped";
+  cloudinaryStatus?: "queued" | "mirrored" | "skipped" | "failed";
   cloudinaryWarnings: string[];
   emailMessage?: string;
   emailStatus?: "not-configured" | "queued" | "sent" | "failed";

@@ -197,3 +197,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirm the PDF download opens the client-provided application instruction sheet from the modal
 - Regression added: customer browser coverage verifies the post-submit instructions link, dialog content, and downloadable PDF path
 - Notes/follow-up: keep the instructions in collapsed Project tools and the receipt so the main editor remains focused on sheet design
+
+## 2026-07-07 - Faster Print Submission Handoff
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:client-ready`
+- Accessibility: not applicable; backend submit performance and storage behavior only
+- Manual: submit a realistic sheet and confirm the customer receives the saved PDF/order receipt before Cloudinary mirroring finishes
+- Regression added: backend coverage verifies Cloudinary starts as queued, runs after the local proof is saved, records failures without failing submission, and mirrors only the preview PNG plus print PDF
+- Notes/follow-up: prefer the local PDF/order handoff or simpler file storage for production; keep Cloudinary out of the customer-critical submit path

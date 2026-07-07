@@ -21,6 +21,7 @@ interface SmokeResponse {
       secureUrl: string;
     }>;
     folder: string;
+    status?: "queued" | "mirrored" | "skipped" | "failed";
   };
   projectId?: string;
   status?: string;
@@ -62,15 +63,11 @@ async function main() {
     throw new Error("Proof submitted locally, but Cloudinary mirror was missing.");
   }
 
-  const uploadedPaths = body.cloudinary.files.map((file) => file.path).sort();
-  const expectedPaths = [
-    ...smokeAssets.map((asset) => `assets/${asset.fileName}`),
-    "manifest.json",
-    "preview.png",
-    "print.pdf",
-    "project.json",
-    "review.json",
-  ];
+  const mirroredProject = await waitForCloudinaryMirror(body.projectId);
+  const uploadedPaths = mirroredProject.cloudinary.files
+    .map((file) => file.path)
+    .sort();
+  const expectedPaths = ["preview.png", "print.pdf"];
   const missingPaths = expectedPaths.filter(
     (expectedPath) => !uploadedPaths.includes(expectedPath)
   );
@@ -85,13 +82,50 @@ async function main() {
 
   console.log("Cloudinary proof smoke passed");
   console.log(`Project: ${body.projectId}`);
-  console.log(`Folder: ${body.cloudinary.folder}`);
-  body.cloudinary.files
+  console.log(`Folder: ${mirroredProject.cloudinary.folder}`);
+  mirroredProject.cloudinary.files
     .slice()
     .sort((first, second) => first.path.localeCompare(second.path))
     .forEach((file) => {
       console.log(`${file.resourceType}: ${file.path} -> ${file.secureUrl}`);
     });
+}
+
+async function waitForCloudinaryMirror(projectId: string): Promise<{
+  cloudinary: NonNullable<SmokeResponse["cloudinary"]>;
+}> {
+  const deadline = Date.now() + 60_000;
+  const projectJsonPath = path.resolve(
+    __dirname,
+    "..",
+    "backend",
+    "storage",
+    "projects",
+    projectId,
+    "project.json"
+  );
+
+  while (Date.now() < deadline) {
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(projectJsonPath, "utf8")
+    ) as { cloudinary?: SmokeResponse["cloudinary"] };
+
+    if (projectJson.cloudinary?.status === "mirrored") {
+      return {
+        cloudinary: projectJson.cloudinary,
+      };
+    }
+
+    if (projectJson.cloudinary?.status === "failed") {
+      throw new Error(
+        `Cloudinary mirror failed: ${JSON.stringify(projectJson.cloudinary)}`
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error("Timed out waiting for background Cloudinary mirror.");
 }
 
 function getSmokeProofFolder(): string {

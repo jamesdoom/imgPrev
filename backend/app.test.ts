@@ -19,6 +19,15 @@ const originalCloudinaryEnv = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_PROOF_FOLDER: process.env.CLOUDINARY_PROOF_FOLDER,
 };
+type TestCloudinaryStatus = "queued" | "mirrored" | "skipped" | "failed";
+interface TestProjectJson {
+  cloudinary?: {
+    files?: Array<{ path: string }>;
+    folder?: string;
+    status?: TestCloudinaryStatus;
+    warnings?: string[];
+  };
+}
 
 beforeEach(() => {
   delete process.env.CLOUDINARY_API_KEY;
@@ -80,6 +89,30 @@ function renderManifest() {
       },
     },
   };
+}
+
+async function waitForProjectCloudinaryStatus(
+  projectId: string,
+  status: TestCloudinaryStatus
+): Promise<TestProjectJson> {
+  const deadline = Date.now() + 2_000;
+
+  while (Date.now() < deadline) {
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, projectId, "project.json"),
+        "utf8"
+      )
+    );
+
+    if (projectJson.cloudinary?.status === status) {
+      return projectJson;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  throw new Error(`Timed out waiting for Cloudinary status ${status}.`);
 }
 
 describe("backend app", () => {
@@ -336,7 +369,7 @@ describe("backend app", () => {
     expect(originalAsset).toEqual(validPng);
   });
 
-  test("mirrors submitted proof files to the configured Cloudinary folder", async () => {
+  test("queues Cloudinary mirroring after saving submitted proof files", async () => {
     process.env.CLOUDINARY_CLOUD_NAME = "demo";
     process.env.CLOUDINARY_API_KEY = "key";
     process.env.CLOUDINARY_API_SECRET = "secret";
@@ -383,31 +416,32 @@ describe("backend app", () => {
 
     submittedProjectIds.push(response.body.projectId);
 
-    const projectJson = JSON.parse(
-      await fs.promises.readFile(
-        path.join(projectsDir, response.body.projectId, "project.json"),
-        "utf8"
-      )
+    expect(response.status).toBe(201);
+    expect(response.body.cloudinary.folder).toBe(
+      `decal-sheet/${response.body.projectId}`
+    );
+    expect(response.body.cloudinary.status).toBe("queued");
+    expect(response.body.cloudinary.files).toEqual([]);
+
+    const mirroredProjectJson = await waitForProjectCloudinaryStatus(
+      response.body.projectId,
+      "mirrored"
     );
     const uploadedPublicIds = uploadedFiles.map(
       (file) => file.options.public_id
     );
 
-    expect(response.status).toBe(201);
-    expect(response.body.cloudinary.folder).toBe(
+    expect(mirroredProjectJson.cloudinary.folder).toBe(
       `decal-sheet/${response.body.projectId}`
     );
-    expect(response.body.cloudinary.status).toBe("mirrored");
-    expect(projectJson.cloudinary.folder).toBe(
-      `decal-sheet/${response.body.projectId}`
-    );
-    expect(projectJson.cloudinary.status).toBe("mirrored");
+    expect(mirroredProjectJson.cloudinary.status).toBe("mirrored");
     expect(uploadedPublicIds).toEqual(
+      expect.arrayContaining(["preview", "print.pdf"])
+    );
+    expect(uploadedPublicIds).not.toEqual(
       expect.arrayContaining([
         "assets/pixel",
         "manifest.json",
-        "preview",
-        "print.pdf",
         "project.json",
         "review.json",
       ])
@@ -425,7 +459,7 @@ describe("backend app", () => {
     expect(uploadedFiles.every((file) => file.bytes > 0)).toBe(true);
   });
 
-  test("reports Cloudinary proof mirror failures with the failed file path", async () => {
+  test("records Cloudinary proof mirror failures without failing submission", async () => {
     process.env.CLOUDINARY_CLOUD_NAME = "demo";
     process.env.CLOUDINARY_API_KEY = "key";
     process.env.CLOUDINARY_API_SECRET = "secret";
@@ -440,7 +474,7 @@ describe("backend app", () => {
         });
 
         writable.on("finish", () => {
-          if (options.public_id === "project.json") {
+          if (options.public_id === "print.pdf") {
             callback?.(
               Object.assign(new Error("Invalid Cloudinary credentials."), {
                 http_code: 401,
@@ -471,11 +505,17 @@ describe("backend app", () => {
       submittedProjectIds.push(response.body.projectId);
     }
 
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({
-      error:
-        "Cloudinary upload failed for project.json: Invalid Cloudinary credentials. HTTP 401 Error",
-    });
+    expect(response.status).toBe(201);
+    expect(response.body.cloudinary.status).toBe("queued");
+
+    const projectJson = await waitForProjectCloudinaryStatus(
+      response.body.projectId,
+      "failed"
+    );
+
+    expect(projectJson.cloudinary.warnings).toEqual([
+      "Cloudinary upload failed for print.pdf: Invalid Cloudinary credentials. HTTP 401 Error",
+    ]);
   });
 
   test("reports when Cloudinary mirroring is skipped because config is missing", async () => {
@@ -508,7 +548,7 @@ describe("backend app", () => {
     expect(projectJson.cloudinary).toEqual(response.body.cloudinary);
   });
 
-  test("keeps submitted proofs visible when a Cloudinary artwork copy fails", async () => {
+  test("keeps submitted proofs visible when a Cloudinary preview upload fails", async () => {
     process.env.CLOUDINARY_CLOUD_NAME = "demo";
     process.env.CLOUDINARY_API_KEY = "key";
     process.env.CLOUDINARY_API_SECRET = "secret";
@@ -523,9 +563,9 @@ describe("backend app", () => {
         });
 
         writable.on("finish", () => {
-          if (options.public_id === "assets/pixel") {
+          if (options.public_id === "preview") {
             callback?.(
-              Object.assign(new Error("Asset upload timed out."), {
+              Object.assign(new Error("Preview upload timed out."), {
                 http_code: 499,
               })
             );
@@ -552,33 +592,22 @@ describe("backend app", () => {
 
     submittedProjectIds.push(response.body.projectId);
 
-    const projectJson = JSON.parse(
-      await fs.promises.readFile(
-        path.join(projectsDir, response.body.projectId, "project.json"),
-        "utf8"
-      )
-    );
-
     expect(response.status).toBe(201);
     expect(response.body.cloudinary.folder).toBe(
       `decal-sheet/${response.body.projectId}`
     );
-    expect(response.body.cloudinary.files.map((file: { path: string }) => file.path))
-      .toEqual(
-        expect.arrayContaining([
-          "manifest.json",
-          "preview.png",
-          "print.pdf",
-          "project.json",
-          "review.json",
-        ])
-      );
-    expect(response.body.cloudinary.files.map((file: { path: string }) => file.path))
-      .not.toContain("assets/pixel.png");
-    expect(response.body.cloudinary.warnings).toEqual([
-      "Cloudinary upload failed for assets/pixel.png: Asset upload timed out. HTTP 499 Error",
+    expect(response.body.cloudinary.status).toBe("queued");
+
+    const projectJson = await waitForProjectCloudinaryStatus(
+      response.body.projectId,
+      "failed"
+    );
+
+    expect(projectJson.cloudinary.files.map((file: { path: string }) => file.path))
+      .toEqual(["print.pdf"]);
+    expect(projectJson.cloudinary.warnings).toEqual([
+      "Cloudinary upload failed for preview.png: Preview upload timed out. HTTP 499 Error",
     ]);
-    expect(projectJson.cloudinary.warnings).toEqual(response.body.cloudinary.warnings);
   });
 
   test("lists submitted projects for admin review", async () => {

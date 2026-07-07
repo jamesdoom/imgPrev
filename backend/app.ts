@@ -32,8 +32,8 @@ const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
 const projectsDir = path.join(storageRoot, "projects");
 const DEFAULT_CLOUDINARY_PROOF_FOLDER = "decal-sheet";
-const CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX = 2400;
 const DEFAULT_CLOUDINARY_UPLOAD_TIMEOUT_MS = 45000;
+type CloudinaryProofStatus = "queued" | "mirrored" | "skipped" | "failed";
 
 function hasCloudinaryConfig() {
   return (
@@ -281,7 +281,12 @@ export function createApp() {
             getRequestBodyField(req, "manifest")
           );
           const files = getUploadedRenderFiles(req.files);
+          const timing = createSubmitTiming();
+          logSubmitTiming(timing, "parsed request", {
+            assetCount: String(files.length),
+          });
           const renderedFiles = await renderSheetToFiles(manifest.document, files);
+          logSubmitTiming(timing, "rendered print files");
           const projectId = createProjectId();
           const submittedAt = new Date().toISOString();
           const projectDir = path.join(projectsDir, projectId);
@@ -292,12 +297,32 @@ export function createApp() {
             submittedAt,
             projectId,
           };
+          const shouldMirrorToCloudinary = hasCloudinaryConfig();
+          const cloudinaryProof = shouldMirrorToCloudinary
+            ? createQueuedCloudinaryProof(projectId)
+            : createSkippedCloudinaryProof(projectId);
+          const emailDelivery = createPrintOrderEmailDelivery();
+          const orderRecord = createPrintOrderRecord({
+            cloudinaryProof,
+            emailDelivery,
+            files,
+            manifest: manifest.raw,
+            projectId,
+            submittedAt,
+          });
 
           await fs.promises.mkdir(assetsDir, { recursive: true });
           await Promise.all([
             fs.promises.writeFile(
               path.join(projectDir, "project.json"),
-              JSON.stringify(projectRecord, null, 2)
+              JSON.stringify(
+                {
+                  ...projectRecord,
+                  cloudinary: cloudinaryProof,
+                },
+                null,
+                2
+              )
             ),
             fs.promises.writeFile(
               path.join(projectDir, "review.json"),
@@ -315,6 +340,10 @@ export function createApp() {
               path.join(projectDir, "print.pdf"),
               renderedFiles.printPdf
             ),
+            fs.promises.writeFile(
+              path.join(projectDir, "order.json"),
+              JSON.stringify(orderRecord, null, 2)
+            ),
             ...files.map((file) =>
               fs.promises.writeFile(
                 path.join(assetsDir, path.basename(file.originalname)),
@@ -322,42 +351,7 @@ export function createApp() {
               )
             ),
           ]);
-
-          const cloudinaryProof = hasCloudinaryConfig()
-            ? await uploadSubmittedProofToCloudinary({
-                files,
-                initialReview,
-                manifest: manifest.raw,
-                projectId,
-                projectRecord,
-                renderedFiles,
-              })
-            : createSkippedCloudinaryProof(projectId);
-          const emailDelivery = createPrintOrderEmailDelivery();
-          const orderRecord = createPrintOrderRecord({
-            cloudinaryProof,
-            emailDelivery,
-            files,
-            manifest: manifest.raw,
-            projectId,
-            submittedAt,
-          });
-
-          await fs.promises.writeFile(
-            path.join(projectDir, "project.json"),
-            JSON.stringify(
-              {
-                ...projectRecord,
-                cloudinary: cloudinaryProof,
-              },
-              null,
-              2
-            )
-          );
-          await fs.promises.writeFile(
-            path.join(projectDir, "order.json"),
-            JSON.stringify(orderRecord, null, 2)
-          );
+          logSubmitTiming(timing, "saved local print files", { projectId });
 
           res.status(201).json({
             projectId,
@@ -373,6 +367,23 @@ export function createApp() {
               assets: `/projects/${projectId}/assets/`,
             },
           });
+          logSubmitTiming(timing, "response sent", {
+            cloudinary: cloudinaryProof.status,
+            projectId,
+          });
+
+          if (shouldMirrorToCloudinary) {
+            void mirrorSubmittedProofToCloudinaryInBackground({
+              orderRecord,
+              projectDir,
+              projectId,
+              projectRecord,
+              renderedFiles,
+              timing,
+            });
+          } else {
+            logSubmitTiming(timing, "cloudinary skipped", { projectId });
+          }
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Could not submit project.";
@@ -643,40 +654,151 @@ function getFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-async function uploadSubmittedProofToCloudinary({
-  files,
-  initialReview,
-  manifest,
+interface SubmitTiming {
+  lastAt: number;
+  startedAt: number;
+}
+
+function createSubmitTiming(): SubmitTiming {
+  const now = Date.now();
+
+  return {
+    lastAt: now,
+    startedAt: now,
+  };
+}
+
+function logSubmitTiming(
+  timing: SubmitTiming,
+  phase: string,
+  details: Record<string, string> = {}
+) {
+  const now = Date.now();
+  const detailText = Object.entries(details)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" ");
+
+  console.info(
+    [
+      "[submit-project]",
+      phase,
+      `stepMs=${now - timing.lastAt}`,
+      `totalMs=${now - timing.startedAt}`,
+      detailText,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  timing.lastAt = now;
+}
+
+async function mirrorSubmittedProofToCloudinaryInBackground({
+  orderRecord,
+  projectDir,
   projectId,
   projectRecord,
   renderedFiles,
+  timing,
 }: {
-  files: UploadedRenderFile[];
-  initialReview: ProjectReview;
-  manifest: unknown;
+  orderRecord: PrintOrderRecord;
+  projectDir: string;
   projectId: string;
   projectRecord: Record<string, unknown>;
+  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  timing: SubmitTiming;
+}) {
+  logSubmitTiming(timing, "cloudinary mirror started", { projectId });
+
+  try {
+    const cloudinaryProof = await uploadSubmittedProofToCloudinary({
+      projectId,
+      renderedFiles,
+    });
+
+    await writeCloudinaryProofRecords({
+      cloudinaryProof,
+      orderRecord,
+      projectDir,
+      projectRecord,
+    });
+    logSubmitTiming(timing, "cloudinary mirror finished", {
+      projectId,
+      status: cloudinaryProof.status,
+    });
+  } catch (error) {
+    const cloudinaryProof = createFailedCloudinaryProof(projectId, error);
+
+    console.warn(
+      `[submit-project] cloudinary mirror failed projectId=${projectId}`,
+      error
+    );
+
+    try {
+      await writeCloudinaryProofRecords({
+        cloudinaryProof,
+        orderRecord,
+        projectDir,
+        projectRecord,
+      });
+    } catch (writeError) {
+      console.warn(
+        `[submit-project] could not persist cloudinary mirror failure projectId=${projectId}`,
+        writeError
+      );
+    }
+  }
+}
+
+async function writeCloudinaryProofRecords({
+  cloudinaryProof,
+  orderRecord,
+  projectDir,
+  projectRecord,
+}: {
+  cloudinaryProof: CloudinaryProofUpload;
+  orderRecord: PrintOrderRecord;
+  projectDir: string;
+  projectRecord: Record<string, unknown>;
+}) {
+  const updatedOrderRecord: PrintOrderRecord = {
+    ...orderRecord,
+    cloudinary: {
+      folder: cloudinaryProof.folder,
+      status: cloudinaryProof.status,
+      warnings: cloudinaryProof.warnings ?? [],
+    },
+  };
+
+  await Promise.all([
+    fs.promises.writeFile(
+      path.join(projectDir, "project.json"),
+      JSON.stringify(
+        {
+          ...projectRecord,
+          cloudinary: cloudinaryProof,
+        },
+        null,
+        2
+      )
+    ),
+    fs.promises.writeFile(
+      path.join(projectDir, "order.json"),
+      JSON.stringify(updatedOrderRecord, null, 2)
+    ),
+  ]);
+}
+
+async function uploadSubmittedProofToCloudinary({
+  projectId,
+  renderedFiles,
+}: {
+  projectId: string;
   renderedFiles: { previewPng: Buffer; printPdf: Buffer };
 }): Promise<CloudinaryProofUpload> {
   configureCloudinary();
 
   const folder = getCloudinaryProofFolder(projectId);
   const coreFiles: CloudinaryProofUploadCandidate[] = [
-    {
-      buffer: Buffer.from(JSON.stringify(projectRecord, null, 2)),
-      contentType: "application/json",
-      relativePath: "project.json",
-    },
-    {
-      buffer: Buffer.from(JSON.stringify(manifest, null, 2)),
-      contentType: "application/json",
-      relativePath: "manifest.json",
-    },
-    {
-      buffer: Buffer.from(JSON.stringify(initialReview, null, 2)),
-      contentType: "application/json",
-      relativePath: "review.json",
-    },
     {
       buffer: renderedFiles.previewPng,
       contentType: "image/png",
@@ -688,22 +810,16 @@ async function uploadSubmittedProofToCloudinary({
       relativePath: "print.pdf",
     },
   ];
-  const uploadedCoreFiles = await Promise.all(
+  const uploadResults = await Promise.allSettled(
     coreFiles.map((file) => uploadProofFileToCloudinary(file, folder))
   );
-  const assetFiles = await Promise.all(
-    files.map((file) => createCloudinaryArtworkCandidate(file))
-  );
-  const assetUploadResults = await Promise.allSettled(
-    assetFiles.map((file) => uploadProofFileToCloudinary(file, folder))
-  );
-  const uploadedAssetFiles = assetUploadResults
+  const uploadedFiles = uploadResults
     .filter(
       (result): result is PromiseFulfilledResult<CloudinaryProofFile> =>
         result.status === "fulfilled"
     )
     .map((result) => result.value);
-  const warnings = assetUploadResults
+  const warnings = uploadResults
     .filter(
       (result): result is PromiseRejectedResult => result.status === "rejected"
     )
@@ -711,9 +827,17 @@ async function uploadSubmittedProofToCloudinary({
 
   return {
     folder,
-    files: [...uploadedCoreFiles, ...uploadedAssetFiles],
-    status: "mirrored",
+    files: uploadedFiles,
+    status: warnings.length > 0 ? "failed" : "mirrored",
     ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+function createQueuedCloudinaryProof(projectId: string): CloudinaryProofUpload {
+  return {
+    files: [],
+    folder: getCloudinaryProofFolder(projectId),
+    status: "queued",
   };
 }
 
@@ -728,63 +852,16 @@ function createSkippedCloudinaryProof(projectId: string): CloudinaryProofUpload 
   };
 }
 
-async function createCloudinaryArtworkCandidate(
-  file: UploadedRenderFile
-): Promise<CloudinaryProofUploadCandidate> {
-  const relativePath = path.posix.join(
-    "assets",
-    path.basename(file.originalname)
-  );
-
-  if (!isOptimizableCloudinaryImage(file.mimetype)) {
-    return {
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      relativePath,
-    };
-  }
-
-  try {
-    return {
-      buffer: await optimizeCloudinaryArtworkImage(file.buffer, file.mimetype),
-      contentType: file.mimetype,
-      relativePath,
-    };
-  } catch {
-    return {
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      relativePath,
-    };
-  }
-}
-
-function isOptimizableCloudinaryImage(contentType: string): boolean {
-  return ["image/jpeg", "image/png", "image/webp"].includes(contentType);
-}
-
-async function optimizeCloudinaryArtworkImage(
-  buffer: Buffer,
-  contentType: string
-): Promise<Buffer> {
-  const image = sharp(buffer)
-    .rotate()
-    .resize({
-      fit: "inside",
-      height: CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX,
-      width: CLOUDINARY_PROOF_IMAGE_MAX_DIMENSION_PX,
-      withoutEnlargement: true,
-    });
-
-  if (contentType === "image/jpeg") {
-    return image.jpeg({ quality: 85 }).toBuffer();
-  }
-
-  if (contentType === "image/webp") {
-    return image.webp({ quality: 85 }).toBuffer();
-  }
-
-  return image.png({ compressionLevel: 9 }).toBuffer();
+function createFailedCloudinaryProof(
+  projectId: string,
+  error: unknown
+): CloudinaryProofUpload {
+  return {
+    files: [],
+    folder: getCloudinaryProofFolder(projectId),
+    status: "failed",
+    warnings: [formatCloudinaryWarning(error)],
+  };
 }
 
 function getCloudinaryProofFolder(projectId: string): string {
@@ -1276,7 +1353,7 @@ interface PrintOrderRecord {
   };
   cloudinary: {
     folder: string;
-    status: "mirrored" | "skipped";
+    status: CloudinaryProofStatus;
     warnings: string[];
   };
   email: PrintOrderEmailDelivery;
@@ -1290,7 +1367,7 @@ interface PrintOrderEmailDelivery {
 interface CloudinaryProofUpload {
   folder: string;
   files: CloudinaryProofFile[];
-  status: "mirrored" | "skipped";
+  status: CloudinaryProofStatus;
   warnings?: string[];
 }
 

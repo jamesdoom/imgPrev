@@ -18,7 +18,7 @@ export interface SubmitProjectForReviewResult {
   status: "submitted";
   cloudinary?: {
     folder: string;
-    status?: "mirrored" | "skipped";
+    status?: "queued" | "mirrored" | "skipped" | "failed";
     files: Array<{
       fileName: string;
       path: string;
