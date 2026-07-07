@@ -9,7 +9,6 @@ const requiredScripts = [
   "test:quality",
   "test:e2e",
   "test:a11y",
-  "smoke:cloudinary",
 ];
 
 const requiredDocs = [

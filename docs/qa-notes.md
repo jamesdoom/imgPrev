@@ -200,8 +200,16 @@ Keep this file short. Add one entry per meaningful change so future work can see
 
 ## 2026-07-07 - Faster Print Submission Handoff
 
-- Automated: `npm run test -- backend/app.test.ts`, `npm run test:client-ready`
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:client-ready`, `npm run build` from `backend/`
 - Accessibility: not applicable; backend submit performance and storage behavior only
 - Manual: submit a realistic sheet and confirm the customer receives the saved PDF/order receipt before Cloudinary mirroring finishes
 - Regression added: backend coverage verifies Cloudinary starts as queued, runs after the local proof is saved, records failures without failing submission, and mirrors only the preview PNG plus print PDF
 - Notes/follow-up: prefer the local PDF/order handoff or simpler file storage for production; keep Cloudinary out of the customer-critical submit path
+
+## 2026-07-07 - Postgres And R2 Production Storage
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run test:client-ready`
+- Accessibility: not applicable; backend storage migration only
+- Manual: configure `DATABASE_URL` and Cloudflare R2 variables in the deployed backend, submit a realistic sheet, and confirm `print.pdf`, `preview.png`, `order.json`, and `project.json` are stored under `R2_PREFIX/<projectId>` with a matching `print_submissions` row
+- Regression added: backend submission records Postgres/R2 as queued or skipped without delaying the customer success response, and async storage updates preserve other background status fields
+- Notes/follow-up: keep Cloudinary mirroring optional while production print storage moves to Postgres plus R2

@@ -19,12 +19,30 @@ const originalCloudinaryEnv = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_PROOF_FOLDER: process.env.CLOUDINARY_PROOF_FOLDER,
 };
+const originalProductionStorageEnv = {
+  DATABASE_URL: process.env.DATABASE_URL,
+  POSTGRES_SSL: process.env.POSTGRES_SSL,
+  R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+  R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+  R2_BUCKET: process.env.R2_BUCKET,
+  R2_ENDPOINT: process.env.R2_ENDPOINT,
+  R2_PREFIX: process.env.R2_PREFIX,
+  R2_PUBLIC_BASE_URL: process.env.R2_PUBLIC_BASE_URL,
+  R2_REGION: process.env.R2_REGION,
+  R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+};
 type TestCloudinaryStatus = "queued" | "mirrored" | "skipped" | "failed";
+type TestProductionStorageStatus = "queued" | "stored" | "skipped" | "failed";
 interface TestProjectJson {
   cloudinary?: {
     files?: Array<{ path: string }>;
     folder?: string;
     status?: TestCloudinaryStatus;
+    warnings?: string[];
+  };
+  storage?: {
+    provider?: "postgres+r2";
+    status?: TestProductionStorageStatus;
     warnings?: string[];
   };
 }
@@ -34,6 +52,16 @@ beforeEach(() => {
   delete process.env.CLOUDINARY_API_SECRET;
   delete process.env.CLOUDINARY_CLOUD_NAME;
   delete process.env.CLOUDINARY_PROOF_FOLDER;
+  delete process.env.DATABASE_URL;
+  delete process.env.POSTGRES_SSL;
+  delete process.env.R2_ACCESS_KEY_ID;
+  delete process.env.R2_ACCOUNT_ID;
+  delete process.env.R2_BUCKET;
+  delete process.env.R2_ENDPOINT;
+  delete process.env.R2_PREFIX;
+  delete process.env.R2_PUBLIC_BASE_URL;
+  delete process.env.R2_REGION;
+  delete process.env.R2_SECRET_ACCESS_KEY;
 });
 
 afterEach(async () => {
@@ -46,6 +74,7 @@ afterEach(async () => {
     )
   );
   restoreCloudinaryEnv();
+  restoreProductionStorageEnv();
   vi.restoreAllMocks();
 });
 
@@ -319,6 +348,10 @@ describe("backend app", () => {
       email: {
         status: "not-configured",
       },
+      storage: {
+        provider: "postgres+r2",
+        status: "skipped",
+      },
       files: {
         projectJson: expect.stringMatching(/^\/projects\/project-/),
         orderJson: expect.stringMatching(/^\/projects\/project-/),
@@ -348,6 +381,14 @@ describe("backend app", () => {
       email: {
         status: "not-configured",
       },
+      storage: {
+        provider: "postgres+r2",
+        status: "skipped",
+      },
+    });
+    expect(projectJson.storage).toMatchObject({
+      provider: "postgres+r2",
+      status: "skipped",
     });
     expect(previewPng.subarray(0, 8)).toEqual(
       Buffer.from("89504e470d0a1a0a", "hex")
@@ -435,6 +476,10 @@ describe("backend app", () => {
       `decal-sheet/${response.body.projectId}`
     );
     expect(mirroredProjectJson.cloudinary.status).toBe("mirrored");
+    expect(mirroredProjectJson.storage).toMatchObject({
+      provider: "postgres+r2",
+      status: "skipped",
+    });
     expect(uploadedPublicIds).toEqual(
       expect.arrayContaining(["preview", "print.pdf"])
     );
@@ -845,6 +890,28 @@ function restoreCloudinaryEnv() {
   restoreEnvValue(
     "CLOUDINARY_PROOF_FOLDER",
     originalCloudinaryEnv.CLOUDINARY_PROOF_FOLDER
+  );
+}
+
+function restoreProductionStorageEnv() {
+  restoreEnvValue("DATABASE_URL", originalProductionStorageEnv.DATABASE_URL);
+  restoreEnvValue("POSTGRES_SSL", originalProductionStorageEnv.POSTGRES_SSL);
+  restoreEnvValue(
+    "R2_ACCESS_KEY_ID",
+    originalProductionStorageEnv.R2_ACCESS_KEY_ID
+  );
+  restoreEnvValue("R2_ACCOUNT_ID", originalProductionStorageEnv.R2_ACCOUNT_ID);
+  restoreEnvValue("R2_BUCKET", originalProductionStorageEnv.R2_BUCKET);
+  restoreEnvValue("R2_ENDPOINT", originalProductionStorageEnv.R2_ENDPOINT);
+  restoreEnvValue("R2_PREFIX", originalProductionStorageEnv.R2_PREFIX);
+  restoreEnvValue(
+    "R2_PUBLIC_BASE_URL",
+    originalProductionStorageEnv.R2_PUBLIC_BASE_URL
+  );
+  restoreEnvValue("R2_REGION", originalProductionStorageEnv.R2_REGION);
+  restoreEnvValue(
+    "R2_SECRET_ACCESS_KEY",
+    originalProductionStorageEnv.R2_SECRET_ACCESS_KEY
   );
 }
 

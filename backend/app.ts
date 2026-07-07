@@ -10,6 +10,12 @@ import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
 import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
+import {
+  createQueuedProductionStorageRecord,
+  isProductionStorageConfigured,
+  persistProductionSubmissionToStorage,
+  type ProductionStorageRecord,
+} from "./productionStorage";
 
 const MAX_FILE_SIZE = 21 * 1024 * 1024;
 const MAX_RENDER_FILE_SIZE = 25 * 1024 * 1024;
@@ -301,13 +307,20 @@ export function createApp() {
           const cloudinaryProof = shouldMirrorToCloudinary
             ? createQueuedCloudinaryProof(projectId)
             : createSkippedCloudinaryProof(projectId);
+          const productionStorage = createQueuedProductionStorageRecord(projectId);
           const emailDelivery = createPrintOrderEmailDelivery();
+          const projectJsonRecord = {
+            ...projectRecord,
+            cloudinary: cloudinaryProof,
+            storage: productionStorage,
+          };
           const orderRecord = createPrintOrderRecord({
             cloudinaryProof,
             emailDelivery,
             files,
             manifest: manifest.raw,
             projectId,
+            productionStorage,
             submittedAt,
           });
 
@@ -315,14 +328,7 @@ export function createApp() {
           await Promise.all([
             fs.promises.writeFile(
               path.join(projectDir, "project.json"),
-              JSON.stringify(
-                {
-                  ...projectRecord,
-                  cloudinary: cloudinaryProof,
-                },
-                null,
-                2
-              )
+              JSON.stringify(projectJsonRecord, null, 2)
             ),
             fs.promises.writeFile(
               path.join(projectDir, "review.json"),
@@ -358,6 +364,7 @@ export function createApp() {
             status: "submitted",
             cloudinary: cloudinaryProof,
             email: emailDelivery,
+            storage: productionStorage,
             files: {
               projectJson: `/projects/${projectId}/project.json`,
               orderJson: `/projects/${projectId}/order.json`,
@@ -370,6 +377,7 @@ export function createApp() {
           logSubmitTiming(timing, "response sent", {
             cloudinary: cloudinaryProof.status,
             projectId,
+            storage: productionStorage.status,
           });
 
           if (shouldMirrorToCloudinary) {
@@ -383,6 +391,21 @@ export function createApp() {
             });
           } else {
             logSubmitTiming(timing, "cloudinary skipped", { projectId });
+          }
+
+          if (isProductionStorageConfigured()) {
+            void persistProductionStorageInBackground({
+              cloudinaryProof,
+              orderRecord,
+              productionStorage,
+              projectDir,
+              projectId,
+              projectRecord,
+              renderedFiles,
+              timing,
+            });
+          } else {
+            logSubmitTiming(timing, "postgres r2 skipped", { projectId });
           }
         } catch (err) {
           const message =
@@ -585,6 +608,7 @@ function createPrintOrderRecord({
   files,
   manifest,
   projectId,
+  productionStorage,
   submittedAt,
 }: {
   cloudinaryProof: CloudinaryProofUpload;
@@ -592,6 +616,7 @@ function createPrintOrderRecord({
   files: UploadedRenderFile[];
   manifest: unknown;
   projectId: string;
+  productionStorage: ProductionStorageRecord;
   submittedAt: string;
 }): PrintOrderRecord {
   const rawManifest = getRecord(manifest);
@@ -632,6 +657,7 @@ function createPrintOrderRecord({
       warnings: cloudinaryProof.warnings ?? [],
     },
     email: emailDelivery,
+    storage: productionStorage,
   };
 }
 
@@ -690,6 +716,152 @@ function logSubmitTiming(
       .join(" ")
   );
   timing.lastAt = now;
+}
+
+async function persistProductionStorageInBackground({
+  cloudinaryProof,
+  orderRecord,
+  productionStorage,
+  projectDir,
+  projectId,
+  projectRecord,
+  renderedFiles,
+  timing,
+}: {
+  cloudinaryProof: CloudinaryProofUpload;
+  orderRecord: PrintOrderRecord;
+  productionStorage: ProductionStorageRecord;
+  projectDir: string;
+  projectId: string;
+  projectRecord: Record<string, unknown>;
+  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  timing: SubmitTiming;
+}) {
+  logSubmitTiming(timing, "postgres r2 storage started", { projectId });
+
+  try {
+    const currentProjectRecord = await readCurrentProjectRecord(
+      projectDir,
+      projectRecord
+    );
+    const projectJsonRecord = {
+      ...currentProjectRecord,
+      cloudinary: currentProjectRecord.cloudinary ?? cloudinaryProof,
+      storage: productionStorage,
+    };
+    const storageRecord = await persistProductionSubmissionToStorage({
+      files: {
+        orderJson: Buffer.from(JSON.stringify(orderRecord, null, 2)),
+        previewPng: renderedFiles.previewPng,
+        printPdf: renderedFiles.printPdf,
+        projectJson: Buffer.from(JSON.stringify(projectJsonRecord, null, 2)),
+      },
+      orderRecord,
+      projectId,
+      projectRecord: projectJsonRecord,
+      submittedAt: orderRecord.submittedAt,
+    });
+
+    await writeProductionStorageRecords({
+      cloudinaryProof,
+      orderRecord,
+      productionStorage: storageRecord,
+      projectDir,
+      projectRecord,
+    });
+    logSubmitTiming(timing, "postgres r2 storage finished", {
+      projectId,
+      status: storageRecord.status,
+    });
+  } catch (error) {
+    const storageRecord = createFailedProductionStorageRecord(error);
+
+    console.warn(
+      `[submit-project] postgres r2 storage failed projectId=${projectId}`,
+      error
+    );
+
+    try {
+      await writeProductionStorageRecords({
+        cloudinaryProof,
+        orderRecord,
+        productionStorage: storageRecord,
+        projectDir,
+        projectRecord,
+      });
+    } catch (writeError) {
+      console.warn(
+        `[submit-project] could not persist postgres r2 storage failure projectId=${projectId}`,
+        writeError
+      );
+    }
+  }
+}
+
+async function writeProductionStorageRecords({
+  cloudinaryProof,
+  orderRecord,
+  productionStorage,
+  projectDir,
+  projectRecord,
+}: {
+  cloudinaryProof: CloudinaryProofUpload;
+  orderRecord: PrintOrderRecord;
+  productionStorage: ProductionStorageRecord;
+  projectDir: string;
+  projectRecord: Record<string, unknown>;
+}) {
+  const currentProjectRecord = await readCurrentProjectRecord(
+    projectDir,
+    projectRecord
+  );
+  const currentOrderRecord = await readCurrentPrintOrderRecord(
+    projectDir,
+    orderRecord
+  );
+  const cloudinarySummary =
+    getPrintOrderCloudinaryRecord(currentOrderRecord.cloudinary) ??
+    getPrintOrderCloudinaryRecord(orderRecord.cloudinary) ??
+    summarizeCloudinaryProof(cloudinaryProof);
+  const updatedOrderRecord: PrintOrderRecord = {
+    ...currentOrderRecord,
+    cloudinary: cloudinarySummary,
+    storage: productionStorage,
+  };
+
+  await Promise.all([
+    fs.promises.writeFile(
+      path.join(projectDir, "project.json"),
+      JSON.stringify(
+        {
+          ...currentProjectRecord,
+          cloudinary: currentProjectRecord.cloudinary ?? cloudinaryProof,
+          storage: productionStorage,
+        },
+        null,
+        2
+      )
+    ),
+    fs.promises.writeFile(
+      path.join(projectDir, "order.json"),
+      JSON.stringify(updatedOrderRecord, null, 2)
+    ),
+  ]);
+}
+
+function createFailedProductionStorageRecord(
+  error: unknown
+): ProductionStorageRecord {
+  return {
+    files: [],
+    provider: "postgres+r2",
+    status: "failed",
+    warnings: [
+      error instanceof Error
+        ? error.message
+        : `Postgres/R2 storage warning: ${String(error)}`,
+    ],
+  };
 }
 
 async function mirrorSubmittedProofToCloudinaryInBackground({
@@ -760,13 +932,21 @@ async function writeCloudinaryProofRecords({
   projectDir: string;
   projectRecord: Record<string, unknown>;
 }) {
+  const currentProjectRecord = await readCurrentProjectRecord(
+    projectDir,
+    projectRecord
+  );
+  const currentOrderRecord = await readCurrentPrintOrderRecord(
+    projectDir,
+    orderRecord
+  );
+  const storageRecord =
+    getProductionStorageRecord(currentOrderRecord.storage) ??
+    getProductionStorageRecord(orderRecord.storage);
   const updatedOrderRecord: PrintOrderRecord = {
-    ...orderRecord,
-    cloudinary: {
-      folder: cloudinaryProof.folder,
-      status: cloudinaryProof.status,
-      warnings: cloudinaryProof.warnings ?? [],
-    },
+    ...currentOrderRecord,
+    cloudinary: summarizeCloudinaryProof(cloudinaryProof),
+    storage: storageRecord ?? orderRecord.storage,
   };
 
   await Promise.all([
@@ -774,8 +954,10 @@ async function writeCloudinaryProofRecords({
       path.join(projectDir, "project.json"),
       JSON.stringify(
         {
-          ...projectRecord,
+          ...currentProjectRecord,
           cloudinary: cloudinaryProof,
+          storage:
+            currentProjectRecord.storage ?? storageRecord ?? orderRecord.storage,
         },
         null,
         2
@@ -786,6 +968,154 @@ async function writeCloudinaryProofRecords({
       JSON.stringify(updatedOrderRecord, null, 2)
     ),
   ]);
+}
+
+async function readCurrentProjectRecord(
+  projectDir: string,
+  fallback: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  try {
+    const contents = await fs.promises.readFile(
+      path.join(projectDir, "project.json"),
+      "utf8"
+    );
+
+    return {
+      ...fallback,
+      ...getRecord(JSON.parse(contents)),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+async function readCurrentPrintOrderRecord(
+  projectDir: string,
+  fallback: PrintOrderRecord
+): Promise<PrintOrderRecord> {
+  try {
+    const contents = await fs.promises.readFile(
+      path.join(projectDir, "order.json"),
+      "utf8"
+    );
+    const parsed = getRecord(JSON.parse(contents));
+
+    return {
+      ...fallback,
+      ...parsed,
+      cloudinary:
+        getPrintOrderCloudinaryRecord(parsed.cloudinary) ?? fallback.cloudinary,
+      storage: getProductionStorageRecord(parsed.storage) ?? fallback.storage,
+    } as PrintOrderRecord;
+  } catch {
+    return fallback;
+  }
+}
+
+function summarizeCloudinaryProof(
+  cloudinaryProof: CloudinaryProofUpload
+): PrintOrderRecord["cloudinary"] {
+  return {
+    folder: cloudinaryProof.folder,
+    status: cloudinaryProof.status,
+    warnings: cloudinaryProof.warnings ?? [],
+  };
+}
+
+function getPrintOrderCloudinaryRecord(
+  value: unknown
+): PrintOrderRecord["cloudinary"] | null {
+  const record = getRecord(value);
+
+  if (
+    typeof record.folder !== "string" ||
+    !isCloudinaryProofStatus(record.status)
+  ) {
+    return null;
+  }
+
+  return {
+    folder: record.folder,
+    status: record.status,
+    warnings: getStringArray(record.warnings),
+  };
+}
+
+function isCloudinaryProofStatus(value: unknown): value is CloudinaryProofStatus {
+  return (
+    value === "queued" ||
+    value === "mirrored" ||
+    value === "skipped" ||
+    value === "failed"
+  );
+}
+
+function getProductionStorageRecord(
+  value: unknown
+): ProductionStorageRecord | null {
+  const record = getRecord(value);
+
+  if (
+    record.provider !== "postgres+r2" ||
+    !isProductionStorageStatus(record.status)
+  ) {
+    return null;
+  }
+
+  return {
+    files: Array.isArray(record.files)
+      ? record.files
+          .map(getProductionStorageFile)
+          .filter(
+            (file): file is ProductionStorageRecord["files"][number] =>
+              file !== null
+          )
+      : [],
+    provider: "postgres+r2",
+    status: record.status,
+    warnings: getStringArray(record.warnings),
+  };
+}
+
+function isProductionStorageStatus(
+  value: unknown
+): value is ProductionStorageRecord["status"] {
+  return (
+    value === "queued" ||
+    value === "stored" ||
+    value === "skipped" ||
+    value === "failed"
+  );
+}
+
+function getProductionStorageFile(
+  value: unknown
+): ProductionStorageRecord["files"][number] | null {
+  const record = getRecord(value);
+
+  if (
+    typeof record.contentType !== "string" ||
+    typeof record.key !== "string" ||
+    typeof record.path !== "string" ||
+    typeof record.sizeBytes !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    contentType: record.contentType,
+    key: record.key,
+    path: record.path,
+    publicUrl:
+      typeof record.publicUrl === "string" ? record.publicUrl : undefined,
+    sizeBytes: record.sizeBytes,
+  };
+}
+
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 async function uploadSubmittedProofToCloudinary({
@@ -1357,6 +1687,7 @@ interface PrintOrderRecord {
     warnings: string[];
   };
   email: PrintOrderEmailDelivery;
+  storage: ProductionStorageRecord;
 }
 
 interface PrintOrderEmailDelivery {

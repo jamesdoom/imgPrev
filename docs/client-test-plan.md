@@ -19,7 +19,7 @@ Use this checklist when preparing the app for a client-led test session. The goa
   - A low-resolution or warning-worthy image.
   - An unsupported file type for negative testing.
 - Confirm the customer app and admin backend are running and reachable.
-- If proof uploads should mirror to Cloudinary, confirm the backend has `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_PROOF_FOLDER=decal-sheet` configured. Run `npm run smoke:cloudinary` to validate storage privately; client testers should not need to inspect Cloudinary directly.
+- If production submissions should persist outside the local backend, confirm the backend has `DATABASE_URL`, `R2_ACCOUNT_ID` or `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_PREFIX=decal-sheet` configured. Client testers should only need to confirm the submitted print PDF and receipt appear in the app.
 - Clear local storage or use a fresh browser profile if you need a clean first-run experience.
 - Keep `docs/qa-notes.md` open so any test deviation can be captured immediately.
 

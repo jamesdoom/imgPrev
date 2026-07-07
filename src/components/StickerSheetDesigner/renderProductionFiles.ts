@@ -28,6 +28,18 @@ export interface SubmitProjectForReviewResult {
     }>;
     warnings?: string[];
   };
+  storage?: {
+    files: Array<{
+      contentType: string;
+      key: string;
+      path: string;
+      publicUrl?: string;
+      sizeBytes: number;
+    }>;
+    provider: "postgres+r2";
+    status: "queued" | "stored" | "skipped" | "failed";
+    warnings?: string[];
+  };
   files: {
     projectJson: string;
     orderJson?: string;
