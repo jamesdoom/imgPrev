@@ -212,7 +212,7 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Accessibility: not applicable; backend storage migration only
 - Manual: configure `DATABASE_URL` and Cloudflare R2 variables in the deployed backend, submit a realistic sheet, and confirm `print.pdf`, `preview.png`, `order.json`, and `project.json` are stored under `R2_PREFIX/<projectId>` with a matching `print_submissions` row
 - Regression added: backend submission records Postgres/R2 as queued or skipped without delaying the customer success response, and async storage updates preserve other background status fields
-- Notes/follow-up: keep Cloudinary mirroring optional while production print storage moves to Postgres plus R2
+- Notes/follow-up: Postgres plus R2 is the production storage path; Cloudinary should stay out of the print submission flow
 
 ## 2026-07-08 - Admin Production Storage Status
 
@@ -221,3 +221,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: after a live submit, verify the admin detail view shows `Production files stored` with PDF, preview, order, and project record statuses
 - Regression added: admin API, component, accessibility, backend, and browser tests cover the Postgres/R2 storage status panel
 - Notes/follow-up: consider adding admin download/open links for private R2 files through signed URLs if direct dashboard access becomes too cumbersome
+
+## 2026-07-08 - Cloudinary Cleanup
+
+- Automated: `npm run test -- backend/app.test.ts src/components/StickerSheetDesigner/renderProductionFiles.test.ts src/components/ImageUploader/ImageUploader.accessibility.test.tsx`, `npm run build`, `npm run build` from `backend/`
+- Accessibility: legacy image editor still exposes the download control and remains covered after removing the cloud-upload button
+- Manual: submit a realistic sheet from the deployed app and confirm the receipt appears quickly while R2 receives `print.pdf`, `preview.png`, `order.json`, and `project.json`
+- Regression added: backend and browser mocks now treat Postgres/R2 as the only production storage integration
+- Notes/follow-up: remove stale `CLOUDINARY_*` and `VITE_CLOUDINARY_*` variables from hosting dashboards after the deployment is verified

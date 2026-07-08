@@ -7,7 +7,6 @@ A React and Express decal sheet tool for uploading artwork, arranging decals on 
 - Node.js 20 or newer
 - npm
 - Optional Postgres database and Cloudflare R2 bucket for production submission storage
-- Optional Cloudinary account for legacy proof mirroring
 
 ## Setup
 
@@ -28,8 +27,6 @@ Create a `.env` file in the project root for local configuration:
 
 ```sh
 VITE_API_BASE_URL=http://localhost:4000
-VITE_CLOUDINARY_UPLOAD_PRESET=frontend_unsigned
-VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
 CORS_ORIGIN=http://localhost:5173
 
 # Production print submission storage
@@ -40,11 +37,6 @@ R2_SECRET_ACCESS_KEY=your-r2-secret-key
 R2_BUCKET=your-r2-bucket
 R2_PREFIX=decal-sheet
 R2_PUBLIC_BASE_URL=https://files.example.com
-
-# Optional legacy proof mirroring
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 `R2_ENDPOINT` can be used instead of `R2_ACCOUNT_ID` when you want to provide the full S3-compatible endpoint. `R2_PUBLIC_BASE_URL` is optional; omit it if the bucket is private and admins should access files through internal tooling.

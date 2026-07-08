@@ -7,8 +7,6 @@ import sharp from "sharp";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
-import { v2 as cloudinary } from "cloudinary";
-import streamifier from "streamifier";
 import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
 import {
   createQueuedProductionStorageRecord,
@@ -37,25 +35,6 @@ const storageRoot = path.resolve(__dirname, "storage");
 const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
 const projectsDir = path.join(storageRoot, "projects");
-const DEFAULT_CLOUDINARY_PROOF_FOLDER = "decal-sheet";
-const DEFAULT_CLOUDINARY_UPLOAD_TIMEOUT_MS = 45000;
-type CloudinaryProofStatus = "queued" | "mirrored" | "skipped" | "failed";
-
-function hasCloudinaryConfig() {
-  return (
-    !!process.env.CLOUDINARY_CLOUD_NAME &&
-    !!process.env.CLOUDINARY_API_KEY &&
-    !!process.env.CLOUDINARY_API_SECRET
-  );
-}
-
-function configureCloudinary() {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
 
 const safeUnlink = (filePath: string, delay = 500) => {
   setTimeout(() => {
@@ -103,22 +82,6 @@ const renderUpload = multer({
     callback(null, true);
   },
 });
-
-function getProcessedFilePath(filename: unknown): string | null {
-  if (typeof filename !== "string") return null;
-
-  const safeFilename = path.basename(filename);
-  if (safeFilename !== filename || !/^preview-\d+\.webp$/.test(filename)) {
-    return null;
-  }
-
-  const filePath = path.resolve(processedDir, safeFilename);
-  if (!filePath.startsWith(`${processedDir}${path.sep}`)) {
-    return null;
-  }
-
-  return filePath;
-}
 
 export function createApp() {
   const app = express();
@@ -206,44 +169,6 @@ export function createApp() {
     }
   );
 
-  app.post("/save-to-cloud", (req: Request, res: Response) => {
-    (async () => {
-      const filePath = getProcessedFilePath(req.body.filename);
-
-      if (!filePath) {
-        return res.status(400).json({ error: "Invalid filename." });
-      }
-
-      if (!hasCloudinaryConfig()) {
-        return res.status(500).json({ error: "Cloudinary is not configured." });
-      }
-
-      try {
-        configureCloudinary();
-        const buffer = await fs.promises.readFile(filePath);
-
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { resource_type: "image", format: "webp" },
-          (error, result) => {
-            if (error || !result) {
-              console.error("Cloudinary upload failed:", error);
-              return res
-                .status(500)
-                .json({ error: "Upload to Cloudinary failed." });
-            }
-
-            res.json({ url: result.secure_url });
-          }
-        );
-
-        streamifier.createReadStream(buffer).pipe(uploadStream);
-      } catch (err) {
-        console.error("Failed to read local image:", err);
-        res.status(500).json({ error: "Could not read local file." });
-      }
-    })();
-  });
-
   app.post(
     "/render-sheet",
     renderUpload.array("assets", 50),
@@ -303,19 +228,13 @@ export function createApp() {
             submittedAt,
             projectId,
           };
-          const shouldMirrorToCloudinary = hasCloudinaryConfig();
-          const cloudinaryProof = shouldMirrorToCloudinary
-            ? createQueuedCloudinaryProof(projectId)
-            : createSkippedCloudinaryProof(projectId);
           const productionStorage = createQueuedProductionStorageRecord(projectId);
           const emailDelivery = createPrintOrderEmailDelivery();
           const projectJsonRecord = {
             ...projectRecord,
-            cloudinary: cloudinaryProof,
             storage: productionStorage,
           };
           const orderRecord = createPrintOrderRecord({
-            cloudinaryProof,
             emailDelivery,
             files,
             manifest: manifest.raw,
@@ -362,7 +281,6 @@ export function createApp() {
           res.status(201).json({
             projectId,
             status: "submitted",
-            cloudinary: cloudinaryProof,
             email: emailDelivery,
             storage: productionStorage,
             files: {
@@ -375,27 +293,12 @@ export function createApp() {
             },
           });
           logSubmitTiming(timing, "response sent", {
-            cloudinary: cloudinaryProof.status,
             projectId,
             storage: productionStorage.status,
           });
 
-          if (shouldMirrorToCloudinary) {
-            void mirrorSubmittedProofToCloudinaryInBackground({
-              orderRecord,
-              projectDir,
-              projectId,
-              projectRecord,
-              renderedFiles,
-              timing,
-            });
-          } else {
-            logSubmitTiming(timing, "cloudinary skipped", { projectId });
-          }
-
           if (isProductionStorageConfigured()) {
             void persistProductionStorageInBackground({
-              cloudinaryProof,
               orderRecord,
               productionStorage,
               projectDir,
@@ -603,7 +506,6 @@ function createPrintOrderEmailDelivery(): PrintOrderEmailDelivery {
 }
 
 function createPrintOrderRecord({
-  cloudinaryProof,
   emailDelivery,
   files,
   manifest,
@@ -611,7 +513,6 @@ function createPrintOrderRecord({
   productionStorage,
   submittedAt,
 }: {
-  cloudinaryProof: CloudinaryProofUpload;
   emailDelivery: PrintOrderEmailDelivery;
   files: UploadedRenderFile[];
   manifest: unknown;
@@ -650,11 +551,6 @@ function createPrintOrderRecord({
       assetFiles: files
         .map((file) => path.basename(file.originalname))
         .sort((first, second) => first.localeCompare(second)),
-    },
-    cloudinary: {
-      folder: cloudinaryProof.folder,
-      status: cloudinaryProof.status,
-      warnings: cloudinaryProof.warnings ?? [],
     },
     email: emailDelivery,
     storage: productionStorage,
@@ -719,7 +615,6 @@ function logSubmitTiming(
 }
 
 async function persistProductionStorageInBackground({
-  cloudinaryProof,
   orderRecord,
   productionStorage,
   projectDir,
@@ -728,7 +623,6 @@ async function persistProductionStorageInBackground({
   renderedFiles,
   timing,
 }: {
-  cloudinaryProof: CloudinaryProofUpload;
   orderRecord: PrintOrderRecord;
   productionStorage: ProductionStorageRecord;
   projectDir: string;
@@ -746,7 +640,6 @@ async function persistProductionStorageInBackground({
     );
     const projectJsonRecord = {
       ...currentProjectRecord,
-      cloudinary: currentProjectRecord.cloudinary ?? cloudinaryProof,
       storage: productionStorage,
     };
     const storageRecord = await persistProductionSubmissionToStorage({
@@ -763,7 +656,6 @@ async function persistProductionStorageInBackground({
     });
 
     await writeProductionStorageRecords({
-      cloudinaryProof,
       orderRecord,
       productionStorage: storageRecord,
       projectDir,
@@ -783,7 +675,6 @@ async function persistProductionStorageInBackground({
 
     try {
       await writeProductionStorageRecords({
-        cloudinaryProof,
         orderRecord,
         productionStorage: storageRecord,
         projectDir,
@@ -799,13 +690,11 @@ async function persistProductionStorageInBackground({
 }
 
 async function writeProductionStorageRecords({
-  cloudinaryProof,
   orderRecord,
   productionStorage,
   projectDir,
   projectRecord,
 }: {
-  cloudinaryProof: CloudinaryProofUpload;
   orderRecord: PrintOrderRecord;
   productionStorage: ProductionStorageRecord;
   projectDir: string;
@@ -819,13 +708,8 @@ async function writeProductionStorageRecords({
     projectDir,
     orderRecord
   );
-  const cloudinarySummary =
-    getPrintOrderCloudinaryRecord(currentOrderRecord.cloudinary) ??
-    getPrintOrderCloudinaryRecord(orderRecord.cloudinary) ??
-    summarizeCloudinaryProof(cloudinaryProof);
   const updatedOrderRecord: PrintOrderRecord = {
     ...currentOrderRecord,
-    cloudinary: cloudinarySummary,
     storage: productionStorage,
   };
 
@@ -835,7 +719,6 @@ async function writeProductionStorageRecords({
       JSON.stringify(
         {
           ...currentProjectRecord,
-          cloudinary: currentProjectRecord.cloudinary ?? cloudinaryProof,
           storage: productionStorage,
         },
         null,
@@ -862,112 +745,6 @@ function createFailedProductionStorageRecord(
         : `Postgres/R2 storage warning: ${String(error)}`,
     ],
   };
-}
-
-async function mirrorSubmittedProofToCloudinaryInBackground({
-  orderRecord,
-  projectDir,
-  projectId,
-  projectRecord,
-  renderedFiles,
-  timing,
-}: {
-  orderRecord: PrintOrderRecord;
-  projectDir: string;
-  projectId: string;
-  projectRecord: Record<string, unknown>;
-  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
-  timing: SubmitTiming;
-}) {
-  logSubmitTiming(timing, "cloudinary mirror started", { projectId });
-
-  try {
-    const cloudinaryProof = await uploadSubmittedProofToCloudinary({
-      projectId,
-      renderedFiles,
-    });
-
-    await writeCloudinaryProofRecords({
-      cloudinaryProof,
-      orderRecord,
-      projectDir,
-      projectRecord,
-    });
-    logSubmitTiming(timing, "cloudinary mirror finished", {
-      projectId,
-      status: cloudinaryProof.status,
-    });
-  } catch (error) {
-    const cloudinaryProof = createFailedCloudinaryProof(projectId, error);
-
-    console.warn(
-      `[submit-project] cloudinary mirror failed projectId=${projectId}`,
-      error
-    );
-
-    try {
-      await writeCloudinaryProofRecords({
-        cloudinaryProof,
-        orderRecord,
-        projectDir,
-        projectRecord,
-      });
-    } catch (writeError) {
-      console.warn(
-        `[submit-project] could not persist cloudinary mirror failure projectId=${projectId}`,
-        writeError
-      );
-    }
-  }
-}
-
-async function writeCloudinaryProofRecords({
-  cloudinaryProof,
-  orderRecord,
-  projectDir,
-  projectRecord,
-}: {
-  cloudinaryProof: CloudinaryProofUpload;
-  orderRecord: PrintOrderRecord;
-  projectDir: string;
-  projectRecord: Record<string, unknown>;
-}) {
-  const currentProjectRecord = await readCurrentProjectRecord(
-    projectDir,
-    projectRecord
-  );
-  const currentOrderRecord = await readCurrentPrintOrderRecord(
-    projectDir,
-    orderRecord
-  );
-  const storageRecord =
-    getProductionStorageRecord(currentOrderRecord.storage) ??
-    getProductionStorageRecord(orderRecord.storage);
-  const updatedOrderRecord: PrintOrderRecord = {
-    ...currentOrderRecord,
-    cloudinary: summarizeCloudinaryProof(cloudinaryProof),
-    storage: storageRecord ?? orderRecord.storage,
-  };
-
-  await Promise.all([
-    fs.promises.writeFile(
-      path.join(projectDir, "project.json"),
-      JSON.stringify(
-        {
-          ...currentProjectRecord,
-          cloudinary: cloudinaryProof,
-          storage:
-            currentProjectRecord.storage ?? storageRecord ?? orderRecord.storage,
-        },
-        null,
-        2
-      )
-    ),
-    fs.promises.writeFile(
-      path.join(projectDir, "order.json"),
-      JSON.stringify(updatedOrderRecord, null, 2)
-    ),
-  ]);
 }
 
 async function readCurrentProjectRecord(
@@ -1003,51 +780,11 @@ async function readCurrentPrintOrderRecord(
     return {
       ...fallback,
       ...parsed,
-      cloudinary:
-        getPrintOrderCloudinaryRecord(parsed.cloudinary) ?? fallback.cloudinary,
       storage: getProductionStorageRecord(parsed.storage) ?? fallback.storage,
     } as PrintOrderRecord;
   } catch {
     return fallback;
   }
-}
-
-function summarizeCloudinaryProof(
-  cloudinaryProof: CloudinaryProofUpload
-): PrintOrderRecord["cloudinary"] {
-  return {
-    folder: cloudinaryProof.folder,
-    status: cloudinaryProof.status,
-    warnings: cloudinaryProof.warnings ?? [],
-  };
-}
-
-function getPrintOrderCloudinaryRecord(
-  value: unknown
-): PrintOrderRecord["cloudinary"] | null {
-  const record = getRecord(value);
-
-  if (
-    typeof record.folder !== "string" ||
-    !isCloudinaryProofStatus(record.status)
-  ) {
-    return null;
-  }
-
-  return {
-    folder: record.folder,
-    status: record.status,
-    warnings: getStringArray(record.warnings),
-  };
-}
-
-function isCloudinaryProofStatus(value: unknown): value is CloudinaryProofStatus {
-  return (
-    value === "queued" ||
-    value === "mirrored" ||
-    value === "skipped" ||
-    value === "failed"
-  );
 }
 
 function getProductionStorageRecord(
@@ -1116,226 +853,6 @@ function getStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-}
-
-async function uploadSubmittedProofToCloudinary({
-  projectId,
-  renderedFiles,
-}: {
-  projectId: string;
-  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
-}): Promise<CloudinaryProofUpload> {
-  configureCloudinary();
-
-  const folder = getCloudinaryProofFolder(projectId);
-  const coreFiles: CloudinaryProofUploadCandidate[] = [
-    {
-      buffer: renderedFiles.previewPng,
-      contentType: "image/png",
-      relativePath: "preview.png",
-    },
-    {
-      buffer: renderedFiles.printPdf,
-      contentType: "application/pdf",
-      relativePath: "print.pdf",
-    },
-  ];
-  const uploadResults = await Promise.allSettled(
-    coreFiles.map((file) => uploadProofFileToCloudinary(file, folder))
-  );
-  const uploadedFiles = uploadResults
-    .filter(
-      (result): result is PromiseFulfilledResult<CloudinaryProofFile> =>
-        result.status === "fulfilled"
-    )
-    .map((result) => result.value);
-  const warnings = uploadResults
-    .filter(
-      (result): result is PromiseRejectedResult => result.status === "rejected"
-    )
-    .map((result) => formatCloudinaryWarning(result.reason));
-
-  return {
-    folder,
-    files: uploadedFiles,
-    status: warnings.length > 0 ? "failed" : "mirrored",
-    ...(warnings.length > 0 ? { warnings } : {}),
-  };
-}
-
-function createQueuedCloudinaryProof(projectId: string): CloudinaryProofUpload {
-  return {
-    files: [],
-    folder: getCloudinaryProofFolder(projectId),
-    status: "queued",
-  };
-}
-
-function createSkippedCloudinaryProof(projectId: string): CloudinaryProofUpload {
-  return {
-    files: [],
-    folder: getCloudinaryProofFolder(projectId),
-    status: "skipped",
-    warnings: [
-      "Cloudinary mirror skipped because the backend is missing CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET.",
-    ],
-  };
-}
-
-function createFailedCloudinaryProof(
-  projectId: string,
-  error: unknown
-): CloudinaryProofUpload {
-  return {
-    files: [],
-    folder: getCloudinaryProofFolder(projectId),
-    status: "failed",
-    warnings: [formatCloudinaryWarning(error)],
-  };
-}
-
-function getCloudinaryProofFolder(projectId: string): string {
-  const baseFolder =
-    normalizeCloudinaryPath(process.env.CLOUDINARY_PROOF_FOLDER) ??
-    DEFAULT_CLOUDINARY_PROOF_FOLDER;
-
-  return path.posix.join(baseFolder, projectId);
-}
-
-function normalizeCloudinaryPath(value: string | undefined): string | null {
-  const normalized = value
-    ?.trim()
-    .replace(/\\/g, "/")
-    .replace(/^\/+|\/+$/g, "")
-    .replace(/\/+/g, "/");
-
-  return normalized && normalized.length > 0 ? normalized : null;
-}
-
-function uploadProofFileToCloudinary(
-  file: CloudinaryProofUploadCandidate,
-  folder: string
-): Promise<CloudinaryProofFile> {
-  const resourceType = getCloudinaryResourceType(file.contentType);
-  const publicId = getCloudinaryPublicId(file.relativePath, resourceType);
-  const timeoutMs = getCloudinaryUploadTimeoutMs();
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finishWithError = (error: Error) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      clearTimeout(uploadTimeout);
-      reject(error);
-    };
-    const finishWithSuccess = (uploadedFile: CloudinaryProofFile) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      clearTimeout(uploadTimeout);
-      resolve(uploadedFile);
-    };
-    const uploadTimeout = setTimeout(() => {
-      finishWithError(
-        new Error(
-          `Cloudinary upload timed out for ${file.relativePath} after ${timeoutMs}ms.`
-        )
-      );
-    }, timeoutMs);
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        overwrite: true,
-        public_id: publicId,
-        resource_type: resourceType,
-        timeout: timeoutMs,
-      },
-      (error, result) => {
-        if (error || !result?.secure_url) {
-          finishWithError(
-            new Error(
-              `Cloudinary upload failed for ${file.relativePath}: ${formatCloudinaryError(
-                error
-              )}`
-            )
-          );
-          return;
-        }
-
-        finishWithSuccess({
-          fileName: path.posix.basename(file.relativePath),
-          path: file.relativePath,
-          publicId: result.public_id,
-          resourceType,
-          secureUrl: result.secure_url,
-        });
-      }
-    );
-
-    streamifier
-      .createReadStream(file.buffer)
-      .on("error", (error) => {
-        finishWithError(
-          error instanceof Error
-            ? error
-            : new Error(`Could not read ${file.relativePath} for upload.`)
-        );
-      })
-      .pipe(uploadStream);
-  });
-}
-
-function getCloudinaryUploadTimeoutMs(): number {
-  const configuredTimeout = Number(process.env.CLOUDINARY_UPLOAD_TIMEOUT_MS);
-
-  return Number.isFinite(configuredTimeout) && configuredTimeout > 0
-    ? configuredTimeout
-    : DEFAULT_CLOUDINARY_UPLOAD_TIMEOUT_MS;
-}
-
-function formatCloudinaryError(error: unknown): string {
-  const record = getRecord(error);
-  const message =
-    typeof record.message === "string" && record.message.trim().length > 0
-      ? record.message
-      : null;
-  const httpCode =
-    typeof record.http_code === "number" ? `HTTP ${record.http_code}` : null;
-  const name =
-    typeof record.name === "string" && record.name.trim().length > 0
-      ? record.name
-      : null;
-
-  return [message, httpCode, name].filter(Boolean).join(" ") || "unknown error";
-}
-
-function formatCloudinaryWarning(reason: unknown): string {
-  return reason instanceof Error
-    ? reason.message
-    : `Cloudinary upload warning: ${String(reason)}`;
-}
-
-function getCloudinaryResourceType(contentType: string): "image" | "raw" {
-  return contentType.startsWith("image/") ? "image" : "raw";
-}
-
-function getCloudinaryPublicId(
-  relativePath: string,
-  resourceType: "image" | "raw"
-): string {
-  const normalizedPath =
-    normalizeCloudinaryPath(relativePath) ?? path.basename(relativePath);
-
-  if (resourceType === "raw") {
-    return normalizedPath;
-  }
-
-  return normalizedPath.replace(/\.[^/.]+$/, "");
 }
 
 function createProjectId(): string {
@@ -1684,11 +1201,6 @@ interface PrintOrderRecord {
     assets: string;
     assetFiles: string[];
   };
-  cloudinary: {
-    folder: string;
-    status: CloudinaryProofStatus;
-    warnings: string[];
-  };
   email: PrintOrderEmailDelivery;
   storage: ProductionStorageRecord;
 }
@@ -1696,27 +1208,6 @@ interface PrintOrderRecord {
 interface PrintOrderEmailDelivery {
   status: "not-configured" | "queued" | "sent" | "failed";
   message?: string;
-}
-
-interface CloudinaryProofUpload {
-  folder: string;
-  files: CloudinaryProofFile[];
-  status: CloudinaryProofStatus;
-  warnings?: string[];
-}
-
-interface CloudinaryProofFile {
-  fileName: string;
-  path: string;
-  publicId: string;
-  resourceType: "image" | "raw";
-  secureUrl: string;
-}
-
-interface CloudinaryProofUploadCandidate {
-  buffer: Buffer;
-  contentType: string;
-  relativePath: string;
 }
 
 function getReviewStatus(status: unknown): ProjectReviewStatus | null {

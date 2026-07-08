@@ -1,11 +1,5 @@
 import { useCallback, type RefObject } from "react";
 import type Konva from "konva";
-import {
-  CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_UPLOAD_PRESET,
-} from "../../../config/appEnv";
-import { showToast } from "../utils/showToast";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary";
 
 interface UseCanvasExportOptions {
   stageRef: RefObject<Konva.Stage | null>;
@@ -50,34 +44,8 @@ export function useCanvasExport({
     URL.revokeObjectURL(url);
   }, [getCleanCanvasBlob]);
 
-  const uploadToCloud = useCallback(async () => {
-    if (!stageRef.current) return;
-
-    try {
-      const blob = await getCleanCanvasBlob();
-      if (!blob) return;
-
-      const cloudUrl = await uploadToCloudinary(
-        blob,
-        CLOUDINARY_UPLOAD_PRESET,
-        CLOUDINARY_CLOUD_NAME
-      );
-
-      showToast("Uploaded to Cloudinary!", {
-        id: "cloud-upload-success",
-      });
-      showToast(cloudUrl, { id: "cloud-upload-url", duration: 5000 });
-    } catch (err) {
-      console.error(err);
-      showToast("Cloud upload failed", {
-        id: "cloud-upload-error",
-      });
-    }
-  }, [getCleanCanvasBlob, stageRef]);
-
   return {
     download,
     getCleanCanvasBlob,
-    uploadToCloud,
   };
 }

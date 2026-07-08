@@ -202,15 +202,12 @@ describe("renderProductionFiles", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          cloudinary: {
-            files: [
-              { path: "assets/left.png" },
-              { path: "assets/center.png" },
-              { path: "assets/right.png" },
-            ],
-            folder: "decal-sheet/project-20260623120000-multi1",
-          },
           projectId: "project-20260623120000-multi1",
+          storage: {
+            files: [],
+            provider: "postgres+r2",
+            status: "queued",
+          },
           status: "submitted",
           files: {
             projectJson: "/projects/project-20260623120000-multi1/project.json",
@@ -277,7 +274,7 @@ describe("renderProductionFiles", () => {
       "right.png",
     ]);
     expect(assetFiles.map((file) => file.name)).not.toContain(
-      "cloudinary-smoke-teal.png"
+      "stale-library-artwork.png"
     );
   });
 
@@ -303,7 +300,7 @@ describe("renderProductionFiles", () => {
         {
           id: "asset-stale",
           sourceUrl: "data:image/png;base64,c3RhbGU=",
-          fileName: "cloudinary-smoke-teal.png",
+          fileName: "stale-library-artwork.png",
           fileType: "image/png",
         },
       ],

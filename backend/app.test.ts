@@ -1,8 +1,6 @@
 import request from "supertest";
 import fs from "fs";
 import path from "path";
-import { Writable } from "stream";
-import { v2 as cloudinary } from "cloudinary";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
@@ -13,12 +11,6 @@ const validPng = Buffer.from(
 );
 const submittedProjectIds: string[] = [];
 const projectsDir = path.resolve(__dirname, "storage", "projects");
-const originalCloudinaryEnv = {
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_PROOF_FOLDER: process.env.CLOUDINARY_PROOF_FOLDER,
-};
 const originalProductionStorageEnv = {
   DATABASE_URL: process.env.DATABASE_URL,
   POSTGRES_SSL: process.env.POSTGRES_SSL,
@@ -31,27 +23,7 @@ const originalProductionStorageEnv = {
   R2_REGION: process.env.R2_REGION,
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
 };
-type TestCloudinaryStatus = "queued" | "mirrored" | "skipped" | "failed";
-type TestProductionStorageStatus = "queued" | "stored" | "skipped" | "failed";
-interface TestProjectJson {
-  cloudinary?: {
-    files?: Array<{ path: string }>;
-    folder?: string;
-    status?: TestCloudinaryStatus;
-    warnings?: string[];
-  };
-  storage?: {
-    provider?: "postgres+r2";
-    status?: TestProductionStorageStatus;
-    warnings?: string[];
-  };
-}
-
 beforeEach(() => {
-  delete process.env.CLOUDINARY_API_KEY;
-  delete process.env.CLOUDINARY_API_SECRET;
-  delete process.env.CLOUDINARY_CLOUD_NAME;
-  delete process.env.CLOUDINARY_PROOF_FOLDER;
   delete process.env.DATABASE_URL;
   delete process.env.POSTGRES_SSL;
   delete process.env.R2_ACCESS_KEY_ID;
@@ -73,7 +45,6 @@ afterEach(async () => {
       })
     )
   );
-  restoreCloudinaryEnv();
   restoreProductionStorageEnv();
   vi.restoreAllMocks();
 });
@@ -118,30 +89,6 @@ function renderManifest() {
       },
     },
   };
-}
-
-async function waitForProjectCloudinaryStatus(
-  projectId: string,
-  status: TestCloudinaryStatus
-): Promise<TestProjectJson> {
-  const deadline = Date.now() + 2_000;
-
-  while (Date.now() < deadline) {
-    const projectJson = JSON.parse(
-      await fs.promises.readFile(
-        path.join(projectsDir, projectId, "project.json"),
-        "utf8"
-      )
-    );
-
-    if (projectJson.cloudinary?.status === status) {
-      return projectJson;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-
-  throw new Error(`Timed out waiting for Cloudinary status ${status}.`);
 }
 
 describe("backend app", () => {
@@ -197,40 +144,6 @@ describe("backend app", () => {
     expect(response.body.previewUrl).toMatch(
       /^\/processed\/preview-\d+\.webp$/
     );
-  });
-
-  test("rejects missing cloud-save filenames", async () => {
-    const response = await request(createApp()).post("/save-to-cloud").send({});
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "Invalid filename." });
-  });
-
-  test("rejects cloud-save path traversal filenames", async () => {
-    const response = await request(createApp())
-      .post("/save-to-cloud")
-      .send({ filename: "../preview-123.webp" });
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "Invalid filename." });
-  });
-
-  test("rejects cloud-save filenames that do not match processed previews", async () => {
-    const response = await request(createApp())
-      .post("/save-to-cloud")
-      .send({ filename: "not-a-preview.webp" });
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "Invalid filename." });
-  });
-
-  test("reports missing Cloudinary config after validating a safe filename", async () => {
-    const response = await request(createApp())
-      .post("/save-to-cloud")
-      .send({ filename: "preview-123.webp" });
-
-    expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: "Cloudinary is not configured." });
   });
 
   test("rejects sheet renders without a manifest", async () => {
@@ -408,251 +321,6 @@ describe("backend app", () => {
       history: [],
     });
     expect(originalAsset).toEqual(validPng);
-  });
-
-  test("queues Cloudinary mirroring after saving submitted proof files", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "demo";
-    process.env.CLOUDINARY_API_KEY = "key";
-    process.env.CLOUDINARY_API_SECRET = "secret";
-    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
-
-    const uploadedFiles: Array<{
-      bytes: number;
-      options: {
-        folder?: string;
-        public_id?: string;
-        resource_type?: string;
-      };
-    }> = [];
-
-    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
-      ((options, callback) => {
-        let bytes = 0;
-        const writable = new Writable({
-          write(chunk: Buffer, _encoding, done) {
-            bytes += chunk.length;
-            done();
-          },
-        });
-
-        writable.on("finish", () => {
-          uploadedFiles.push({ bytes, options });
-          callback?.(undefined, {
-            public_id: `${options.folder}/${options.public_id}`,
-            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
-          });
-        });
-
-        return writable;
-      }) as typeof cloudinary.uploader.upload_stream
-    );
-
-    const response = await request(createApp())
-      .post("/submit-project")
-      .field("manifest", JSON.stringify(renderManifest()))
-      .attach("assets", validPng, {
-        filename: "pixel.png",
-        contentType: "image/png",
-      });
-
-    submittedProjectIds.push(response.body.projectId);
-
-    expect(response.status).toBe(201);
-    expect(response.body.cloudinary.folder).toBe(
-      `decal-sheet/${response.body.projectId}`
-    );
-    expect(response.body.cloudinary.status).toBe("queued");
-    expect(response.body.cloudinary.files).toEqual([]);
-
-    const mirroredProjectJson = await waitForProjectCloudinaryStatus(
-      response.body.projectId,
-      "mirrored"
-    );
-    const uploadedPublicIds = uploadedFiles.map(
-      (file) => file.options.public_id
-    );
-
-    expect(mirroredProjectJson.cloudinary.folder).toBe(
-      `decal-sheet/${response.body.projectId}`
-    );
-    expect(mirroredProjectJson.cloudinary.status).toBe("mirrored");
-    expect(mirroredProjectJson.storage).toMatchObject({
-      provider: "postgres+r2",
-      status: "skipped",
-    });
-    expect(uploadedPublicIds).toEqual(
-      expect.arrayContaining(["preview", "print.pdf"])
-    );
-    expect(uploadedPublicIds).not.toEqual(
-      expect.arrayContaining([
-        "assets/pixel",
-        "manifest.json",
-        "project.json",
-        "review.json",
-      ])
-    );
-    expect(uploadedFiles).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          options: expect.objectContaining({ resource_type: "image" }),
-        }),
-        expect.objectContaining({
-          options: expect.objectContaining({ resource_type: "raw" }),
-        }),
-      ])
-    );
-    expect(uploadedFiles.every((file) => file.bytes > 0)).toBe(true);
-  });
-
-  test("records Cloudinary proof mirror failures without failing submission", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "demo";
-    process.env.CLOUDINARY_API_KEY = "key";
-    process.env.CLOUDINARY_API_SECRET = "secret";
-    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
-
-    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
-      ((options, callback) => {
-        const writable = new Writable({
-          write(_chunk: Buffer, _encoding, done) {
-            done();
-          },
-        });
-
-        writable.on("finish", () => {
-          if (options.public_id === "print.pdf") {
-            callback?.(
-              Object.assign(new Error("Invalid Cloudinary credentials."), {
-                http_code: 401,
-              })
-            );
-            return;
-          }
-
-          callback?.(undefined, {
-            public_id: `${options.folder}/${options.public_id}`,
-            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
-          });
-        });
-
-        return writable;
-      }) as typeof cloudinary.uploader.upload_stream
-    );
-
-    const response = await request(createApp())
-      .post("/submit-project")
-      .field("manifest", JSON.stringify(renderManifest()))
-      .attach("assets", validPng, {
-        filename: "pixel.png",
-        contentType: "image/png",
-      });
-
-    if (response.body.projectId) {
-      submittedProjectIds.push(response.body.projectId);
-    }
-
-    expect(response.status).toBe(201);
-    expect(response.body.cloudinary.status).toBe("queued");
-
-    const projectJson = await waitForProjectCloudinaryStatus(
-      response.body.projectId,
-      "failed"
-    );
-
-    expect(projectJson.cloudinary.warnings).toEqual([
-      "Cloudinary upload failed for print.pdf: Invalid Cloudinary credentials. HTTP 401 Error",
-    ]);
-  });
-
-  test("reports when Cloudinary mirroring is skipped because config is missing", async () => {
-    const response = await request(createApp())
-      .post("/submit-project")
-      .field("manifest", JSON.stringify(renderManifest()))
-      .attach("assets", validPng, {
-        filename: "pixel.png",
-        contentType: "image/png",
-      });
-
-    submittedProjectIds.push(response.body.projectId);
-
-    const projectJson = JSON.parse(
-      await fs.promises.readFile(
-        path.join(projectsDir, response.body.projectId, "project.json"),
-        "utf8"
-      )
-    );
-
-    expect(response.status).toBe(201);
-    expect(response.body.cloudinary).toEqual({
-      files: [],
-      folder: `decal-sheet/${response.body.projectId}`,
-      status: "skipped",
-      warnings: [
-        "Cloudinary mirror skipped because the backend is missing CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET.",
-      ],
-    });
-    expect(projectJson.cloudinary).toEqual(response.body.cloudinary);
-  });
-
-  test("keeps submitted proofs visible when a Cloudinary preview upload fails", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "demo";
-    process.env.CLOUDINARY_API_KEY = "key";
-    process.env.CLOUDINARY_API_SECRET = "secret";
-    process.env.CLOUDINARY_PROOF_FOLDER = "decal-sheet";
-
-    vi.spyOn(cloudinary.uploader, "upload_stream").mockImplementation(
-      ((options, callback) => {
-        const writable = new Writable({
-          write(_chunk: Buffer, _encoding, done) {
-            done();
-          },
-        });
-
-        writable.on("finish", () => {
-          if (options.public_id === "preview") {
-            callback?.(
-              Object.assign(new Error("Preview upload timed out."), {
-                http_code: 499,
-              })
-            );
-            return;
-          }
-
-          callback?.(undefined, {
-            public_id: `${options.folder}/${options.public_id}`,
-            secure_url: `https://res.cloudinary.com/demo/${options.resource_type}/upload/${options.folder}/${options.public_id}`,
-          });
-        });
-
-        return writable;
-      }) as typeof cloudinary.uploader.upload_stream
-    );
-
-    const response = await request(createApp())
-      .post("/submit-project")
-      .field("manifest", JSON.stringify(renderManifest()))
-      .attach("assets", validPng, {
-        filename: "pixel.png",
-        contentType: "image/png",
-      });
-
-    submittedProjectIds.push(response.body.projectId);
-
-    expect(response.status).toBe(201);
-    expect(response.body.cloudinary.folder).toBe(
-      `decal-sheet/${response.body.projectId}`
-    );
-    expect(response.body.cloudinary.status).toBe("queued");
-
-    const projectJson = await waitForProjectCloudinaryStatus(
-      response.body.projectId,
-      "failed"
-    );
-
-    expect(projectJson.cloudinary.files.map((file: { path: string }) => file.path))
-      .toEqual(["print.pdf"]);
-    expect(projectJson.cloudinary.warnings).toEqual([
-      "Cloudinary upload failed for preview.png: Preview upload timed out. HTTP 499 Error",
-    ]);
   });
 
   test("lists submitted projects for admin review", async () => {
@@ -880,22 +548,6 @@ describe("backend app", () => {
     expect(response.body).toEqual({ error: "Invalid review status." });
   });
 });
-
-function restoreCloudinaryEnv() {
-  restoreEnvValue("CLOUDINARY_API_KEY", originalCloudinaryEnv.CLOUDINARY_API_KEY);
-  restoreEnvValue(
-    "CLOUDINARY_API_SECRET",
-    originalCloudinaryEnv.CLOUDINARY_API_SECRET
-  );
-  restoreEnvValue(
-    "CLOUDINARY_CLOUD_NAME",
-    originalCloudinaryEnv.CLOUDINARY_CLOUD_NAME
-  );
-  restoreEnvValue(
-    "CLOUDINARY_PROOF_FOLDER",
-    originalCloudinaryEnv.CLOUDINARY_PROOF_FOLDER
-  );
-}
 
 function restoreProductionStorageEnv() {
   restoreEnvValue("DATABASE_URL", originalProductionStorageEnv.DATABASE_URL);

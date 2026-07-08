@@ -16,18 +16,6 @@ export interface RenderProductionFilesResult {
 export interface SubmitProjectForReviewResult {
   projectId: string;
   status: "submitted";
-  cloudinary?: {
-    folder: string;
-    status?: "queued" | "mirrored" | "skipped" | "failed";
-    files: Array<{
-      fileName: string;
-      path: string;
-      publicId: string;
-      resourceType: "image" | "raw";
-      secureUrl: string;
-    }>;
-    warnings?: string[];
-  };
   storage?: {
     files: Array<{
       contentType: string;

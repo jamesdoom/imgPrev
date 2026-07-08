@@ -185,7 +185,7 @@ Current behavior:
 - Render and submit failures surface backend error messages when available.
 - Backend validates manifest presence, JSON shape, asset MIME types, missing uploaded asset files, and file size limits.
 - Submitted projects write `project.json`, `manifest.json`, `review.json`, `preview.png`, `print.pdf`, and original assets.
-- When `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` are configured, submitted proof packages are also mirrored to Cloudinary under `CLOUDINARY_PROOF_FOLDER` or `decal-sheet` by default. Each project uses a nested folder: `decal-sheet/<projectId>`.
+- When Postgres and Cloudflare R2 are configured, the backend stores the print PDF, preview PNG, order record, and project JSON under `R2_PREFIX/proofs/<projectId>/` while also writing a `print_submissions` row for admin tracking. Local project files remain the immediate handoff source.
 
 Existing coverage:
 

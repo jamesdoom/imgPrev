@@ -11,7 +11,6 @@ import {
   ArrowDownTrayIcon,
   ArrowUturnLeftIcon,
   ArrowUturnRightIcon,
-  CloudArrowUpIcon,
   QuestionMarkCircleIcon,
   ScissorsIcon,
   TrashIcon,
@@ -64,11 +63,10 @@ export default function ImageUploader(): ReactElement {
     updateImages,
   } = useImageHistory();
 
-  const { download: handleDownload, uploadToCloud: handleCloudUpload } =
-    useCanvasExport({
-      stageRef,
-      setShowGrid,
-    });
+  const { download: handleDownload } = useCanvasExport({
+    stageRef,
+    setShowGrid,
+  });
 
   const { error, loading, onDrop, previewUrl } = useImageUpload({
     updateImages,
@@ -239,15 +237,6 @@ export default function ImageUploader(): ReactElement {
             <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <button
-            type="button"
-            onClick={handleCloudUpload}
-            title="Save to Cloud"
-            aria-label="Save to Cloud"
-            className={actionButtonClass}
-          >
-            <CloudArrowUpIcon className="h-5 w-5" aria-hidden="true" />
-          </button>
         </div>
       </div>
       <ShortcutHelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />

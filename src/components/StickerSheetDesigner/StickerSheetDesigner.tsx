@@ -106,10 +106,6 @@ interface ProjectJsonReadResult {
 }
 
 interface SubmittedProofReceipt {
-  cloudinaryAssetPaths: string[];
-  cloudinaryFolder?: string;
-  cloudinaryStatus?: "queued" | "mirrored" | "skipped" | "failed";
-  cloudinaryWarnings: string[];
   emailMessage?: string;
   emailStatus?: "not-configured" | "queued" | "sent" | "failed";
   files: {
@@ -119,6 +115,7 @@ interface SubmittedProofReceipt {
     projectJson?: string;
   };
   projectId: string;
+  storageWarnings: string[];
 }
 
 type SubmitProgressPhase =
@@ -1531,9 +1528,9 @@ function ProductionActionsPanel({
           {submittedProof.emailMessage && submittedProof.emailStatus !== "not-configured" && (
             <p className="leading-5">{submittedProof.emailMessage}</p>
           )}
-          {submittedProof.cloudinaryWarnings.length > 0 && (
+          {submittedProof.storageWarnings.length > 0 && (
             <p className="leading-5 text-amber-900">
-              Storage warning: {submittedProof.cloudinaryWarnings.join(" ")}
+              Storage warning: {submittedProof.storageWarnings.join(" ")}
             </p>
           )}
           <button
@@ -2060,14 +2057,6 @@ function createSubmittedProofReceipt(
 ): SubmittedProofReceipt {
   return {
     projectId: result.projectId,
-    cloudinaryFolder: result.cloudinary?.folder,
-    cloudinaryStatus: result.cloudinary?.status,
-    cloudinaryAssetPaths:
-      result.cloudinary?.files
-        .map((file) => file.path)
-        .filter((filePath) => filePath.startsWith("assets/"))
-        .sort((first, second) => first.localeCompare(second)) ?? [],
-    cloudinaryWarnings: result.cloudinary?.warnings ?? [],
     emailMessage: result.email?.message,
     emailStatus: result.email?.status,
     files: {
@@ -2076,6 +2065,7 @@ function createSubmittedProofReceipt(
       printPdf: result.files.printPdf,
       projectJson: result.files.projectJson,
     },
+    storageWarnings: result.storage?.warnings ?? [],
   };
 }
 
