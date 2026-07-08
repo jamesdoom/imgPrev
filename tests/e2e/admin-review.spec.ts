@@ -46,6 +46,36 @@ const submittedProject = {
     sizeId: "11x17",
     widthIn: 11,
   },
+  storage: {
+    files: [
+      {
+        contentType: "application/pdf",
+        key: `proofs/${projectId}/print.pdf`,
+        path: "print.pdf",
+        sizeBytes: 1468006,
+      },
+      {
+        contentType: "image/png",
+        key: `proofs/${projectId}/preview.png`,
+        path: "preview.png",
+        sizeBytes: 1468006,
+      },
+      {
+        contentType: "application/json",
+        key: `proofs/${projectId}/order.json`,
+        path: "order.json",
+        sizeBytes: 1408,
+      },
+      {
+        contentType: "application/json",
+        key: `proofs/${projectId}/project.json`,
+        path: "project.json",
+        sizeBytes: 570285,
+      },
+    ],
+    provider: "postgres+r2",
+    status: "stored",
+  },
   submittedAt: "2026-06-30T14:00:00.000Z",
 };
 
@@ -107,6 +137,10 @@ test("admin can review downloadable previews and approve a project", async ({
   await expect(page.getByRole("img", { name: "Submitted sheet preview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Print handoff" })).toBeVisible();
   await expect(page.getByText("Ready for print review")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Production storage" })).toBeVisible();
+  await expect(page.getByText("Production files stored")).toBeVisible();
+  await expect(page.getByText("4 of 4 required")).toBeVisible();
+  await expect(page.getByText(`proofs/${projectId}/print.pdf | 1.4 MB`)).toBeVisible();
   await expect(
     page.getByText(
       "Use the PDF as the print file. The preview and JSON record support production review.",
@@ -117,7 +151,6 @@ test("admin can review downloadable previews and approve a project", async ({
     "http://localhost:4000/projects/project-playwright-admin/preview.png",
   );
   await expect(page.getByText("Print PDF")).toBeVisible();
-  await expect(page.getByText("Order record")).toBeVisible();
   await expect(page.getByRole("link", { name: /Download order/ })).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/order.json",

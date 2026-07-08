@@ -17,6 +17,7 @@ import {
   type AdminReviewProjectDetail,
   type AdminReviewProjectFiles,
   type AdminReviewProjectSummary,
+  type AdminReviewProductionStorage,
 } from "./adminReviewApi";
 import type { SheetBackground } from "../domain/print";
 
@@ -403,6 +404,8 @@ function ProjectDetail({
 
       <PrintHandoffPanel files={project.files} />
 
+      <ProductionStoragePanel storage={project.storage} />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded border border-neutral-300 bg-white">
           <SectionTitle title="Production metadata" />
@@ -760,6 +763,178 @@ function PrintHandoffPanel({ files }: { files: AdminReviewProjectFiles }) {
   );
 }
 
+function ProductionStoragePanel({
+  storage,
+}: {
+  storage?: AdminReviewProductionStorage;
+}) {
+  const files = storage?.files ?? [];
+  const isStored = storage?.status === "stored";
+  const requiredFiles = [
+    ["PDF", "print.pdf"],
+    ["Preview", "preview.png"],
+    ["Order record", "order.json"],
+    ["Project record", "project.json"],
+  ] as const;
+
+  return (
+    <section
+      aria-labelledby="production-storage-heading"
+      className="rounded border border-neutral-300 bg-white"
+    >
+      <div className="flex flex-col gap-2 border-b border-neutral-200 px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 id="production-storage-heading" className="text-sm font-semibold">
+            Production storage
+          </h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Tracks the Postgres and R2 copy of the print package.
+          </p>
+        </div>
+        <StorageStatusBadge storage={storage} />
+      </div>
+      <dl className="grid gap-px bg-neutral-200 text-sm sm:grid-cols-3">
+        <div className="bg-white p-3">
+          <dt className="text-xs font-semibold uppercase text-neutral-500">
+            Provider
+          </dt>
+          <dd className="mt-2 font-medium text-neutral-900">
+            {storage?.provider === "postgres+r2"
+              ? "Postgres + R2"
+              : "Not configured"}
+          </dd>
+        </div>
+        <div className="bg-white p-3">
+          <dt className="text-xs font-semibold uppercase text-neutral-500">
+            Stored files
+          </dt>
+          <dd className="mt-2 font-medium text-neutral-900">
+            {files.length} of 4 required
+          </dd>
+        </div>
+        <div className="bg-white p-3">
+          <dt className="text-xs font-semibold uppercase text-neutral-500">
+            Status
+          </dt>
+          <dd className="mt-2 font-medium text-neutral-900">
+            {formatStorageStatus(storage?.status)}
+          </dd>
+        </div>
+      </dl>
+      <dl className="grid gap-px bg-neutral-200 text-sm sm:grid-cols-4">
+        {requiredFiles.map(([label, filePath]) => (
+          <StorageFileStatusItem
+            key={filePath}
+            file={files.find((candidate) => candidate.path === filePath)}
+            label={label}
+          />
+        ))}
+      </dl>
+      {storage?.warnings?.length ? (
+        <div className="border-t border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <p className="font-semibold">Storage warnings</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {storage.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {isStored && files.length > 0 ? (
+        <div className="divide-y divide-neutral-200 border-t border-neutral-200">
+          {files.map((file) => (
+            <div
+              key={file.key}
+              className="flex min-h-12 flex-col gap-2 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="min-w-0">
+                <span className="block font-medium text-neutral-900">
+                  {file.path}
+                </span>
+                <span className="block break-all text-xs text-neutral-500">
+                  {file.key} | {formatFileSize(file.sizeBytes)}
+                </span>
+              </span>
+              {file.publicUrl ? (
+                <a
+                  className={`inline-flex h-8 shrink-0 items-center gap-1 rounded border border-neutral-300 bg-white px-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
+                  href={file.publicUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Open stored file
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                </a>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function StorageStatusBadge({
+  storage,
+}: {
+  storage?: AdminReviewProductionStorage;
+}) {
+  const status = storage?.status;
+
+  if (status === "stored") {
+    return (
+      <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-semibold text-emerald-800">
+        <CheckCircleIcon className="h-4 w-4" />
+        Production files stored
+      </span>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-red-200 bg-red-50 px-2 text-xs font-semibold text-red-800">
+        <XCircleIcon className="h-4 w-4" />
+        Storage failed
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-900">
+      <ExclamationTriangleIcon className="h-4 w-4" />
+      {status === "queued" ? "Storage queued" : "Storage not confirmed"}
+    </span>
+  );
+}
+
+function StorageFileStatusItem({
+  file,
+  label,
+}: {
+  file?: AdminReviewProductionStorage["files"][number];
+  label: string;
+}) {
+  return (
+    <div className="bg-white p-3">
+      <dt className="text-xs font-semibold uppercase text-neutral-500">
+        {label}
+      </dt>
+      <dd
+        className={`mt-2 inline-flex items-center gap-1 font-medium ${
+          file ? "text-emerald-800" : "text-amber-900"
+        }`}
+      >
+        {file ? (
+          <CheckCircleIcon className="h-4 w-4" />
+        ) : (
+          <ExclamationTriangleIcon className="h-4 w-4" />
+        )}
+        {file ? "Stored" : "Missing"}
+      </dd>
+    </div>
+  );
+}
+
 function HandoffStatusItem({
   available,
   label,
@@ -1105,6 +1280,28 @@ function formatReviewStatus(status: AdminProjectReviewStatus) {
   }
 
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatStorageStatus(
+  status: AdminReviewProductionStorage["status"] | undefined
+) {
+  if (!status) {
+    return "Not reported";
+  }
+
+  if (status === "stored") {
+    return "Stored";
+  }
+
+  if (status === "queued") {
+    return "Queued";
+  }
+
+  if (status === "skipped") {
+    return "Skipped";
+  }
+
+  return "Failed";
 }
 
 function formatBackground(background: SheetBackground | undefined) {

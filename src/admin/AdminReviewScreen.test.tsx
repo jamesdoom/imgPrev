@@ -55,6 +55,7 @@ describe("AdminReviewScreen", () => {
           updatedAt: "2026-06-25T12:00:00.000Z",
           history: [],
         },
+        storage: createStoredProductionStorage(),
       },
     ]);
     fetchAdminProjectDetailMock.mockResolvedValue({
@@ -81,6 +82,7 @@ describe("AdminReviewScreen", () => {
         updatedAt: "2026-06-25T12:00:00.000Z",
         history: [],
       },
+      storage: createStoredProductionStorage(),
       manifest: {
         document: {
           settings: { background: { type: "solid", color: "#ffffff" } },
@@ -122,6 +124,14 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("Order JSON")).toBeInTheDocument();
     expect(screen.getByText("Original files")).toBeInTheDocument();
     expect(screen.getByText("1 file")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Production storage" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Production files stored")).toBeInTheDocument();
+    expect(screen.getByText("Postgres + R2")).toBeInTheDocument();
+    expect(screen.getByText("4 of 4 required")).toBeInTheDocument();
+    expect(screen.getByText("proofs/project-20260625120000-abc123/print.pdf | 1.4 MB")).toBeInTheDocument();
+    expect(screen.getAllByText("Stored").length).toBeGreaterThanOrEqual(5);
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
     expect(screen.getByText("Current status")).toBeInTheDocument();
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
@@ -134,7 +144,7 @@ describe("AdminReviewScreen", () => {
       "download",
       "preview.png"
     );
-    expect(screen.getByText("Order record")).toBeInTheDocument();
+    expect(screen.getAllByText("Order record").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("link", { name: /Download order/ })).toHaveAttribute(
       "download",
       "order.json"
@@ -312,3 +322,36 @@ describe("AdminReviewScreen", () => {
     });
   });
 });
+
+function createStoredProductionStorage() {
+  return {
+    files: [
+      {
+        contentType: "application/pdf",
+        key: "proofs/project-20260625120000-abc123/print.pdf",
+        path: "print.pdf",
+        sizeBytes: 1_468_006,
+      },
+      {
+        contentType: "image/png",
+        key: "proofs/project-20260625120000-abc123/preview.png",
+        path: "preview.png",
+        sizeBytes: 1_468_006,
+      },
+      {
+        contentType: "application/json",
+        key: "proofs/project-20260625120000-abc123/order.json",
+        path: "order.json",
+        sizeBytes: 1408,
+      },
+      {
+        contentType: "application/json",
+        key: "proofs/project-20260625120000-abc123/project.json",
+        path: "project.json",
+        sizeBytes: 570_285,
+      },
+    ],
+    provider: "postgres+r2" as const,
+    status: "stored" as const,
+  };
+}

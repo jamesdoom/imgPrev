@@ -63,6 +63,36 @@ function createProjectSummary() {
       updatedAt: "2026-06-25T12:00:00.000Z",
       history: [],
     },
+    storage: {
+      files: [
+        {
+          contentType: "application/pdf",
+          key: "proofs/project-20260625120000-abc123/print.pdf",
+          path: "print.pdf",
+          sizeBytes: 1468006,
+        },
+        {
+          contentType: "image/png",
+          key: "proofs/project-20260625120000-abc123/preview.png",
+          path: "preview.png",
+          sizeBytes: 1468006,
+        },
+        {
+          contentType: "application/json",
+          key: "proofs/project-20260625120000-abc123/order.json",
+          path: "order.json",
+          sizeBytes: 1408,
+        },
+        {
+          contentType: "application/json",
+          key: "proofs/project-20260625120000-abc123/project.json",
+          path: "project.json",
+          sizeBytes: 570285,
+        },
+      ],
+      provider: "postgres+r2" as const,
+      status: "stored" as const,
+    },
   };
 }
 

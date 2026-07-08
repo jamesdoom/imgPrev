@@ -1367,6 +1367,7 @@ async function listSubmittedProjects() {
       counts: project.counts,
       files: project.files,
       review: project.review,
+      storage: project.storage,
     }));
 }
 
@@ -1398,6 +1399,7 @@ async function readSubmittedProject(projectId: string) {
 
     const files = await getSubmittedProjectFiles(safeProjectId, projectDir);
     const review = await readProjectReview(projectDir, submittedAt);
+    const storage = getProductionStorageRecord(manifest.storage) ?? undefined;
 
     return {
       projectId: safeProjectId,
@@ -1413,6 +1415,7 @@ async function readSubmittedProject(projectId: string) {
       },
       files,
       review,
+      storage,
       manifest,
     };
   } catch {

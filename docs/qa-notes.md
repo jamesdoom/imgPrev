@@ -213,3 +213,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: configure `DATABASE_URL` and Cloudflare R2 variables in the deployed backend, submit a realistic sheet, and confirm `print.pdf`, `preview.png`, `order.json`, and `project.json` are stored under `R2_PREFIX/<projectId>` with a matching `print_submissions` row
 - Regression added: backend submission records Postgres/R2 as queued or skipped without delaying the customer success response, and async storage updates preserve other background status fields
 - Notes/follow-up: keep Cloudinary mirroring optional while production print storage moves to Postgres plus R2
+
+## 2026-07-08 - Admin Production Storage Status
+
+- Automated: `npm run test -- src/admin/AdminReviewScreen.test.tsx src/admin/AdminReviewScreen.accessibility.test.tsx src/admin/adminReviewApi.test.ts backend/app.test.ts`, `npm run test:e2e -- tests/e2e/admin-review.spec.ts`
+- Accessibility: storage checklist uses valid description-list markup and remains covered by admin axe checks
+- Manual: after a live submit, verify the admin detail view shows `Production files stored` with PDF, preview, order, and project record statuses
+- Regression added: admin API, component, accessibility, backend, and browser tests cover the Postgres/R2 storage status panel
+- Notes/follow-up: consider adding admin download/open links for private R2 files through signed URLs if direct dashboard access becomes too cumbersome

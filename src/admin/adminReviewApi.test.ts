@@ -38,6 +38,18 @@ describe("adminReviewApi", () => {
                 updatedAt: "2026-06-25T12:00:00.000Z",
                 history: [],
               },
+              storage: {
+                files: [
+                  {
+                    contentType: "application/pdf",
+                    key: "proofs/project-1/print.pdf",
+                    path: "print.pdf",
+                    sizeBytes: 1468006,
+                  },
+                ],
+                provider: "postgres+r2",
+                status: "stored",
+              },
             },
           ],
         }),
@@ -55,6 +67,9 @@ describe("adminReviewApi", () => {
               path: "/projects/project-1/assets/pixel.png",
             },
           ],
+        },
+        storage: {
+          status: "stored",
         },
       },
     ]);

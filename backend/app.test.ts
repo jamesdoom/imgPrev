@@ -794,6 +794,10 @@ describe("backend app", () => {
     expect(response.status).toBe(200);
     expect(response.body.project).toMatchObject({
       projectId: submitResponse.body.projectId,
+      storage: {
+        provider: "postgres+r2",
+        status: "skipped",
+      },
       review: {
         status: "submitted",
         history: [],

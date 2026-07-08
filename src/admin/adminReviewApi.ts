@@ -16,6 +16,7 @@ export interface AdminReviewProjectSummary {
   };
   files: AdminReviewProjectFiles;
   review: AdminProjectReview;
+  storage?: AdminReviewProductionStorage;
 }
 
 export interface AdminReviewProjectDetail extends AdminReviewProjectSummary {
@@ -36,6 +37,21 @@ export interface AdminReviewProjectFile {
   fileName: string;
   path: string;
   sizeBytes?: number;
+}
+
+export interface AdminReviewProductionStorage {
+  files: AdminReviewProductionStorageFile[];
+  provider: "postgres+r2";
+  status: "queued" | "stored" | "skipped" | "failed";
+  warnings?: string[];
+}
+
+export interface AdminReviewProductionStorageFile {
+  contentType: string;
+  key: string;
+  path: string;
+  publicUrl?: string;
+  sizeBytes: number;
 }
 
 export interface AdminReviewManifest {
