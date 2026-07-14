@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
 
   return {
+    cacheDir: '.cache/vite',
     plugins: [react()],
     define: {
       __APP_ENV__: JSON.stringify(env),

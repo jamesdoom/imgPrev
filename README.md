@@ -37,9 +37,21 @@ R2_SECRET_ACCESS_KEY=your-r2-secret-key
 R2_BUCKET=your-r2-bucket
 R2_PREFIX=decal-sheet
 R2_PUBLIC_BASE_URL=https://files.example.com
+
+# Optional print order email delivery
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+PRINT_ORDER_EMAIL_FROM=orders@example.com
+PRINT_ORDER_EMAIL_TO=print-shop@example.com
+PRINT_ORDER_EMAIL_SUBJECT_PREFIX=New decal sheet order
 ```
 
 `R2_ENDPOINT` can be used instead of `R2_ACCOUNT_ID` when you want to provide the full S3-compatible endpoint. `R2_PUBLIC_BASE_URL` is optional; omit it if the bucket is private and admins should access files through internal tooling.
+
+When the SMTP and `PRINT_ORDER_EMAIL_*` variables are configured, submitted print orders are also emailed in the background with the print PDF, proof preview PNG, and order JSON attached. `SMTP_USER` and `SMTP_PASS` can be omitted only when your SMTP relay does not require authentication.
 
 ## Development
 
@@ -85,6 +97,8 @@ See `docs/quality-gate.md` for the standard done checklist, `docs/qa-baseline.md
 Uploaded and processed files are written under `backend/storage/uploads` and `backend/storage/processed`. These folders are ignored by git except for `.gitkeep` placeholders.
 
 Submitted print jobs are saved locally first so the customer receives a fast success response. When `DATABASE_URL` and the R2 variables are configured, the backend also stores `print.pdf`, `preview.png`, `order.json`, and `project.json` in Cloudflare R2 and records the submission in Postgres table `print_submissions`.
+
+If email delivery is configured, the backend sends the print package after the local files are saved and records `queued`, `sent`, or `failed` status in `order.json`.
 
 Clean processed files once:
 

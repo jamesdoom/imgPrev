@@ -229,3 +229,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: submit a realistic sheet from the deployed app and confirm the receipt appears quickly while R2 receives `print.pdf`, `preview.png`, `order.json`, and `project.json`
 - Regression added: backend and browser mocks now treat Postgres/R2 as the only production storage integration
 - Notes/follow-up: remove stale `CLOUDINARY_*` and `VITE_CLOUDINARY_*` variables from hosting dashboards after the deployment is verified
+
+## 2026-07-14 - Print Order Email Delivery
+
+- Automated: `npm run test -- backend/app.test.ts`, `npm run build`, `npm run build` from `backend/`
+- Accessibility: not applicable; backend email delivery only
+- Manual: configure SMTP and `PRINT_ORDER_EMAIL_*` variables in Render, submit a realistic sheet, and confirm the recipient receives the print PDF, preview PNG, and order JSON
+- Regression added: backend coverage verifies configured SMTP queues email, sends the print package attachments, and updates `order.json` to `sent`
+- Notes/follow-up: keep email delivery background-only so customer submit speed still depends on local file save, not SMTP latency

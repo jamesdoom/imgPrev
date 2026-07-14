@@ -17,6 +17,7 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: true,
+  outputDir: ".cache/playwright/test-results",
   projects: [
     {
       name: "chromium",

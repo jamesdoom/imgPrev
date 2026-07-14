@@ -7,6 +7,7 @@ import sharp from "sharp";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import nodemailer from "nodemailer";
 import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
 import {
   createQueuedProductionStorageRecord,
@@ -297,6 +298,18 @@ export function createApp() {
             storage: productionStorage.status,
           });
 
+          if (emailDelivery.status === "queued") {
+            void sendPrintOrderEmailInBackground({
+              orderRecord,
+              projectDir,
+              projectId,
+              renderedFiles,
+              timing,
+            });
+          } else {
+            logSubmitTiming(timing, "email skipped", { projectId });
+          }
+
           if (isProductionStorageConfigured()) {
             void persistProductionStorageInBackground({
               orderRecord,
@@ -498,11 +511,108 @@ function getUploadedRenderFiles(
 }
 
 function createPrintOrderEmailDelivery(): PrintOrderEmailDelivery {
+  const config = getPrintOrderEmailConfig();
+
+  if (config) {
+    return {
+      message: `Print order email queued for ${formatEmailRecipients(
+        config.to
+      )}.`,
+      recipient: formatEmailRecipients(config.to),
+      status: "queued",
+    };
+  }
+
+  const missingConfig = getMissingPrintOrderEmailConfig();
+
   return {
-    status: "not-configured",
     message:
-      "Email delivery is not configured yet. The printable PDF and order files were saved for admin review.",
+      missingConfig.length > 0
+        ? `Email delivery is not configured yet. Missing ${missingConfig.join(
+            ", "
+          )}. The printable PDF and order files were saved for admin review.`
+        : "Email delivery is not configured yet. The printable PDF and order files were saved for admin review.",
+    status: "not-configured",
   };
+}
+
+function getPrintOrderEmailConfig(): PrintOrderEmailConfig | null {
+  const missingConfig = getMissingPrintOrderEmailConfig();
+
+  if (missingConfig.length > 0) {
+    return null;
+  }
+
+  return {
+    auth:
+      process.env.SMTP_USER && process.env.SMTP_PASS
+        ? {
+            pass: process.env.SMTP_PASS,
+            user: process.env.SMTP_USER,
+          }
+        : undefined,
+    from: process.env.PRINT_ORDER_EMAIL_FROM?.trim() ?? "",
+    host: process.env.SMTP_HOST?.trim() ?? "",
+    port: getSmtpPort(),
+    secure: getSmtpSecure(),
+    subjectPrefix:
+      process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX?.trim() ||
+      "New decal sheet order",
+    to: getEmailRecipients(process.env.PRINT_ORDER_EMAIL_TO),
+  };
+}
+
+function getMissingPrintOrderEmailConfig(): string[] {
+  const missingConfig: string[] = [];
+
+  if (!process.env.SMTP_HOST?.trim()) {
+    missingConfig.push("SMTP_HOST");
+  }
+
+  if (getEmailRecipients(process.env.PRINT_ORDER_EMAIL_TO).length === 0) {
+    missingConfig.push("PRINT_ORDER_EMAIL_TO");
+  }
+
+  if (!process.env.PRINT_ORDER_EMAIL_FROM?.trim()) {
+    missingConfig.push("PRINT_ORDER_EMAIL_FROM");
+  }
+
+  return missingConfig;
+}
+
+function getSmtpPort(): number {
+  const configuredPort = Number(process.env.SMTP_PORT);
+
+  return Number.isFinite(configuredPort) && configuredPort > 0
+    ? configuredPort
+    : 587;
+}
+
+function getSmtpSecure(): boolean {
+  const configuredSecure = process.env.SMTP_SECURE?.trim().toLowerCase();
+
+  if (configuredSecure === "true" || configuredSecure === "1") {
+    return true;
+  }
+
+  if (configuredSecure === "false" || configuredSecure === "0") {
+    return false;
+  }
+
+  return getSmtpPort() === 465;
+}
+
+function getEmailRecipients(value: string | undefined): string[] {
+  return (
+    value
+      ?.split(",")
+      .map((recipient) => recipient.trim())
+      .filter(Boolean) ?? []
+  );
+}
+
+function formatEmailRecipients(recipients: string[]): string {
+  return recipients.join(", ");
 }
 
 function createPrintOrderRecord({
@@ -612,6 +722,184 @@ function logSubmitTiming(
       .join(" ")
   );
   timing.lastAt = now;
+}
+
+async function sendPrintOrderEmailInBackground({
+  orderRecord,
+  projectDir,
+  projectId,
+  renderedFiles,
+  timing,
+}: {
+  orderRecord: PrintOrderRecord;
+  projectDir: string;
+  projectId: string;
+  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  timing: SubmitTiming;
+}) {
+  const config = getPrintOrderEmailConfig();
+
+  if (!config) {
+    logSubmitTiming(timing, "email skipped", { projectId });
+    return;
+  }
+
+  logSubmitTiming(timing, "email started", { projectId });
+
+  try {
+    const transporter = nodemailer.createTransport({
+      auth: config.auth,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+    });
+    const message = createPrintOrderEmailMessage({
+      config,
+      orderRecord,
+      renderedFiles,
+    });
+
+    await transporter.sendMail(message);
+
+    const emailDelivery: PrintOrderEmailDelivery = {
+      message: `Print order email sent to ${formatEmailRecipients(config.to)}.`,
+      recipient: formatEmailRecipients(config.to),
+      sentAt: new Date().toISOString(),
+      status: "sent",
+    };
+
+    await writePrintOrderEmailRecord({
+      emailDelivery,
+      orderRecord,
+      projectDir,
+    });
+    logSubmitTiming(timing, "email finished", { projectId, status: "sent" });
+  } catch (error) {
+    const emailDelivery: PrintOrderEmailDelivery = {
+      error: error instanceof Error ? error.message : String(error),
+      message: `Print order email failed for ${formatEmailRecipients(
+        config.to
+      )}. The printable PDF and order files were saved for admin review.`,
+      recipient: formatEmailRecipients(config.to),
+      status: "failed",
+    };
+
+    console.warn(`[submit-project] email failed projectId=${projectId}`, error);
+
+    try {
+      await writePrintOrderEmailRecord({
+        emailDelivery,
+        orderRecord,
+        projectDir,
+      });
+    } catch (writeError) {
+      console.warn(
+        `[submit-project] could not persist email failure projectId=${projectId}`,
+        writeError
+      );
+    }
+  }
+}
+
+function createPrintOrderEmailMessage({
+  config,
+  orderRecord,
+  renderedFiles,
+}: {
+  config: PrintOrderEmailConfig;
+  orderRecord: PrintOrderRecord;
+  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+}): nodemailer.SendMailOptions {
+  const text = createPrintOrderEmailText(orderRecord);
+
+  return {
+    attachments: [
+      {
+        content: renderedFiles.printPdf,
+        contentType: "application/pdf",
+        filename: `${orderRecord.projectId}-print.pdf`,
+      },
+      {
+        content: renderedFiles.previewPng,
+        contentType: "image/png",
+        filename: `${orderRecord.projectId}-preview.png`,
+      },
+      {
+        content: JSON.stringify(orderRecord, null, 2),
+        contentType: "application/json",
+        filename: `${orderRecord.projectId}-order.json`,
+      },
+    ],
+    from: config.from,
+    subject: `${config.subjectPrefix}: ${orderRecord.projectId}`,
+    text,
+    to: config.to,
+  };
+}
+
+function createPrintOrderEmailText(orderRecord: PrintOrderRecord): string {
+  const customerDetails = [
+    orderRecord.customer.name
+      ? `Customer name: ${orderRecord.customer.name}`
+      : null,
+    orderRecord.customer.company
+      ? `Company: ${orderRecord.customer.company}`
+      : null,
+    orderRecord.customer.email
+      ? `Customer email: ${orderRecord.customer.email}`
+      : null,
+    orderRecord.customer.note
+      ? `Customer note: ${orderRecord.customer.note}`
+      : null,
+  ].filter(Boolean);
+
+  return [
+    "A new decal sheet print order was submitted.",
+    "",
+    `Project ID: ${orderRecord.projectId}`,
+    `Submitted: ${orderRecord.submittedAt}`,
+    `Sheet: ${formatNullableNumber(orderRecord.sheet.widthIn)}" x ${formatNullableNumber(
+      orderRecord.sheet.heightIn
+    )}" at ${formatNullableNumber(orderRecord.sheet.dpi)} DPI`,
+    `Artwork assets: ${orderRecord.counts.assets}`,
+    `Decals: ${orderRecord.counts.decals}`,
+    "",
+    ...(customerDetails.length > 0
+      ? ["Customer details:", ...customerDetails, ""]
+      : []),
+    "Attached files:",
+    "- Print PDF",
+    "- Proof preview PNG",
+    "- Order JSON",
+  ].join("\n");
+}
+
+function formatNullableNumber(value: number | null): string {
+  return value === null ? "unknown" : String(value);
+}
+
+async function writePrintOrderEmailRecord({
+  emailDelivery,
+  orderRecord,
+  projectDir,
+}: {
+  emailDelivery: PrintOrderEmailDelivery;
+  orderRecord: PrintOrderRecord;
+  projectDir: string;
+}) {
+  const currentOrderRecord = await readCurrentPrintOrderRecord(
+    projectDir,
+    orderRecord
+  );
+  const updatedOrderRecord: PrintOrderRecord = {
+    ...currentOrderRecord,
+    email: emailDelivery,
+  };
+
+  await fs.promises.writeFile(
+    path.join(projectDir, "order.json"),
+    JSON.stringify(updatedOrderRecord, null, 2)
+  );
 }
 
 async function persistProductionStorageInBackground({
@@ -1207,7 +1495,23 @@ interface PrintOrderRecord {
 
 interface PrintOrderEmailDelivery {
   status: "not-configured" | "queued" | "sent" | "failed";
+  error?: string;
   message?: string;
+  recipient?: string;
+  sentAt?: string;
+}
+
+interface PrintOrderEmailConfig {
+  auth?: {
+    pass: string;
+    user: string;
+  };
+  from: string;
+  host: string;
+  port: number;
+  secure: boolean;
+  subjectPrefix: string;
+  to: string[];
 }
 
 function getReviewStatus(status: unknown): ProjectReviewStatus | null {

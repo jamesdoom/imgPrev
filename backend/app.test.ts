@@ -1,9 +1,16 @@
 import request from "supertest";
 import fs from "fs";
 import path from "path";
+import nodemailer from "nodemailer";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
+
+vi.mock("nodemailer", () => ({
+  default: {
+    createTransport: vi.fn(),
+  },
+}));
 
 const validPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -23,6 +30,17 @@ const originalProductionStorageEnv = {
   R2_REGION: process.env.R2_REGION,
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
 };
+const originalEmailEnv = {
+  PRINT_ORDER_EMAIL_FROM: process.env.PRINT_ORDER_EMAIL_FROM,
+  PRINT_ORDER_EMAIL_SUBJECT_PREFIX: process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX,
+  PRINT_ORDER_EMAIL_TO: process.env.PRINT_ORDER_EMAIL_TO,
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_PORT: process.env.SMTP_PORT,
+  SMTP_SECURE: process.env.SMTP_SECURE,
+  SMTP_USER: process.env.SMTP_USER,
+};
+
 beforeEach(() => {
   delete process.env.DATABASE_URL;
   delete process.env.POSTGRES_SSL;
@@ -34,6 +52,15 @@ beforeEach(() => {
   delete process.env.R2_PUBLIC_BASE_URL;
   delete process.env.R2_REGION;
   delete process.env.R2_SECRET_ACCESS_KEY;
+  delete process.env.PRINT_ORDER_EMAIL_FROM;
+  delete process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX;
+  delete process.env.PRINT_ORDER_EMAIL_TO;
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_PASS;
+  delete process.env.SMTP_PORT;
+  delete process.env.SMTP_SECURE;
+  delete process.env.SMTP_USER;
+  vi.mocked(nodemailer.createTransport).mockReset();
 });
 
 afterEach(async () => {
@@ -46,8 +73,33 @@ afterEach(async () => {
     )
   );
   restoreProductionStorageEnv();
+  restoreEmailEnv();
   vi.restoreAllMocks();
 });
+
+async function waitForOrderEmailStatus(
+  projectId: string,
+  status: "queued" | "sent" | "failed"
+) {
+  const deadline = Date.now() + 2_000;
+
+  while (Date.now() < deadline) {
+    const orderJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, projectId, "order.json"),
+        "utf8"
+      )
+    );
+
+    if (orderJson.email?.status === status) {
+      return orderJson;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  throw new Error(`Timed out waiting for email status ${status}.`);
+}
 
 function renderManifest() {
   return {
@@ -323,6 +375,79 @@ describe("backend app", () => {
     expect(originalAsset).toEqual(validPng);
   });
 
+  test("emails print order details when SMTP is configured", async () => {
+    const sendMail = vi.fn().mockResolvedValue({ messageId: "message-1" });
+
+    process.env.PRINT_ORDER_EMAIL_FROM = "orders@example.com";
+    process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX = "Print-ready decal sheet";
+    process.env.PRINT_ORDER_EMAIL_TO = "print@example.com, owner@example.com";
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_PASS = "smtp-pass";
+    process.env.SMTP_PORT = "2525";
+    process.env.SMTP_SECURE = "false";
+    process.env.SMTP_USER = "smtp-user";
+    vi.mocked(nodemailer.createTransport).mockReturnValue({
+      sendMail,
+    } as never);
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    expect(response.status).toBe(201);
+    expect(response.body.email).toMatchObject({
+      recipient: "print@example.com, owner@example.com",
+      status: "queued",
+    });
+
+    const orderJson = await waitForOrderEmailStatus(
+      response.body.projectId,
+      "sent"
+    );
+
+    expect(nodemailer.createTransport).toHaveBeenCalledWith({
+      auth: {
+        pass: "smtp-pass",
+        user: "smtp-user",
+      },
+      host: "smtp.example.com",
+      port: 2525,
+      secure: false,
+    });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({
+            contentType: "application/pdf",
+            filename: `${response.body.projectId}-print.pdf`,
+          }),
+          expect.objectContaining({
+            contentType: "image/png",
+            filename: `${response.body.projectId}-preview.png`,
+          }),
+          expect.objectContaining({
+            contentType: "application/json",
+            filename: `${response.body.projectId}-order.json`,
+          }),
+        ]),
+        from: "orders@example.com",
+        subject: `Print-ready decal sheet: ${response.body.projectId}`,
+        to: ["print@example.com", "owner@example.com"],
+      })
+    );
+    expect(orderJson.email).toMatchObject({
+      recipient: "print@example.com, owner@example.com",
+      sentAt: expect.any(String),
+      status: "sent",
+    });
+  });
+
   test("lists submitted projects for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)
@@ -569,6 +694,23 @@ function restoreProductionStorageEnv() {
     "R2_SECRET_ACCESS_KEY",
     originalProductionStorageEnv.R2_SECRET_ACCESS_KEY
   );
+}
+
+function restoreEmailEnv() {
+  restoreEnvValue(
+    "PRINT_ORDER_EMAIL_FROM",
+    originalEmailEnv.PRINT_ORDER_EMAIL_FROM
+  );
+  restoreEnvValue(
+    "PRINT_ORDER_EMAIL_SUBJECT_PREFIX",
+    originalEmailEnv.PRINT_ORDER_EMAIL_SUBJECT_PREFIX
+  );
+  restoreEnvValue("PRINT_ORDER_EMAIL_TO", originalEmailEnv.PRINT_ORDER_EMAIL_TO);
+  restoreEnvValue("SMTP_HOST", originalEmailEnv.SMTP_HOST);
+  restoreEnvValue("SMTP_PASS", originalEmailEnv.SMTP_PASS);
+  restoreEnvValue("SMTP_PORT", originalEmailEnv.SMTP_PORT);
+  restoreEnvValue("SMTP_SECURE", originalEmailEnv.SMTP_SECURE);
+  restoreEnvValue("SMTP_USER", originalEmailEnv.SMTP_USER);
 }
 
 function restoreEnvValue(key: string, value: string | undefined) {
