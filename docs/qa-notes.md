@@ -237,3 +237,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: configure SMTP and `PRINT_ORDER_EMAIL_*` variables in Render, submit a realistic sheet, and confirm the recipient receives the print PDF, preview PNG, and order JSON
 - Regression added: backend coverage verifies configured SMTP queues email, sends the print package attachments, and updates `order.json` to `sent`
 - Notes/follow-up: keep email delivery background-only so customer submit speed still depends on local file save, not SMTP latency
+
+## 2026-07-14 - CI Lockfile Peer Sync
+
+- Automated: `npm ci --no-audit --no-fund`, `npm run test:client-ready`
+- Accessibility: covered by the full client-ready gate
+- Manual: confirm the pushed Quality Gate run gets past the `npm ci` install step
+- Regression added: lockfile now includes npm 11 peer dependencies required by `@napi-rs/wasm-runtime`
+- Notes/follow-up: keep GitHub Actions as the authority for npm 11 behavior because local Windows uses npm 10
