@@ -253,3 +253,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: submit a live proof through Render/Brevo and confirm `order.json` moves from `queued` to either `sent` or `failed`
 - Regression added: backend coverage verifies failed SMTP delivery writes a `failed` email status to `order.json`
 - Notes/follow-up: Brevo should use `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, and `SMTP_SECURE=false`
+
+## 2026-07-14 - Admin Print Handoff Polish
+
+- Automated: `npm run test -- src/admin/AdminReviewScreen.test.tsx src/admin/AdminReviewScreen.accessibility.test.tsx`, `npm run test:e2e -- tests/e2e/admin-review.spec.ts`
+- Accessibility: admin handoff remains covered by axe-style admin screen coverage
+- Manual: verify the admin detail page answers "What do I print?" with the print PDF as the primary action before metadata and supporting files
+- Regression added: component and browser coverage assert the primary print PDF action, visual-reference preview copy, status history, and supporting files section
+- Notes/follow-up: keep production storage and JSON/artwork links available, but visually secondary to the PDF handoff

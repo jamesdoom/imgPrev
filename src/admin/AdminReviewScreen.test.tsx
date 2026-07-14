@@ -108,22 +108,34 @@ describe("AdminReviewScreen", () => {
     expect(await screen.findByText("Solid #ffffff")).toBeInTheDocument();
     expect(
       await screen.findAllByText("project-20260625120000-abc123")
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getByText("Artwork is below the preferred DPI.")
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Print handoff" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "What do I print?" })
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Use the PDF as the print file. The preview and JSON record support production review."
+        "Print the production PDF. The preview is only a visual reference, and the JSON/original artwork files are supporting records."
       )
     ).toBeInTheDocument();
     expect(screen.getByText("Ready for print review")).toBeInTheDocument();
-    expect(screen.getByText("PDF file")).toBeInTheDocument();
-    expect(screen.getByText("Preview image")).toBeInTheDocument();
-    expect(screen.getByText("Order JSON")).toBeInTheDocument();
-    expect(screen.getByText("Original files")).toBeInTheDocument();
-    expect(screen.getByText("1 file")).toBeInTheDocument();
+    expect(screen.getByText("Primary print file")).toBeInTheDocument();
+    expect(screen.getAllByText("Print PDF").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("This is the file to send to production.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download print PDF/ })).toHaveAttribute(
+      "download",
+      "print.pdf"
+    );
+    expect(screen.getByRole("link", { name: /Open PDF/ })).toHaveAttribute(
+      "href",
+      "http://localhost:4000/projects/project-20260625120000-abc123/print.pdf"
+    );
+    expect(screen.getByText("Visual reference only. Print from the PDF above.")).toBeInTheDocument();
+    expect(screen.getByText("Support files")).toBeInTheDocument();
+    expect(screen.getByText("PDF, preview, order record")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Status history" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Production storage" })
     ).toBeInTheDocument();
@@ -137,6 +149,7 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
     expect(screen.getByText("Not reviewed yet")).toBeInTheDocument();
     expect(screen.getByText(/No review decisions yet/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Supporting files" })).toBeInTheDocument();
     expect(screen.getByText("Original artwork")).toBeInTheDocument();
     expect(screen.getByText("pixel.png")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();

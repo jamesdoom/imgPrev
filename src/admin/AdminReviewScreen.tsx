@@ -383,71 +383,77 @@ function ProjectDetail({
         </div>
       </div>
 
-      {project.files.previewPng && (
-        <div className="overflow-hidden rounded border border-neutral-300 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2">
-            <p className="text-sm font-semibold">Proof preview</p>
-            <FileActionLinks
-              downloadLabel="Download PNG"
-              fileName="preview.png"
-              filePath={project.files.previewPng}
-              openLabel="Open full size"
+      <PrintHandoffPanel metadata={metadata} project={project} />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="space-y-4">
+          {project.files.previewPng && (
+            <div className="overflow-hidden rounded border border-neutral-300 bg-white">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold">Proof preview</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Visual reference only. Print from the PDF above.
+                  </p>
+                </div>
+                <FileActionLinks
+                  downloadLabel="Download PNG"
+                  fileName="preview.png"
+                  filePath={project.files.previewPng}
+                  openLabel="Open full size"
+                />
+              </div>
+              <img
+                alt="Submitted sheet preview"
+                className="max-h-[440px] w-full bg-neutral-50 object-contain"
+                src={getAdminFileUrl(project.files.previewPng)}
+              />
+            </div>
+          )}
+
+          <div className="rounded border border-neutral-300 bg-white">
+            <SectionTitle title="Review decision" />
+            <ReviewDecisionPanel
+              note={reviewNote}
+              reviewerName={reviewerName}
+              savingStatus={savingReviewStatus}
+              error={reviewError}
+              onChangeNote={onChangeReviewNote}
+              onChangeReviewerName={onChangeReviewerName}
+              onUpdateReview={onUpdateReview}
             />
           </div>
-          <img
-            alt="Submitted sheet preview"
-            className="max-h-[440px] w-full bg-neutral-50 object-contain"
-            src={getAdminFileUrl(project.files.previewPng)}
-          />
         </div>
-      )}
 
-      <PrintHandoffPanel files={project.files} />
-
-      <ProductionStoragePanel storage={project.storage} />
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded border border-neutral-300 bg-white">
-          <SectionTitle title="Production metadata" />
+          <SectionTitle title="Status history" />
+          <ReviewHistory project={project} submittedAt={project.submittedAt} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="rounded border border-neutral-300 bg-white">
+          <SectionTitle title="Secondary production details" />
           <dl className="grid grid-cols-2 gap-px bg-neutral-200 text-sm sm:grid-cols-3">
-            <MetadataItem label="Sheet" value={formatSheet(project.sheet)} />
             <MetadataItem label="DPI" value={project.sheet.dpi ?? "Unknown"} />
             <MetadataItem label="Background" value={metadata.background} />
-            <MetadataItem
-              label="Review"
-              value={formatReviewStatus(project.review.status)}
-            />
-            <MetadataItem label="Preflight issues" value={metadata.issueCount} />
             <MetadataItem label="Assets" value={project.counts.assets} />
-            <MetadataItem label="Decals" value={project.counts.items} />
+            <MetadataItem label="Preflight issues" value={metadata.issueCount} />
+            <MetadataItem
+              label="Storage"
+              value={formatStorageStatus(project.storage?.status)}
+            />
+            <MetadataItem label="Project" value={project.projectId} />
           </dl>
         </div>
 
         <div className="rounded border border-neutral-300 bg-white">
-          <SectionTitle title="Export files" />
+          <SectionTitle title="Supporting files" />
           <FileLinks files={project.files} />
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="rounded border border-neutral-300 bg-white">
-          <SectionTitle title="Review decision" />
-          <ReviewDecisionPanel
-            note={reviewNote}
-            reviewerName={reviewerName}
-            savingStatus={savingReviewStatus}
-            error={reviewError}
-            onChangeNote={onChangeReviewNote}
-            onChangeReviewerName={onChangeReviewerName}
-            onUpdateReview={onUpdateReview}
-          />
-        </div>
-
-        <div className="rounded border border-neutral-300 bg-white">
-          <SectionTitle title="Review history" />
-          <ReviewHistory project={project} submittedAt={project.submittedAt} />
-        </div>
-      </div>
+      <ProductionStoragePanel storage={project.storage} />
 
       {project.manifest.preflight?.issues?.length ? (
         <div className="rounded border border-neutral-300 bg-white">
@@ -705,30 +711,44 @@ function ReviewHistorySummary({
   );
 }
 
-function PrintHandoffPanel({ files }: { files: AdminReviewProjectFiles }) {
-  const hasPrintPdf = Boolean(files.printPdf);
+function PrintHandoffPanel({
+  metadata,
+  project,
+}: {
+  metadata: {
+    errorCount: number;
+    issueCount: number;
+    warningCount: number;
+  };
+  project: AdminReviewProjectDetail;
+}) {
+  const files = project.files;
+  const printPdf = files.printPdf;
+  const hasPrintPdf = Boolean(printPdf);
   const hasPreview = Boolean(files.previewPng);
   const hasOrderRecord = Boolean(files.orderJson);
-  const originalArtworkCount = files.assetFiles?.length ?? 0;
   const isReady = hasPrintPdf && hasPreview && hasOrderRecord;
 
   return (
     <section
       aria-labelledby="print-handoff-heading"
-      className="rounded border border-neutral-300 bg-white"
+      className="overflow-hidden rounded border border-teal-700 bg-white shadow-sm"
     >
-      <div className="flex flex-col gap-2 border-b border-neutral-200 px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="grid gap-4 border-b border-teal-100 bg-teal-50 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div>
-          <h3 id="print-handoff-heading" className="text-sm font-semibold">
+          <p className="text-xs font-semibold uppercase tracking-wide text-teal-800">
             Print handoff
+          </p>
+          <h3 id="print-handoff-heading" className="mt-1 text-2xl font-semibold">
+            What do I print?
           </h3>
-          <p className="mt-1 text-sm text-neutral-600">
-            Use the PDF as the print file. The preview and JSON record support
-            production review.
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-700">
+            Print the production PDF. The preview is only a visual reference,
+            and the JSON/original artwork files are supporting records.
           </p>
         </div>
         <span
-          className={`inline-flex h-8 shrink-0 items-center gap-2 rounded border px-2 text-xs font-semibold ${
+          className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold ${
             isReady
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-amber-200 bg-amber-50 text-amber-900"
@@ -742,23 +762,72 @@ function PrintHandoffPanel({ files }: { files: AdminReviewProjectFiles }) {
           {isReady ? "Ready for print review" : "Needs file review"}
         </span>
       </div>
-      <dl className="grid gap-px bg-neutral-200 text-sm sm:grid-cols-4">
-        <HandoffStatusItem available={hasPrintPdf} label="PDF file" />
-        <HandoffStatusItem available={hasPreview} label="Preview image" />
-        <HandoffStatusItem available={hasOrderRecord} label="Order JSON" />
-        <div className="bg-white p-3">
-          <dt className="text-xs font-semibold uppercase text-neutral-500">
-            Original files
-          </dt>
-          <dd className="mt-2 font-medium text-neutral-900">
-            {originalArtworkCount > 0
-              ? `${originalArtworkCount} ${
-                  originalArtworkCount === 1 ? "file" : "files"
-                }`
-              : "Not included"}
-          </dd>
+      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)]">
+        <div className="rounded border border-neutral-200 bg-neutral-50 p-4">
+          <p className="text-sm font-semibold text-neutral-600">
+            Primary print file
+          </p>
+          <p className="mt-2 text-xl font-semibold text-neutral-950">
+            Print PDF
+          </p>
+          <p className="mt-1 text-sm text-neutral-600">
+            This is the file to send to production.
+          </p>
+          {printPdf ? (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <a
+                className={`inline-flex h-12 items-center justify-center gap-2 rounded bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${focusRingClass}`}
+                download="print.pdf"
+                href={getAdminFileUrl(printPdf)}
+              >
+                Download print PDF
+                <ArrowDownTrayIcon className="h-5 w-5" />
+              </a>
+              <a
+                className={`inline-flex h-12 items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
+                href={getAdminFileUrl(printPdf)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open PDF
+                <ArrowTopRightOnSquareIcon className="h-5 w-5" />
+              </a>
+            </div>
+          ) : (
+            <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              The print PDF is missing. Review the supporting files before
+              sending this order to production.
+            </div>
+          )}
         </div>
-      </dl>
+
+        <dl className="grid gap-px overflow-hidden rounded border border-neutral-200 bg-neutral-200 text-sm sm:grid-cols-2 xl:grid-cols-3">
+          <HandoffMetric label="Sheet" value={formatSheet(project.sheet)} />
+          <HandoffMetric label="Decals" value={project.counts.items} />
+          <HandoffMetric
+            label="Submitted"
+            value={formatDateTime(project.submittedAt)}
+          />
+          <HandoffMetric
+            label="Review status"
+            value={formatReviewStatus(project.review.status)}
+          />
+          <HandoffMetric
+            label="Preflight"
+            value={
+              metadata.issueCount === 0
+                ? "No issues"
+                : `${metadata.errorCount} errors | ${metadata.warningCount} warnings`
+            }
+          />
+          <HandoffMetric
+            label="Support files"
+            value={
+              isReady ? "PDF, preview, order record" : "Review missing files"
+            }
+          />
+        </dl>
+      </div>
     </section>
   );
 }
@@ -935,29 +1004,20 @@ function StorageFileStatusItem({
   );
 }
 
-function HandoffStatusItem({
-  available,
+function HandoffMetric({
   label,
+  value,
 }: {
-  available: boolean;
   label: string;
+  value: number | string;
 }) {
   return (
     <div className="bg-white p-3">
       <dt className="text-xs font-semibold uppercase text-neutral-500">
         {label}
       </dt>
-      <dd
-        className={`mt-2 inline-flex items-center gap-1 font-medium ${
-          available ? "text-emerald-800" : "text-amber-900"
-        }`}
-      >
-        {available ? (
-          <CheckCircleIcon className="h-4 w-4" />
-        ) : (
-          <ExclamationTriangleIcon className="h-4 w-4" />
-        )}
-        {available ? "Ready" : "Missing"}
+      <dd className="mt-2 break-words font-semibold text-neutral-950">
+        {value}
       </dd>
     </div>
   );

@@ -135,7 +135,9 @@ test("admin can review downloadable previews and approve a project", async ({
   await page.getByRole("button", { name: new RegExp(projectId) }).click();
 
   await expect(page.getByRole("img", { name: "Submitted sheet preview" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Print handoff" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "What do I print?" }),
+  ).toBeVisible();
   await expect(page.getByText("Ready for print review")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Production storage" })).toBeVisible();
   await expect(page.getByText("Production files stored")).toBeVisible();
@@ -143,14 +145,27 @@ test("admin can review downloadable previews and approve a project", async ({
   await expect(page.getByText(`proofs/${projectId}/print.pdf | 1.4 MB`)).toBeVisible();
   await expect(
     page.getByText(
-      "Use the PDF as the print file. The preview and JSON record support production review.",
+      "Print the production PDF. The preview is only a visual reference, and the JSON/original artwork files are supporting records.",
     ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Download print PDF/ }),
+  ).toHaveAttribute(
+    "href",
+    "http://localhost:4000/projects/project-playwright-admin/print.pdf",
+  );
+  await expect(
+    page.getByText("Visual reference only. Print from the PDF above."),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /Download PNG/ }).first()).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/preview.png",
   );
-  await expect(page.getByText("Print PDF")).toBeVisible();
+  await expect(
+    page.getByLabel("What do I print?").getByText("Print PDF", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /Download order/ })).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/order.json",
