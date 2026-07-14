@@ -245,3 +245,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirm the pushed Quality Gate run gets past the `npm ci` install step
 - Regression added: lockfile now includes npm 11 peer dependencies required by `@napi-rs/wasm-runtime`
 - Notes/follow-up: keep GitHub Actions as the authority for npm 11 behavior because local Windows uses npm 10
+
+## 2026-07-14 - SMTP Delivery Status Timeout
+
+- Automated: `npm run test -- backend/app.test.ts`
+- Accessibility: not applicable; backend email delivery status only
+- Manual: submit a live proof through Render/Brevo and confirm `order.json` moves from `queued` to either `sent` or `failed`
+- Regression added: backend coverage verifies failed SMTP delivery writes a `failed` email status to `order.json`
+- Notes/follow-up: Brevo should use `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, and `SMTP_SECURE=false`

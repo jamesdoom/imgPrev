@@ -38,6 +38,7 @@ const originalEmailEnv = {
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_SECURE: process.env.SMTP_SECURE,
+  SMTP_TIMEOUT_MS: process.env.SMTP_TIMEOUT_MS,
   SMTP_USER: process.env.SMTP_USER,
 };
 
@@ -59,6 +60,7 @@ beforeEach(() => {
   delete process.env.SMTP_PASS;
   delete process.env.SMTP_PORT;
   delete process.env.SMTP_SECURE;
+  delete process.env.SMTP_TIMEOUT_MS;
   delete process.env.SMTP_USER;
   vi.mocked(nodemailer.createTransport).mockReset();
 });
@@ -385,6 +387,7 @@ describe("backend app", () => {
     process.env.SMTP_PASS = "smtp-pass";
     process.env.SMTP_PORT = "2525";
     process.env.SMTP_SECURE = "false";
+    process.env.SMTP_TIMEOUT_MS = "5000";
     process.env.SMTP_USER = "smtp-user";
     vi.mocked(nodemailer.createTransport).mockReturnValue({
       sendMail,
@@ -416,9 +419,12 @@ describe("backend app", () => {
         pass: "smtp-pass",
         user: "smtp-user",
       },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
       host: "smtp.example.com",
       port: 2525,
       secure: false,
+      socketTimeout: 5000,
     });
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -445,6 +451,44 @@ describe("backend app", () => {
       recipient: "print@example.com, owner@example.com",
       sentAt: expect.any(String),
       status: "sent",
+    });
+  });
+
+  test("records failed print order email delivery", async () => {
+    const sendMail = vi.fn().mockRejectedValue(new Error("SMTP rejected"));
+
+    process.env.PRINT_ORDER_EMAIL_FROM = "orders@example.com";
+    process.env.PRINT_ORDER_EMAIL_TO = "print@example.com";
+    process.env.SMTP_HOST = "smtp.example.com";
+    vi.mocked(nodemailer.createTransport).mockReturnValue({
+      sendMail,
+    } as never);
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    expect(response.status).toBe(201);
+    expect(response.body.email).toMatchObject({
+      recipient: "print@example.com",
+      status: "queued",
+    });
+
+    const orderJson = await waitForOrderEmailStatus(
+      response.body.projectId,
+      "failed"
+    );
+
+    expect(orderJson.email).toMatchObject({
+      error: "SMTP rejected",
+      recipient: "print@example.com",
+      status: "failed",
     });
   });
 
@@ -710,6 +754,7 @@ function restoreEmailEnv() {
   restoreEnvValue("SMTP_PASS", originalEmailEnv.SMTP_PASS);
   restoreEnvValue("SMTP_PORT", originalEmailEnv.SMTP_PORT);
   restoreEnvValue("SMTP_SECURE", originalEmailEnv.SMTP_SECURE);
+  restoreEnvValue("SMTP_TIMEOUT_MS", originalEmailEnv.SMTP_TIMEOUT_MS);
   restoreEnvValue("SMTP_USER", originalEmailEnv.SMTP_USER);
 }
 

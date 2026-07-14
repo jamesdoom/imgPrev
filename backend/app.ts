@@ -558,6 +558,7 @@ function getPrintOrderEmailConfig(): PrintOrderEmailConfig | null {
     subjectPrefix:
       process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX?.trim() ||
       "New decal sheet order",
+    timeoutMs: getSmtpTimeoutMs(),
     to: getEmailRecipients(process.env.PRINT_ORDER_EMAIL_TO),
   };
 }
@@ -600,6 +601,14 @@ function getSmtpSecure(): boolean {
   }
 
   return getSmtpPort() === 465;
+}
+
+function getSmtpTimeoutMs(): number {
+  const configuredTimeout = Number(process.env.SMTP_TIMEOUT_MS);
+
+  return Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 15_000;
 }
 
 function getEmailRecipients(value: string | undefined): string[] {
@@ -749,9 +758,12 @@ async function sendPrintOrderEmailInBackground({
   try {
     const transporter = nodemailer.createTransport({
       auth: config.auth,
+      connectionTimeout: config.timeoutMs,
+      greetingTimeout: config.timeoutMs,
       host: config.host,
       port: config.port,
       secure: config.secure,
+      socketTimeout: config.timeoutMs,
     });
     const message = createPrintOrderEmailMessage({
       config,
@@ -1511,6 +1523,7 @@ interface PrintOrderEmailConfig {
   port: number;
   secure: boolean;
   subjectPrefix: string;
+  timeoutMs: number;
   to: string[];
 }
 
