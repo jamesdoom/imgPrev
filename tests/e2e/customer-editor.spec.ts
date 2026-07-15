@@ -270,13 +270,25 @@ test("customer can reach print readiness and submit a print order", async ({
   await expect(submitProgress).toContainText(
     "Uploading artwork and requesting the print PDF.",
   );
+  const receipt = page.getByRole("status", {
+    name: "Proof submitted receipt",
+  });
+  await expect(receipt.getByText("Proof submitted", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Submitted for print as project-playwright", { exact: true }),
+    receipt.getByText("Project ID: project-playwright", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Saved for print")).toBeVisible();
-  await expect(page.getByText("Print PDF")).toBeVisible();
-  await expect(page.getByText("Proof preview")).toBeVisible();
-  await expect(page.getByText("Order record")).toBeVisible();
+  await expect(receipt.getByText("What was saved")).toBeVisible();
+  await expect(receipt.getByText("Print PDF", { exact: true })).toBeVisible();
+  await expect(
+    receipt.getByText("Proof preview", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    receipt.getByText("Order details", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    receipt.getByText("Project backup", { exact: true }),
+  ).toBeVisible();
+  await expect(receipt.getByText("What happens next")).toBeVisible();
 });
 
 test("customer main proof path preserves layout, order summary, submit payload, and reload", async ({
@@ -384,15 +396,29 @@ test("customer main proof path preserves layout, order summary, submit payload, 
 
   await page.getByRole("button", { name: "Submit for Print" }).click();
 
+  const receipt = page.getByRole("status", {
+    name: "Proof submitted receipt",
+  });
+  await expect(receipt.getByText("Proof submitted", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Submitted for print as project-playwright-main", {
-      exact: true,
-    }),
+    receipt.getByText("Project ID: project-playwright-main", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Saved for print")).toBeVisible();
-  await expect(page.getByText("Print PDF")).toBeVisible();
-  await expect(page.getByText("Proof preview")).toBeVisible();
-  await expect(page.getByText("Order record")).toBeVisible();
+  await expect(receipt.getByText("What was saved")).toBeVisible();
+  await expect(receipt.getByText("Print PDF", { exact: true })).toBeVisible();
+  await expect(
+    receipt.getByText("Proof preview", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    receipt.getByText("Order details", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    receipt.getByText("Project backup", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    receipt.getByText(
+      "The print PDF and order details are ready for review. We will follow up if anything needs attention before printing.",
+    ),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "View application instructions" }).click();
   const instructionsDialog = page.getByRole("dialog", {
@@ -469,14 +495,16 @@ test("customer can recover after a failed print submission response", async ({
   await expect(
     page.getByRole("button", { name: "Submit for Print" }),
   ).toBeEnabled();
-  await expect(page.getByText("Submitted for print as project-playwright")).toHaveCount(0);
+  await expect(
+    page.getByRole("status", { name: "Proof submitted receipt" }),
+  ).toHaveCount(0);
 
   await page.getByRole("button", { name: "Submit for Print" }).click();
 
   await expect(
-    page.getByText("Submitted for print as project-playwright-retry", {
-      exact: true,
-    }),
+    page
+      .getByRole("status", { name: "Proof submitted receipt" })
+      .getByText("Project ID: project-playwright-retry", { exact: true }),
   ).toBeVisible();
   await expect(page.locator("#production-submit-failure")).toHaveCount(0);
 });

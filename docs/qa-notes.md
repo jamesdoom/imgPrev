@@ -261,3 +261,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verify the admin detail page answers "What do I print?" with the print PDF as the primary action before metadata and supporting files
 - Regression added: component and browser coverage assert the primary print PDF action, visual-reference preview copy, status history, and supporting files section
 - Notes/follow-up: keep production storage and JSON/artwork links available, but visually secondary to the PDF handoff
+
+## 2026-07-15 - Customer Proof Receipt
+
+- Automated: `npm run test:e2e -- tests/e2e/customer-editor.spec.ts`, `npm run test:client-ready`
+- Accessibility: receipt is announced as a labelled status region after successful submit
+- Manual: submit a realistic sheet and confirm the receipt calmly shows the project ID, saved print PDF/preview/order/project files, and the next review step
+- Regression added: customer browser coverage asserts the submitted receipt, project ID, saved-file checklist, next-step copy, and failed-submit recovery
+- Notes/follow-up: keep operational warnings conditional so the success state stays minimal for customers

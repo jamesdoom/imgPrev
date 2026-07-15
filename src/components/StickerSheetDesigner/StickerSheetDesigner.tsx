@@ -1498,13 +1498,27 @@ function ProductionActionsPanel({
         </div>
       )}
       {submittedProof && (
-        <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-          <p className="font-semibold">
-            Submitted for print as {submittedProof.projectId}
-          </p>
-          <div className="rounded border border-emerald-200 bg-white/70 p-2">
-            <p className="font-semibold text-emerald-900">Saved for print</p>
-            <dl className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
+        <div
+          aria-label="Proof submitted receipt"
+          className="space-y-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
+          role="status"
+        >
+          <div className="flex items-start gap-2">
+            <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-950">
+                Proof submitted
+              </p>
+              <p className="mt-1 leading-5">
+                Project ID:{" "}
+                <span className="font-semibold">{submittedProof.projectId}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded border border-emerald-200 bg-white/75 p-2">
+            <p className="font-semibold text-emerald-950">What was saved</p>
+            <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
               <ReceiptFileStatus
                 available={!!submittedProof.files.printPdf}
                 label="Print PDF"
@@ -1515,10 +1529,23 @@ function ProductionActionsPanel({
               />
               <ReceiptFileStatus
                 available={!!submittedProof.files.orderJson}
-                label="Order record"
+                label="Order details"
+              />
+              <ReceiptFileStatus
+                available={!!submittedProof.files.projectJson}
+                label="Project backup"
               />
             </dl>
           </div>
+
+          <div className="rounded border border-emerald-200 bg-white/60 p-2">
+            <p className="font-semibold text-emerald-950">What happens next</p>
+            <p className="mt-1 leading-5">
+              The print PDF and order details are ready for review. We will
+              follow up if anything needs attention before printing.
+            </p>
+          </div>
+
           {submittedProof.emailStatus === "not-configured" && (
             <p className="leading-5 text-amber-900">
               Email delivery is not configured yet; the PDF and order files were
@@ -2022,7 +2049,7 @@ function getSubmitProofReadiness({
   if (submittedProof) {
     return {
       className: "border-emerald-200 bg-emerald-50 text-emerald-800",
-      description: `Submitted for print as ${submittedProof.projectId}.`,
+      description: `Proof submitted. Project ID: ${submittedProof.projectId}.`,
       label: "Submitted",
     };
   }
