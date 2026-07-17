@@ -301,3 +301,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: reviewed large uploads, missing DPI, render/PDF failure, R2/Neon failure, SMTP failure, stale saved projects, and admin API errors against `docs/production-reliability-checks.md`
 - Regression added: route-specific 25 MB render limit messaging, persisted background storage failure with intact local PDF/order files, and controlled admin-list HTTP 500 response
 - Notes/follow-up: fixed two issues found—the wrong size-limit message on render routes and an unhandled admin-list filesystem failure
+
+## 2026-07-17 - Render Port Binding Hotfix
+
+- Automated: `npm test -- backend/serverConfig.test.ts`, backend TypeScript build, and full root build
+- Accessibility: not applicable; backend listener configuration only
+- Manual: confirmed Render provides `PORT=10000` and the server now listens on `0.0.0.0:10000`
+- Regression added: server binding test requires the default host to remain `0.0.0.0` and validates configured/fallback ports
+- Notes/follow-up: the failed deploy built successfully but timed out because the previous listener omitted the public host binding

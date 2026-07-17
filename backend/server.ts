@@ -1,8 +1,9 @@
 import { createApp } from "./app";
+import { getServerBinding } from "./serverConfig";
 
-const PORT = process.env.PORT || 4000;
+const { host, port } = getServerBinding();
 const app = createApp();
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+app.listen(port, host, () => {
+  console.log(`Server listening on http://${host}:${port}`);
 });
