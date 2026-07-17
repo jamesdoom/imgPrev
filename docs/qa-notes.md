@@ -293,3 +293,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: reviewed the empty upload state, automatic-placement confirmation, Auto-arrange disabled state, customer-facing preflight language, primary submit action, receipt, and application-instruction entry point
 - Regression added: browser and accessibility coverage assert the calmer first-run copy, automatic placement guidance, renamed Auto-arrange action, disabled production explanation, and post-submit instructions
 - Notes/follow-up: backend email/storage diagnostics now stay in admin instead of appearing on the successful customer receipt
+
+## 2026-07-17 - Production Reliability Checks
+
+- Automated: focused 61-test reliability suite plus `npm run test:client-ready`
+- Accessibility: covered by the full client-ready gate
+- Manual: reviewed large uploads, missing DPI, render/PDF failure, R2/Neon failure, SMTP failure, stale saved projects, and admin API errors against `docs/production-reliability-checks.md`
+- Regression added: route-specific 25 MB render limit messaging, persisted background storage failure with intact local PDF/order files, and controlled admin-list HTTP 500 response
+- Notes/follow-up: fixed two issues found—the wrong size-limit message on render routes and an unhandled admin-list filesystem failure

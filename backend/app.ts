@@ -335,9 +335,16 @@ export function createApp() {
 
   app.get("/admin/projects", (_req: Request, res: Response): void => {
     void (async () => {
-      const projects = await listSubmittedProjects();
+      try {
+        const projects = await listSubmittedProjects();
 
-      res.json({ projects });
+        res.json({ projects });
+      } catch (error) {
+        console.error("[admin-projects] could not list projects", error);
+        res.status(500).json({
+          error: "Could not load submitted projects.",
+        });
+      }
     })();
   });
 
@@ -423,14 +430,16 @@ export function createApp() {
   app.use(
     (
       err: Error,
-      _req: Request,
+      req: Request,
       res: Response,
       next: (err: Error) => void
     ) => {
       if (err instanceof multer.MulterError) {
         const message =
           err.code === "LIMIT_FILE_SIZE"
-            ? "Image must be 21MB or smaller."
+            ? req.path === "/upload"
+              ? "Image must be 21 MB or smaller."
+              : "Artwork files must be 25 MB or smaller."
             : err.message;
         res.status(400).json({ error: message });
         return;

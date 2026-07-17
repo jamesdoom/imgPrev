@@ -5,6 +5,21 @@ import nodemailer from "nodemailer";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
+import { persistProductionSubmissionToStorage } from "./productionStorage";
+
+vi.mock("./productionStorage", async () => {
+  const actual =
+    await vi.importActual<typeof import("./productionStorage")>(
+      "./productionStorage"
+    );
+
+  return {
+    ...actual,
+    persistProductionSubmissionToStorage: vi.fn(
+      actual.persistProductionSubmissionToStorage
+    ),
+  };
+});
 
 vi.mock("nodemailer", () => ({
   default: {
@@ -63,6 +78,7 @@ beforeEach(() => {
   delete process.env.SMTP_TIMEOUT_MS;
   delete process.env.SMTP_USER;
   vi.mocked(nodemailer.createTransport).mockReset();
+  vi.mocked(persistProductionSubmissionToStorage).mockReset();
 });
 
 afterEach(async () => {
@@ -101,6 +117,30 @@ async function waitForOrderEmailStatus(
   }
 
   throw new Error(`Timed out waiting for email status ${status}.`);
+}
+
+async function waitForProjectStorageStatus(
+  projectId: string,
+  status: "stored" | "failed"
+) {
+  const deadline = Date.now() + 2_000;
+
+  while (Date.now() < deadline) {
+    const projectJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, projectId, "project.json"),
+        "utf8"
+      )
+    );
+
+    if (projectJson.storage?.status === status) {
+      return projectJson;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  throw new Error(`Timed out waiting for storage status ${status}.`);
 }
 
 function renderManifest() {
@@ -183,7 +223,22 @@ describe("backend app", () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "Image must be 21MB or smaller." });
+    expect(response.body).toEqual({ error: "Image must be 21 MB or smaller." });
+  });
+
+  test("reports the correct 25 MB limit for oversized print artwork", async () => {
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", Buffer.alloc(25 * 1024 * 1024 + 1), {
+        filename: "large.png",
+        contentType: "image/png",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Artwork files must be 25 MB or smaller.",
+    });
   });
 
   test("processes a valid image upload", async () => {
@@ -492,6 +547,54 @@ describe("backend app", () => {
     });
   });
 
+  test("records failed R2 or Neon persistence without losing the local order", async () => {
+    process.env.DATABASE_URL = "postgres://example.test/print";
+    process.env.R2_ACCESS_KEY_ID = "access-key";
+    process.env.R2_ACCOUNT_ID = "account-id";
+    process.env.R2_BUCKET = "print-bucket";
+    process.env.R2_SECRET_ACCESS_KEY = "secret-key";
+    vi.mocked(persistProductionSubmissionToStorage).mockRejectedValue(
+      new Error("R2 upload unavailable")
+    );
+
+    const response = await request(createApp())
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+
+    expect(response.status).toBe(201);
+    expect(response.body.storage.status).toBe("queued");
+
+    const projectJson = await waitForProjectStorageStatus(
+      response.body.projectId,
+      "failed"
+    );
+    const orderJson = JSON.parse(
+      await fs.promises.readFile(
+        path.join(projectsDir, response.body.projectId, "order.json"),
+        "utf8"
+      )
+    );
+
+    expect(projectJson.storage).toMatchObject({
+      files: [],
+      provider: "postgres+r2",
+      status: "failed",
+      warnings: ["R2 upload unavailable"],
+    });
+    expect(orderJson.storage).toEqual(projectJson.storage);
+    await expect(
+      fs.promises.readFile(
+        path.join(projectsDir, response.body.projectId, "print.pdf")
+      )
+    ).resolves.toBeInstanceOf(Buffer);
+  });
+
   test("lists submitted projects for admin review", async () => {
     const app = createApp();
     const submitResponse = await request(app)
@@ -567,6 +670,19 @@ describe("backend app", () => {
     );
     expect(detailResponse.status).toBe(404);
     expect(detailResponse.body).toEqual({ error: "Project not found." });
+  });
+
+  test("returns a controlled error when the admin project list cannot be read", async () => {
+    vi.spyOn(fs.promises, "readdir").mockRejectedValueOnce(
+      new Error("Storage volume unavailable")
+    );
+
+    const response = await request(createApp()).get("/admin/projects");
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: "Could not load submitted projects.",
+    });
   });
 
   test("keeps submitted projects reviewable when generated files are missing", async () => {

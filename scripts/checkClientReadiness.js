@@ -39,6 +39,16 @@ const requiredDocs = [
     phrases: ["Standard Done Checklist", "Regression Test Rule"],
   },
   {
+    filePath: "docs/production-reliability-checks.md",
+    phrases: [
+      "Production Reliability Checks",
+      "R2 upload or Neon persistence fails",
+      "SMTP delivery fails",
+      "Admin list API cannot read storage",
+      "Reliability Invariants",
+    ],
+  },
+  {
     filePath: "docs/qa-baseline.md",
     phrases: ["npm run test:quality", "Manual Smoke Checks"],
   },
