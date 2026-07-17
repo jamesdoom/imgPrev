@@ -309,3 +309,19 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirmed Render provides `PORT=10000` and the server now listens on `0.0.0.0:10000`
 - Regression added: server binding test requires the default host to remain `0.0.0.0` and validates configured/fallback ports
 - Notes/follow-up: the failed deploy built successfully but timed out because the previous listener omitted the public host binding
+
+## 2026-07-17 - Live Submission Proof
+
+- Automated: covered by the existing client-ready gate
+- Accessibility: covered by the deployed customer/admin workflow
+- Manual: production operator confirmed receipt, admin project, Print PDF, R2 files, Neon order, and email delivery
+- Regression added: live proof record is now required by `npm run check:client-ready`
+- Notes/follow-up: submission took approximately 30 seconds or more, likely due to free-tier cold start; compare with a warm submission before opening a performance defect
+
+## 2026-07-17 - Deployment And Environment Audit
+
+- Automated: `npm run test:client-ready`, backend build, and readiness document checks
+- Accessibility: unchanged; deployment documentation and runtime metadata only
+- Manual: audited Vercel, Render, Neon, R2, SMTP, CORS, listener, cleanup, and retired Cloudinary variables against current code
+- Regression added: readiness check requires the environment reference, deployment/rollback checklist, and live proof record
+- Notes/follow-up: remove the six retired Cloudinary variables listed in `docs/deployment-environment.md` from hosting dashboards and ignored local `.env` files

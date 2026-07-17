@@ -49,6 +49,35 @@ const requiredDocs = [
     ],
   },
   {
+    filePath: "docs/deployment-environment.md",
+    phrases: [
+      "Deployment And Environment Reference",
+      "VITE_API_BASE_URL",
+      "DATABASE_URL",
+      "R2_ACCESS_KEY_ID",
+      "SMTP_HOST",
+      "Retired Cloudinary Configuration",
+    ],
+  },
+  {
+    filePath: "docs/deployment-checklist.md",
+    phrases: [
+      "Deployment Checklist",
+      "Post-Deploy Smoke Test",
+      "Rollback",
+      "Release Record",
+    ],
+  },
+  {
+    filePath: "docs/live-submission-proof.md",
+    phrases: [
+      "Live Submission Proof",
+      "Operator Verification",
+      "Status: passed",
+      "approximately 30 seconds",
+    ],
+  },
+  {
     filePath: "docs/qa-baseline.md",
     phrases: ["npm run test:quality", "Manual Smoke Checks"],
   },
@@ -59,6 +88,22 @@ const requiredDocs = [
 ];
 
 const failures = [];
+const retiredCloudinaryVariables = [
+  "VITE_CLOUDINARY_UPLOAD_PRESET",
+  "VITE_CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "CLOUDINARY_PROOF_FOLDER",
+];
+const activeConfigurationFiles = [
+  ".env.example",
+  "package.json",
+  "backend/package.json",
+  "README.md",
+  "src/config/appEnv.ts",
+  "backend/app.ts",
+];
 
 const packageJson = readJson("package.json");
 
@@ -81,6 +126,18 @@ for (const doc of requiredDocs) {
   for (const phrase of doc.phrases) {
     if (!contents.includes(phrase)) {
       failures.push(`${doc.filePath} is missing: ${phrase}`);
+    }
+  }
+}
+
+for (const filePath of activeConfigurationFiles) {
+  const contents = fs.readFileSync(path.join(rootDir, filePath), "utf8");
+
+  for (const variableName of retiredCloudinaryVariables) {
+    if (contents.includes(variableName)) {
+      failures.push(
+        `${filePath} still references retired variable: ${variableName}`
+      );
     }
   }
 }

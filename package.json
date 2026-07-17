@@ -2,6 +2,9 @@
   "name": "image-preview-app",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "test": "vitest run",
     "test:a11y": "vitest run src/admin/AdminReviewScreen.accessibility.test.tsx src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx src/components/ImageUploader/ImageUploader.accessibility.test.tsx",

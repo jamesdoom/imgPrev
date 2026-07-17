@@ -4,7 +4,7 @@ A React and Express decal sheet tool for uploading artwork, arranging decals on 
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22
 - npm
 - Optional Postgres database and Cloudflare R2 bucket for production submission storage
 
@@ -23,7 +23,7 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in the project root for local configuration:
+Copy `.env.example` to `.env` for local configuration. The complete production variable reference is in `docs/deployment-environment.md`.
 
 ```sh
 VITE_API_BASE_URL=http://localhost:4000
@@ -92,6 +92,8 @@ npm audit --omit=dev
 ```
 
 See `docs/quality-gate.md` for the standard done checklist, `docs/qa-baseline.md` for repeatable baseline and manual smoke checks, and `docs/client-test-plan.md` for the client rehearsal walkthrough.
+
+For production updates, use `docs/deployment-environment.md` and `docs/deployment-checklist.md`.
 
 ## Runtime Storage
 

@@ -2,6 +2,9 @@
   "name": "image-backend",
   "version": "1.0.0",
   "main": "dist/server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "ts-node server.ts",
