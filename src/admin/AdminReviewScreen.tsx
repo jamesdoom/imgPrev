@@ -15,6 +15,7 @@ import {
   updateAdminProjectReview,
   type AdminProjectReviewStatus,
   type AdminReviewProjectDetail,
+  type AdminReviewEmailDelivery,
   type AdminReviewProjectFiles,
   type AdminReviewProjectSummary,
   type AdminReviewProductionStorage,
@@ -433,8 +434,8 @@ function ProjectDetail({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="rounded border border-neutral-300 bg-white">
-          <SectionTitle title="Secondary production details" />
-          <dl className="grid grid-cols-2 gap-px bg-neutral-200 text-sm sm:grid-cols-3">
+          <SectionTitle title="Technical details" />
+          <dl className="grid grid-cols-2 gap-px bg-neutral-100 text-xs text-neutral-600 sm:grid-cols-3">
             <MetadataItem label="DPI" value={project.sheet.dpi ?? "Unknown"} />
             <MetadataItem label="Background" value={metadata.background} />
             <MetadataItem label="Assets" value={project.counts.assets} />
@@ -454,6 +455,7 @@ function ProjectDetail({
       </div>
 
       <ProductionStoragePanel storage={project.storage} />
+      <EmailDeliveryPanel email={project.email} />
 
       {project.manifest.preflight?.issues?.length ? (
         <div className="rounded border border-neutral-300 bg-white">
@@ -639,33 +641,37 @@ function ReviewHistory({
         submittedAt={submittedAt}
         updatedAt={project.review.updatedAt}
       />
-      <ol className="divide-y divide-neutral-200 rounded border border-neutral-200">
-        {project.review.history.map((event, index) => (
-          <li key={`${event.reviewedAt}-${event.status}`} className="p-3">
-            <div className="flex flex-wrap items-center gap-2">
+      <ol className="space-y-2" aria-label="Review decisions, newest first">
+        {[...project.review.history].reverse().map((event, index) => (
+          <li
+            key={`${event.reviewedAt}-${event.status}`}
+            className="rounded border border-neutral-200 border-l-4 bg-white p-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <ReviewStatusBadge status={event.status} />
+                {index === 0 && (
+                  <span className="rounded bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-800">
+                    Latest
+                  </span>
+                )}
+              </div>
               <span className="rounded bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-600">
-                Decision {index + 1}
-              </span>
-              <ReviewStatusBadge status={event.status} />
-              <span className="text-xs text-neutral-500">
-                {formatDateTime(event.reviewedAt)}
+                Decision {project.review.history.length - index}
               </span>
             </div>
-            <p className="mt-2 text-xs font-semibold uppercase text-neutral-500">
-              Reviewer
+            <p className="mt-2 text-xs text-neutral-500">
+              {formatDateTime(event.reviewedAt)} by{" "}
+              <span className="font-semibold text-neutral-700">
+                {event.reviewer}
+              </span>
             </p>
-            <p className="mt-1 text-neutral-800">{event.reviewer}</p>
             {event.note ? (
-              <>
-                <p className="mt-3 text-xs font-semibold uppercase text-neutral-500">
-                  Note
-                </p>
-                <p className="mt-1 whitespace-pre-wrap text-neutral-800">
-                  {event.note}
-                </p>
-              </>
+              <p className="mt-2 whitespace-pre-wrap rounded bg-neutral-50 p-2 text-neutral-800">
+                {event.note}
+              </p>
             ) : (
-              <p className="mt-3 text-neutral-500">No note was provided.</p>
+              <p className="mt-2 text-neutral-500">No note provided.</p>
             )}
           </li>
         ))}
@@ -774,23 +780,23 @@ function PrintHandoffPanel({
             This is the file to send to production.
           </p>
           {printPdf ? (
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-4 flex flex-col gap-2">
               <a
-                className={`inline-flex h-12 items-center justify-center gap-2 rounded bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${focusRingClass}`}
-                download="print.pdf"
-                href={getAdminFileUrl(printPdf)}
-              >
-                Download print PDF
-                <ArrowDownTrayIcon className="h-5 w-5" />
-              </a>
-              <a
-                className={`inline-flex h-12 items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 ${focusRingClass}`}
+                className={`inline-flex h-14 items-center justify-center gap-2 rounded bg-teal-700 px-5 text-base font-bold text-white shadow-sm hover:bg-teal-800 ${focusRingClass}`}
                 href={getAdminFileUrl(printPdf)}
                 rel="noreferrer"
                 target="_blank"
               >
-                Open PDF
-                <ArrowTopRightOnSquareIcon className="h-5 w-5" />
+                Open print PDF
+                <ArrowTopRightOnSquareIcon className="h-6 w-6" />
+              </a>
+              <a
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 ${focusRingClass}`}
+                download="print.pdf"
+                href={getAdminFileUrl(printPdf)}
+              >
+                Download a copy
+                <ArrowDownTrayIcon className="h-5 w-5" />
               </a>
             </div>
           ) : (
@@ -939,6 +945,69 @@ function ProductionStoragePanel({
           ))}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function EmailDeliveryPanel({
+  email,
+}: {
+  email?: AdminReviewEmailDelivery;
+}) {
+  const isSent = email?.status === "sent";
+  const isFailed = email?.status === "failed";
+  const statusLabel =
+    email?.status === "sent"
+      ? "Email sent"
+      : email?.status === "queued"
+        ? "Email queued"
+        : email?.status === "failed"
+          ? "Email failed"
+          : "Email not configured";
+
+  return (
+    <section
+      aria-labelledby="email-delivery-heading"
+      className={`rounded border ${
+        isSent
+          ? "border-emerald-200 bg-emerald-50"
+          : isFailed
+            ? "border-red-200 bg-red-50"
+            : "border-amber-200 bg-amber-50"
+      }`}
+    >
+      <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 id="email-delivery-heading" className="text-sm font-semibold">
+            Print-order email
+          </h3>
+          <p className="mt-1 text-sm text-neutral-700">
+            {email?.message ??
+              "No confirmed email delivery record is available for this order."}
+          </p>
+          {email?.recipient && (
+            <p className="mt-1 text-xs text-neutral-600">
+              Recipient: {email.recipient}
+              {email.sentAt ? ` · Sent ${formatDateTime(email.sentAt)}` : ""}
+            </p>
+          )}
+          {email?.error && (
+            <p className="mt-1 text-xs font-medium text-red-800">
+              Delivery error: {email.error}
+            </p>
+          )}
+        </div>
+        <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-current px-2 text-xs font-semibold">
+          {isSent ? (
+            <CheckCircleIcon className="h-4 w-4" />
+          ) : isFailed ? (
+            <XCircleIcon className="h-4 w-4" />
+          ) : (
+            <ExclamationTriangleIcon className="h-4 w-4" />
+          )}
+          {statusLabel}
+        </span>
+      </div>
     </section>
   );
 }
@@ -1227,11 +1296,11 @@ function MetadataItem({
   value: number | string;
 }) {
   return (
-    <div className="bg-white p-3">
+    <div className="bg-neutral-50 p-3">
       <dt className="text-xs font-semibold uppercase text-neutral-500">
         {label}
       </dt>
-      <dd className="mt-1 break-words font-medium text-neutral-950">{value}</dd>
+      <dd className="mt-1 break-words font-medium text-neutral-700">{value}</dd>
     </div>
   );
 }

@@ -1185,6 +1185,7 @@ async function listSubmittedProjects() {
       files: project.files,
       review: project.review,
       storage: project.storage,
+      email: project.email,
     }));
 }
 
@@ -1217,6 +1218,7 @@ async function readSubmittedProject(projectId: string) {
     const files = await getSubmittedProjectFiles(safeProjectId, projectDir);
     const review = await readProjectReview(projectDir, submittedAt);
     const storage = getProductionStorageRecord(manifest.storage) ?? undefined;
+    const email = await readProjectEmailDelivery(projectDir);
 
     return {
       projectId: safeProjectId,
@@ -1233,10 +1235,46 @@ async function readSubmittedProject(projectId: string) {
       files,
       review,
       storage,
+      email,
       manifest,
     };
   } catch {
     return null;
+  }
+}
+
+async function readProjectEmailDelivery(
+  projectDir: string
+): Promise<PrintOrderEmailDelivery | undefined> {
+  try {
+    const order = JSON.parse(
+      await fs.promises.readFile(path.join(projectDir, "order.json"), "utf8")
+    );
+    const email = getRecord(order.email);
+    const status = email.status;
+
+    if (
+      status !== "not-configured" &&
+      status !== "queued" &&
+      status !== "sent" &&
+      status !== "failed"
+    ) {
+      return undefined;
+    }
+
+    return {
+      status,
+      ...(typeof email.message === "string"
+        ? { message: email.message }
+        : {}),
+      ...(typeof email.error === "string" ? { error: email.error } : {}),
+      ...(typeof email.recipient === "string"
+        ? { recipient: email.recipient }
+        : {}),
+      ...(typeof email.sentAt === "string" ? { sentAt: email.sentAt } : {}),
+    };
+  } catch {
+    return undefined;
   }
 }
 

@@ -532,6 +532,9 @@ describe("backend app", () => {
           updatedAt: expect.any(String),
           history: [],
         },
+        email: expect.objectContaining({
+          status: "not-configured",
+        }),
       })
     );
   });
@@ -631,6 +634,9 @@ describe("backend app", () => {
     expect(response.status).toBe(200);
     expect(response.body.project).toMatchObject({
       projectId: submitResponse.body.projectId,
+      email: {
+        status: "not-configured",
+      },
       storage: {
         provider: "postgres+r2",
         status: "skipped",

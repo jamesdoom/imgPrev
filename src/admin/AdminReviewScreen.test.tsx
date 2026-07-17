@@ -56,6 +56,7 @@ describe("AdminReviewScreen", () => {
           history: [],
         },
         storage: createStoredProductionStorage(),
+        email: createSentEmailDelivery(),
       },
     ]);
     fetchAdminProjectDetailMock.mockResolvedValue({
@@ -83,6 +84,7 @@ describe("AdminReviewScreen", () => {
         history: [],
       },
       storage: createStoredProductionStorage(),
+      email: createSentEmailDelivery(),
       manifest: {
         document: {
           settings: { background: { type: "solid", color: "#ffffff" } },
@@ -124,11 +126,11 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("Primary print file")).toBeInTheDocument();
     expect(screen.getAllByText("Print PDF").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("This is the file to send to production.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Download print PDF/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Download a copy/ })).toHaveAttribute(
       "download",
       "print.pdf"
     );
-    expect(screen.getByRole("link", { name: /Open PDF/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Open print PDF/ })).toHaveAttribute(
       "href",
       "http://localhost:4000/projects/project-20260625120000-abc123/print.pdf"
     );
@@ -144,6 +146,11 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("4 of 4 required")).toBeInTheDocument();
     expect(screen.getByText("proofs/project-20260625120000-abc123/print.pdf | 1.4 MB")).toBeInTheDocument();
     expect(screen.getAllByText("Stored").length).toBeGreaterThanOrEqual(5);
+    expect(
+      screen.getByRole("heading", { name: "Print-order email" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Email sent")).toBeInTheDocument();
+    expect(screen.getByText(/Recipient: print@example.com/)).toBeInTheDocument();
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
     expect(screen.getByText("Current status")).toBeInTheDocument();
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
@@ -250,6 +257,7 @@ describe("AdminReviewScreen", () => {
     expect(await screen.findByText("Ready for production.")).toBeInTheDocument();
     expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
     expect(screen.getByText("Decision 1")).toBeInTheDocument();
+    expect(screen.getByText("Latest")).toBeInTheDocument();
     expect(screen.getAllByText("Reviewer").length).toBeGreaterThan(0);
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
     expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
@@ -366,5 +374,14 @@ function createStoredProductionStorage() {
     ],
     provider: "postgres+r2" as const,
     status: "stored" as const,
+  };
+}
+
+function createSentEmailDelivery() {
+  return {
+    message: "Print order email sent to print@example.com.",
+    recipient: "print@example.com",
+    sentAt: "2026-06-25T12:01:00.000Z",
+    status: "sent" as const,
   };
 }

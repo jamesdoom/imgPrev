@@ -17,6 +17,7 @@ export interface AdminReviewProjectSummary {
   files: AdminReviewProjectFiles;
   review: AdminProjectReview;
   storage?: AdminReviewProductionStorage;
+  email?: AdminReviewEmailDelivery;
 }
 
 export interface AdminReviewProjectDetail extends AdminReviewProjectSummary {
@@ -52,6 +53,14 @@ export interface AdminReviewProductionStorageFile {
   path: string;
   publicUrl?: string;
   sizeBytes: number;
+}
+
+export interface AdminReviewEmailDelivery {
+  status: "not-configured" | "queued" | "sent" | "failed";
+  error?: string;
+  message?: string;
+  recipient?: string;
+  sentAt?: string;
 }
 
 export interface AdminReviewManifest {

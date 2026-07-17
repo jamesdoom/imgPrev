@@ -277,3 +277,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: reviewed the copy-ready email for URL placeholders, realistic artwork guidance, customer/admin steps, feedback capture, and severity definitions
 - Regression added: readiness document check now requires `docs/client-test-script.md`
 - Notes/follow-up: replace bracketed links/access details before sending; use the longer test plan for internal QA
+
+## 2026-07-17 - Admin Handoff Polish Round Two
+
+- Automated: `npm test -- src/admin/AdminReviewScreen.test.tsx src/admin/AdminReviewScreen.accessibility.test.tsx backend/app.test.ts`
+- Accessibility: admin review accessibility suite
+- Manual: verified the print PDF is the dominant action, storage and email delivery have explicit states, technical metadata is visually secondary, and newest review decisions scan first
+- Regression added: admin API responses now expose the persisted email delivery record; component and backend tests cover sent email status and the revised print/history hierarchy
+- Notes/follow-up: live delivery remains part of the pending Phase 2 production proof
