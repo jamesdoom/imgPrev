@@ -103,7 +103,9 @@ Use one entry per issue:
 
 ## After The Session
 
-- Add a dated summary to `docs/qa-notes.md`.
-- Convert each blocker/high issue into a focused regression test before or during the fix.
-- Re-run `npm run test:quality` after fixes.
+- Add every report to `docs/client-feedback-log.md` and classify it as blocker, high, medium, or low.
+- Fix blockers first, followed by high, medium, and low issues.
+- Add a focused regression test for every confirmed bug before or during the fix.
+- Add a dated fix and retest summary to `docs/qa-notes.md`.
+- Re-run `npm run test:client-ready` and apply `docs/release-candidate-gate.md` after the feedback batch.
 - Re-run this client checklist before the next client test session.

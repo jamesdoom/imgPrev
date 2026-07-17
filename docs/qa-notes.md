@@ -325,3 +325,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: audited Vercel, Render, Neon, R2, SMTP, CORS, listener, cleanup, and retired Cloudinary variables against current code
 - Regression added: readiness check requires the environment reference, deployment/rollback checklist, and live proof record
 - Notes/follow-up: remove the six retired Cloudinary variables listed in `docs/deployment-environment.md` from hosting dashboards and ignored local `.env` files
+
+## 2026-07-17 - Client Feedback Loop Setup
+
+- Automated: `npm run test:client-ready`
+- Accessibility: covered by the full client-ready gate; no UI behavior changed
+- Manual: reconciled the completed live proof with the feedback queue and confirmed no client defects have been reported
+- Regression added: readiness checks now require the client feedback register and release-candidate gate
+- Notes/follow-up: the approximately 30-second first submission is tracked as a cold-start observation, not a confirmed defect; capture cold and warm timings during the next client session

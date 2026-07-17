@@ -78,6 +78,26 @@ const requiredDocs = [
     ],
   },
   {
+    filePath: "docs/client-feedback-log.md",
+    phrases: [
+      "Client Feedback Log",
+      "Current Release-Candidate Status",
+      "First submission latency on free-tier hosting",
+      "Fix blockers first",
+      "Regression test:",
+    ],
+  },
+  {
+    filePath: "docs/release-candidate-gate.md",
+    phrases: [
+      "Release-Candidate Gate",
+      "Promotion Requirements",
+      "No blocker or high issue remains open",
+      "npm run test:client-ready",
+      "Gate Decision",
+    ],
+  },
+  {
     filePath: "docs/qa-baseline.md",
     phrases: ["npm run test:quality", "Manual Smoke Checks"],
   },
@@ -156,6 +176,8 @@ console.log("Client readiness check passed.");
 console.log("- Automated gate: npm run test:quality");
 console.log("- Client walkthrough: docs/client-test-plan.md");
 console.log("- Client test script: docs/client-test-script.md");
+console.log("- Feedback queue: docs/client-feedback-log.md");
+console.log("- Release decision: docs/release-candidate-gate.md");
 console.log("- Session notes: docs/qa-notes.md");
 
 function readJson(filePath) {
