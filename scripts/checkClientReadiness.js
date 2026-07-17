@@ -23,6 +23,18 @@ const requiredDocs = [
     ],
   },
   {
+    filePath: "docs/client-test-script.md",
+    phrases: [
+      "Client Testing Package",
+      "[CUSTOMER APP URL]",
+      "[ADMIN REVIEW URL]",
+      "Artwork to Have Ready",
+      "Feedback Template",
+      "Blocker:",
+      "Internal Send Checklist",
+    ],
+  },
+  {
     filePath: "docs/quality-gate.md",
     phrases: ["Standard Done Checklist", "Regression Test Rule"],
   },
@@ -76,6 +88,7 @@ if (failures.length > 0) {
 console.log("Client readiness check passed.");
 console.log("- Automated gate: npm run test:quality");
 console.log("- Client walkthrough: docs/client-test-plan.md");
+console.log("- Client test script: docs/client-test-script.md");
 console.log("- Session notes: docs/qa-notes.md");
 
 function readJson(filePath) {

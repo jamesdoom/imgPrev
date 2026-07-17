@@ -269,3 +269,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: submit a realistic sheet and confirm the receipt calmly shows the project ID, saved print PDF/preview/order/project files, and the next review step
 - Regression added: customer browser coverage asserts the submitted receipt, project ID, saved-file checklist, next-step copy, and failed-submit recovery
 - Notes/follow-up: keep operational warnings conditional so the success state stays minimal for customers
+
+## 2026-07-17 - Client Testing Package
+
+- Automated: `npm run check:client-ready`
+- Accessibility: not applicable; client-facing documentation only
+- Manual: reviewed the copy-ready email for URL placeholders, realistic artwork guidance, customer/admin steps, feedback capture, and severity definitions
+- Regression added: readiness document check now requires `docs/client-test-script.md`
+- Notes/follow-up: replace bracketed links/access details before sending; use the longer test plan for internal QA

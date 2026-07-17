@@ -2,6 +2,8 @@
 
 Use this checklist when preparing the app for a client-led test session. The goal is to make the test easy to run, easy to repeat, and specific enough that feedback turns into actionable fixes.
 
+For a shorter client-facing walkthrough, use `docs/client-test-script.md`.
+
 ## Test Session Goals
 
 - Confirm the customer can upload artwork, place decals, understand warnings, and submit a print order.
