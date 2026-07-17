@@ -106,8 +106,6 @@ interface ProjectJsonReadResult {
 }
 
 interface SubmittedProofReceipt {
-  emailMessage?: string;
-  emailStatus?: "not-configured" | "queued" | "sent" | "failed";
   files: {
     orderJson?: string;
     previewPng?: string;
@@ -115,7 +113,6 @@ interface SubmittedProofReceipt {
     projectJson?: string;
   };
   projectId: string;
-  storageWarnings: string[];
 }
 
 type SubmitProgressPhase =
@@ -776,22 +773,24 @@ export default function StickerSheetDesigner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label
-              className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_WITHIN_RING_CLASS}`}
-            >
-              <PhotoIcon className="h-5 w-5" />
-              Upload artwork
-              <input
-                className="sr-only"
-                type="file"
-                multiple
-                accept={ARTWORK_FILE_ACCEPT}
-                onChange={(event) => {
-                  void handleFiles(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-            </label>
+            {document.assets.length > 0 && (
+              <label
+                className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_WITHIN_RING_CLASS}`}
+              >
+                <PhotoIcon className="h-5 w-5" />
+                Add artwork
+                <input
+                  className="sr-only"
+                  type="file"
+                  multiple
+                  accept={ARTWORK_FILE_ACCEPT}
+                  onChange={(event) => {
+                    void handleFiles(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            )}
             <PreflightBadge
               errorCount={preflightErrorCount}
               warningCount={preflightWarningCount}
@@ -906,18 +905,32 @@ export default function StickerSheetDesigner() {
             ) : (
               <>
                 <button
-                  className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 ${FOCUS_RING_CLASS}`}
+                  className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400 ${FOCUS_RING_CLASS}`}
+                  aria-describedby={
+                    document.items.length < 2
+                      ? "auto-arrange-disabled-reason"
+                      : undefined
+                  }
+                  disabled={document.items.length < 2}
                   type="button"
                   onClick={autoArrangeArtwork}
                 >
                   <SparklesIcon className="h-5 w-5" />
-                  Auto-arrange
+                  Auto-arrange sheet
                 </button>
+                {document.items.length < 2 && (
+                  <p
+                    className="text-xs leading-5 text-neutral-500"
+                    id="auto-arrange-disabled-reason"
+                  >
+                    Add or duplicate another decal to use Auto-arrange.
+                  </p>
+                )}
                 <label
                   className={`inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 ${FOCUS_WITHIN_RING_CLASS}`}
                 >
                   <PhotoIcon className="h-5 w-5" />
-                  Upload artwork
+                  Add more artwork
                   <input
                     className="sr-only"
                     type="file"
@@ -953,6 +966,10 @@ export default function StickerSheetDesigner() {
                     )}
                   />
                 ))}
+                <p className="rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-5 text-neutral-600">
+                  Uploaded artwork is already on the sheet. Select a decal on
+                  the sheet to resize or move it.
+                </p>
               </>
             )}
           </div>
@@ -1305,10 +1322,10 @@ function ArtworkUploadDropZone({
         Upload artwork
       </span>
       <span className="mt-1 max-w-48 text-xs leading-5 text-neutral-600">
-        Drag files here or choose PNG, JPG, WebP, SVG, or PDF files.
+        Drag files here or choose PNG, JPG, WebP, SVG, or PDF.
       </span>
       <span className="mt-2 max-w-56 text-xs leading-5 text-teal-900">
-        Artwork is placed on the sheet automatically after upload.
+        We will place each file on the sheet for you.
       </span>
       <span className="mt-4 inline-flex h-10 items-center justify-center rounded border border-teal-700 bg-teal-700 px-4 text-sm font-semibold text-white">
         Choose files
@@ -1330,12 +1347,11 @@ function ArtworkUploadDropZone({
 function FirstRunGuide() {
   return (
     <div className="rounded border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
-      <p className="font-semibold">Start with artwork</p>
-      <ol className="mt-2 space-y-1 text-xs leading-5">
-        <li>1. Upload a print-ready image, SVG, or PDF.</li>
-        <li>2. Confirm the automatic placement on the sheet.</li>
-        <li>3. Review preflight and order summary before submitting.</li>
-      </ol>
+      <p className="font-semibold">Start with your artwork</p>
+      <p className="mt-1 text-xs leading-5">
+        Upload your files once. We will place them automatically, then guide
+        you through checking and submitting the sheet.
+      </p>
     </div>
   );
 }
@@ -1434,29 +1450,7 @@ function ProductionActionsPanel({
         </p>
       )}
       <button
-        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_CLASS}`}
-        aria-describedby={proofPngDisabledReason ? exportStatusId : undefined}
-        disabled={documentItemCount === 0}
-        title={proofPngDisabledReason ?? undefined}
-        type="button"
-        onClick={onDownloadPreviewPng}
-      >
-        <ArrowDownTrayIcon className="h-5 w-5" />
-        Proof PNG
-      </button>
-      <button
-        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-teal-700 bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
-        aria-describedby={disabledReason ? exportStatusId : undefined}
-        disabled={!canExport || documentItemCount === 0 || isExporting}
-        title={disabledReason ?? undefined}
-        type="button"
-        onClick={onDownloadBundle}
-      >
-        <ArrowDownTrayIcon className="h-5 w-5" />
-        {isExporting ? "Rendering..." : "Export Files"}
-      </button>
-      <button
-        className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
+        className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded border border-emerald-700 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
         aria-describedby={
           submitDisabledReason
             ? exportStatusId
@@ -1474,6 +1468,37 @@ function ProductionActionsPanel({
         <CloudArrowUpIcon className="h-5 w-5" />
         {submitButtonLabel}
       </button>
+      <details className="rounded border border-neutral-200 bg-neutral-50">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-neutral-600">
+          Optional proof downloads
+        </summary>
+        <div className="space-y-2 border-t border-neutral-200 p-2">
+          <button
+            className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_CLASS}`}
+            aria-describedby={
+              proofPngDisabledReason ? exportStatusId : undefined
+            }
+            disabled={documentItemCount === 0}
+            title={proofPngDisabledReason ?? undefined}
+            type="button"
+            onClick={onDownloadPreviewPng}
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            Download proof PNG
+          </button>
+          <button
+            className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500 ${FOCUS_RING_CLASS}`}
+            aria-describedby={disabledReason ? exportStatusId : undefined}
+            disabled={!canExport || documentItemCount === 0 || isExporting}
+            title={disabledReason ?? undefined}
+            type="button"
+            onClick={onDownloadBundle}
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            {isExporting ? "Preparing files..." : "Download production files"}
+          </button>
+        </div>
+      </details>
       {isSubmitting && (
         <div
           className="rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950"
@@ -1513,6 +1538,9 @@ function ProductionActionsPanel({
                 Project ID:{" "}
                 <span className="font-semibold">{submittedProof.projectId}</span>
               </p>
+              <p className="mt-1 leading-5">
+                Save this ID if you need to ask about the order.
+              </p>
             </div>
           </div>
 
@@ -1546,27 +1574,13 @@ function ProductionActionsPanel({
             </p>
           </div>
 
-          {submittedProof.emailStatus === "not-configured" && (
-            <p className="leading-5 text-amber-900">
-              Email delivery is not configured yet; the PDF and order files were
-              saved for review.
-            </p>
-          )}
-          {submittedProof.emailMessage && submittedProof.emailStatus !== "not-configured" && (
-            <p className="leading-5">{submittedProof.emailMessage}</p>
-          )}
-          {submittedProof.storageWarnings.length > 0 && (
-            <p className="leading-5 text-amber-900">
-              Storage warning: {submittedProof.storageWarnings.join(" ")}
-            </p>
-          )}
           <button
             className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded border border-emerald-200 bg-white/80 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-white ${FOCUS_RING_CLASS}`}
             type="button"
             onClick={onOpenApplicationInstructions}
           >
             <QuestionMarkCircleIcon className="h-4 w-4" />
-            View application instructions
+            Application instructions for when your decals arrive
           </button>
         </div>
       )}
@@ -1582,11 +1596,11 @@ function getProductionActionDisabledReason({
   documentItemCount: number;
 }): string | null {
   if (documentItemCount === 0) {
-    return "Add artwork to enable proof downloads, exports, and print submission.";
+    return "Upload artwork to enable print submission.";
   }
 
   if (!canExport) {
-    return "Resolve preflight errors before exporting or submitting a proof.";
+    return "Fix the items marked in Preflight before submitting.";
   }
 
   return null;
@@ -2057,7 +2071,7 @@ function getSubmitProofReadiness({
   if (documentItemCount === 0) {
     return {
       className: "border-amber-200 bg-amber-50 text-amber-900",
-      description: "Upload and place artwork before submitting for print.",
+      description: "Upload artwork before submitting. We will place it for you.",
       label: "Needs artwork",
     };
   }
@@ -2084,15 +2098,12 @@ function createSubmittedProofReceipt(
 ): SubmittedProofReceipt {
   return {
     projectId: result.projectId,
-    emailMessage: result.email?.message,
-    emailStatus: result.email?.status,
     files: {
       orderJson: result.files.orderJson,
       previewPng: result.files.previewPng,
       printPdf: result.files.printPdf,
       projectJson: result.files.projectJson,
     },
-    storageWarnings: result.storage?.warnings ?? [],
   };
 }
 
@@ -2191,7 +2202,7 @@ function PreflightBadge({
     return (
       <span className="inline-flex h-10 items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800">
         <CheckCircleIcon className="h-5 w-5" />
-        Print ready
+        Ready to submit
       </span>
     );
   }
@@ -2199,7 +2210,7 @@ function PreflightBadge({
   return (
     <span className="inline-flex h-10 items-center gap-2 rounded border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900">
       <ExclamationTriangleIcon className="h-5 w-5" />
-      {errorCount} errors | {warningCount} warnings
+      {errorCount} must fix | {warningCount} to review
     </span>
   );
 }
@@ -2215,7 +2226,7 @@ function PreflightPanel({
     return (
       <div className="px-4 pb-4">
         <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          No print issues found.
+          Everything needed for submission looks good.
         </div>
       </div>
     );
@@ -2235,7 +2246,9 @@ function PreflightPanel({
           onClick={() => onSelectIssue(issue)}
         >
           <span className="block text-xs font-semibold uppercase">
-            {issue.severity}
+            {issue.severity === "error"
+              ? "Must fix before submitting"
+              : "Review before printing"}
           </span>
           <span className="mt-1 block leading-snug">{issue.message}</span>
         </button>

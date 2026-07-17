@@ -65,7 +65,7 @@ describe("StickerSheetDesigner accessibility", () => {
     const { container } = render(<StickerSheetDesigner />);
 
     expect(screen.getByRole("heading", { name: "Custom decal sheet" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Auto-arrange" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Auto-arrange sheet" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Grid" })).toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", {
@@ -100,18 +100,18 @@ describe("StickerSheetDesigner accessibility", () => {
   test("explains disabled production actions before artwork is placed", async () => {
     render(<StickerSheetDesigner />);
 
-    const disabledReason =
-      "Add artwork to enable proof downloads, exports, and print submission.";
+    const disabledReason = "Upload artwork to enable print submission.";
 
-    expect(screen.getByText("Start with artwork")).toBeInTheDocument();
+    expect(screen.getByText("Start with your artwork")).toBeInTheDocument();
     expect(
-      screen.getByText("Artwork is placed on the sheet automatically after upload."),
+      screen.getByText("We will place each file on the sheet for you."),
     ).toBeInTheDocument();
     expect(screen.getByText(disabledReason)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Proof PNG" })).toHaveAccessibleDescription(
+    await userEvent.click(screen.getByText("Optional proof downloads"));
+    expect(screen.getByRole("button", { name: "Download proof PNG" })).toHaveAccessibleDescription(
       disabledReason,
     );
-    expect(screen.getByRole("button", { name: "Export Files" })).toHaveAccessibleDescription(
+    expect(screen.getByRole("button", { name: "Download production files" })).toHaveAccessibleDescription(
       disabledReason,
     );
     expect(

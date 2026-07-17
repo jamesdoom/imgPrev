@@ -78,12 +78,14 @@ test("customer sees empty artwork state after malformed saved project JSON", asy
       "Saved project data was stale or unreadable, so we started a fresh sheet.",
     ),
   ).toBeVisible();
-  await expect(page.getByText("Start with artwork")).toBeVisible();
+  await expect(page.getByText("Start with your artwork")).toBeVisible();
   await expect(page.getByText("Drag files here or choose PNG")).toBeVisible();
   await expect(
-    page.getByText("Artwork is placed on the sheet automatically after upload."),
+    page.getByText("We will place each file on the sheet for you."),
   ).toBeVisible();
-  await expect(page.getByText("Upload and place artwork before submitting for print.")).toBeVisible();
+  await expect(
+    page.getByText("Upload artwork before submitting. We will place it for you."),
+  ).toBeVisible();
 });
 
 test("customer restore filters stale blob-only artwork and keeps durable missing-thumbnail artwork", async ({
@@ -370,7 +372,7 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   ).not.toBeChecked();
 
   await page.getByRole("button", { name: "Duplicate" }).click();
-  await page.getByRole("button", { name: "Auto-arrange" }).click();
+  await page.getByRole("button", { name: "Auto-arrange sheet" }).click();
 
   const editorSummary = page.getByLabel("Editor controls and order summary");
 
@@ -420,7 +422,11 @@ test("customer main proof path preserves layout, order summary, submit payload, 
     ),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "View application instructions" }).click();
+  await page
+    .getByRole("button", {
+      name: "Application instructions for when your decals arrive",
+    })
+    .click();
   const instructionsDialog = page.getByRole("dialog", {
     name: "Application instructions",
   });

@@ -285,3 +285,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verified the print PDF is the dominant action, storage and email delivery have explicit states, technical metadata is visually secondary, and newest review decisions scan first
 - Regression added: admin API responses now expose the persisted email delivery record; component and backend tests cover sent email status and the revised print/history hierarchy
 - Notes/follow-up: live delivery remains part of the pending Phase 2 production proof
+
+## 2026-07-17 - Customer Flow Friction Pass
+
+- Automated: `npm test -- src/components/StickerSheetDesigner/StickerSheetDesigner.accessibility.test.tsx` and `npm run test:e2e`
+- Accessibility: customer editor accessibility suite
+- Manual: reviewed the empty upload state, automatic-placement confirmation, Auto-arrange disabled state, customer-facing preflight language, primary submit action, receipt, and application-instruction entry point
+- Regression added: browser and accessibility coverage assert the calmer first-run copy, automatic placement guidance, renamed Auto-arrange action, disabled production explanation, and post-submit instructions
+- Notes/follow-up: backend email/storage diagnostics now stay in admin instead of appearing on the successful customer receipt

@@ -149,7 +149,7 @@ test("admin can review downloadable previews and approve a project", async ({
     ),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /Download print PDF/ }),
+    page.getByRole("link", { name: /Open print PDF/ }),
   ).toHaveAttribute(
     "href",
     "http://localhost:4000/projects/project-playwright-admin/print.pdf",
