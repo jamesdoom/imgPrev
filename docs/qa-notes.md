@@ -365,3 +365,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: confirmed the old shortcut removed only the placed item and deliberately retained its source in the artwork library
 - Regression added: deleting the last placed decal removes its unused artwork row; deleting one of multiple placed copies preserves the reusable source
 - Notes/follow-up: CLIENT-20260720-04 remains a blocker in ready-for-retest state until the deployed keyboard workflow removes the reported stale row
+
+## 2026-07-20 - Canvas Resize Normalization
+
+- Automated: focused successive-transform regression plus `npm run test:client-ready`
+- Accessibility: unchanged; numeric size controls remain available as the keyboard-accessible resize path
+- Manual: traced intermittent resize jumps to Konva retaining imperative scale after the app had already absorbed that scale into stored width and height
+- Regression added: resize commit resets node scale to one, preserves center/minimum size, and guarantees a following inward transform decreases dimensions
+- Notes/follow-up: CLIENT-20260720-05 remains a blocker in ready-for-retest state until repeated small inward/outward handle drags behave consistently in production

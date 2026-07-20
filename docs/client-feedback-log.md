@@ -6,7 +6,7 @@ Use this file as the single production-readiness queue after each client test se
 
 - Review date: 2026-07-17
 - Client test status: initial live submission proof passed
-- Open blockers: 4 awaiting deployed retest
+- Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
 - Open low issues: none reported
@@ -24,6 +24,24 @@ Use this file as the single production-readiness queue after each client test se
 - Escalate to an issue when: warm submissions remain unusually slow, the UI times out, or the customer cannot tell that submission is still in progress.
 
 ## Blockers
+
+### Resize handles intermittently reverse or exaggerate drag distance
+
+- ID: CLIENT-20260720-05
+- Status: ready for retest
+- Area: customer editor | canvas
+- Browser/device: production browser session
+- Artwork used: client test artwork
+- Steps to reproduce: resize a selected decal, then make a small inward or outward handle drag
+- Expected: inward drags consistently shrink and outward drags consistently enlarge in proportion to pointer movement
+- Actual: small inward drags could enlarge the decal, and some drags over-shrank or over-enlarged it
+- Evidence: client report on 2026-07-20
+- Severity: blocker
+- Owner: application
+- Regression test: `canvasTransform.test.ts` verifies committed scale is normalized and a successive inward drag reduces both dimensions
+- Fix commit: Phase 7 canvas resize normalization
+- Retest result: pending deployment
+- QA notes: the canvas node now absorbs transform scale into width/height and resets scale immediately so it cannot be applied twice
 
 ### Delete-key removal leaves stale artwork in the left list
 

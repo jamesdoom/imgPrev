@@ -30,6 +30,7 @@ import type {
   SheetItem,
   SheetViewState,
 } from "../../domain/print";
+import { commitCanvasTransform } from "./canvasTransform";
 
 const PREVIEW_PIXELS_PER_INCH = 96;
 const CHECKER_SIZE = 24;
@@ -286,26 +287,28 @@ function StickerItemNode({
       return;
     }
 
-    const nextScaleX = node.scaleX() < 0 ? -1 : 1;
-    const nextScaleY = node.scaleY() < 0 ? -1 : 1;
-    const nextWidth = Math.max(
-      MIN_ITEM_SIZE_PX,
-      node.width() * Math.abs(node.scaleX())
-    );
-    const nextHeight = Math.max(
-      MIN_ITEM_SIZE_PX,
-      node.height() * Math.abs(node.scaleY())
-    );
-
-    onUpdate({
-      xIn: (node.x() - nextWidth / 2) / PREVIEW_PIXELS_PER_INCH,
-      yIn: (node.y() - nextHeight / 2) / PREVIEW_PIXELS_PER_INCH,
-      widthIn: nextWidth / PREVIEW_PIXELS_PER_INCH,
-      heightIn: nextHeight / PREVIEW_PIXELS_PER_INCH,
-      rotationDeg: normalizeRotation(node.rotation()),
-      scaleX: nextScaleX,
-      scaleY: nextScaleY,
+    const committed = commitCanvasTransform({
+      minimumSizePx: MIN_ITEM_SIZE_PX,
+      pixelsPerInch: PREVIEW_PIXELS_PER_INCH,
+      transform: {
+        x: node.x(),
+        y: node.y(),
+        width: node.width(),
+        height: node.height(),
+        scaleX: node.scaleX(),
+        scaleY: node.scaleY(),
+        rotation: node.rotation(),
+      },
     });
+
+    node.width(committed.node.width);
+    node.height(committed.node.height);
+    node.offsetX(committed.node.offsetX);
+    node.offsetY(committed.node.offsetY);
+    node.scaleX(committed.node.scaleX);
+    node.scaleY(committed.node.scaleY);
+    transformerRef.current?.forceUpdate();
+    onUpdate(committed.patch);
   };
 
   const commonProps = {
@@ -431,10 +434,6 @@ function getRenderableAssetUrl(asset: SheetAsset): string {
   }
 
   return asset.previewUrl ?? asset.sourceUrl;
-}
-
-function normalizeRotation(degrees: number): number {
-  return ((degrees % 360) + 360) % 360;
 }
 
 function getSnappedDragCenterPx({
