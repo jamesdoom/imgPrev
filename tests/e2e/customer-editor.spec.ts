@@ -494,6 +494,38 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   await expect(page.getByLabel("Editor controls and order summary").getByText("2", { exact: true })).toBeVisible();
 });
 
+test("Auto-arrange confirms overflow and creates a priced second sheet", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+  await page
+    .getByRole("spinbutton", { name: "Quantity for playwright-artwork.svg" })
+    .fill("20");
+  await page.getByRole("button", { name: "Place 20" }).click();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toMatch(
+      /\d+ decals don’t fit\. Add Sheet 2\?/,
+    );
+    await dialog.accept();
+  });
+  await page.getByRole("button", { name: "Auto-arrange sheet" }).click();
+
+  await expect(page.getByRole("button", { name: /Sheet 1/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sheet 2/ })).toBeVisible();
+  await expect(
+    page.getByLabel("Editor controls and order summary").getByText("2 sheets", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Editor controls and order summary").getByText("$15.00", {
+      exact: true,
+    }),
+  ).toHaveCount(2);
+});
+
 test("customer can recover after a failed print submission response", async ({
   page,
 }) => {

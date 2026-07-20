@@ -38,11 +38,23 @@ export function runPreflight(
   for (const { item, bounds } of itemBounds) {
     const asset = assetsById.get(item.assetId);
 
-    issues.push(...preflightItem(item, bounds, document, profile, asset));
+    issues.push(
+      ...preflightItem(item, bounds, document, profile, asset).map((issue) => ({
+        ...issue,
+        sheetId: item.sheetId ?? document.sheets?.[0]?.id ?? "sheet-1",
+      }))
+    );
   }
 
   for (let i = 0; i < itemBounds.length; i += 1) {
     for (let j = i + 1; j < itemBounds.length; j += 1) {
+      if (
+        (itemBounds[i].item.sheetId ?? "sheet-1") !==
+        (itemBounds[j].item.sheetId ?? "sheet-1")
+      ) {
+        continue;
+      }
+
       const issue = preflightItemSpacing(
         itemBounds[i].item,
         itemBounds[i].bounds,
@@ -52,7 +64,10 @@ export function runPreflight(
       );
 
       if (issue) {
-        issues.push(issue);
+        issues.push({
+          ...issue,
+          sheetId: itemBounds[i].item.sheetId ?? "sheet-1",
+        });
       }
     }
   }

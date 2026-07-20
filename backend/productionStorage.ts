@@ -27,6 +27,7 @@ export interface ProductionStorageInput {
   files: {
     orderJson: Buffer;
     previewPng: Buffer;
+    previewPngs?: Buffer[];
     printPdf: Buffer;
     projectJson: Buffer;
   };
@@ -324,6 +325,11 @@ async function uploadProductionFilesToR2({
       contentType: "application/json",
       path: "project.json",
     },
+    ...(files.previewPngs ?? []).map((buffer, index) => ({
+      buffer,
+      contentType: "image/png",
+      path: `preview-sheet-${index + 1}.png`,
+    })),
   ];
 
   return Promise.all(

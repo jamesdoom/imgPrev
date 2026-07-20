@@ -29,6 +29,7 @@ import {
 import toast from "react-hot-toast";
 import {
   autoArrangeSheetItems,
+  arrangeItemsOnSheet,
   BASELINE_SHEET_SIZES,
   DEFAULT_SHEET_VIEW_STATE,
   buildExportBundleManifest,
@@ -49,6 +50,7 @@ import {
   type SheetAsset,
   type SheetDocument,
   type SheetItem,
+  type SheetPage,
   type SheetSizeId,
   type PreflightIssue,
   type ProofGuidance,
@@ -189,6 +191,13 @@ export default function StickerSheetDesigner() {
     DEFAULT_SHEET_VIEW_STATE,
   );
   const document = history.present;
+  const sheetPages = useMemo(
+    () => getDocumentSheetPages(document),
+    [document],
+  );
+  const [activeSheetId, setActiveSheetId] = useState(
+    initialDesignerState.document.sheets?.[0]?.id ?? "sheet-1",
+  );
   const selectedItem = document.items.find((item) =>
     viewState.selectedItemIds.includes(item.id),
   );
@@ -211,8 +220,8 @@ export default function StickerSheetDesigner() {
   });
   const proofGuidance = useMemo(() => buildProofGuidance(), []);
   const orderEstimate = useMemo(
-    () => estimateSheetOrder({ sheetCount: 1 }),
-    [],
+    () => estimateSheetOrder({ sheetCount: sheetPages.length }),
+    [sheetPages.length],
   );
   const canSubmitForPrint = canExport && document.items.length > 0;
   const openApplicationInstructions = useCallback(() => {
@@ -233,6 +242,12 @@ export default function StickerSheetDesigner() {
   useEffect(() => {
     saveDocumentLocally(document);
   }, [document]);
+
+  useEffect(() => {
+    if (!sheetPages.some((page) => page.id === activeSheetId)) {
+      setActiveSheetId(sheetPages[0]?.id ?? "sheet-1");
+    }
+  }, [activeSheetId, sheetPages]);
 
   useEffect(() => {
     setSubmittedProof(null);
@@ -257,11 +272,14 @@ export default function StickerSheetDesigner() {
 
       const asset = await createAssetFromFile(file);
       const item = staggerPlacedItem(
-        createSheetItemFromAsset({
-          id: createId("item"),
-          asset,
-          document,
-        }),
+        {
+          ...createSheetItemFromAsset({
+            id: createId("item"),
+            asset,
+            document,
+          }),
+          sheetId: activeSheetId,
+        },
         placementIndex,
         document,
       );
@@ -304,11 +322,14 @@ export default function StickerSheetDesigner() {
       { length: clampArtworkQuantity(quantity) },
       (_, index) =>
         staggerPlacedItem(
-          createSheetItemFromAsset({
-            id: createId("item"),
-            asset,
-            document,
-          }),
+          {
+            ...createSheetItemFromAsset({
+              id: createId("item"),
+              asset,
+              document,
+            }),
+            sheetId: activeSheetId,
+          },
           index,
           document,
         ),
@@ -458,31 +479,70 @@ export default function StickerSheetDesigner() {
     }
 
     const result = autoArrangeSheetItems({
-      document,
+      document: {
+        ...document,
+        items: document.items.map((item) => ({
+          ...item,
+          sheetId: undefined,
+        })),
+      },
       idFactory: () => createId("item"),
     });
+    const nextSheets: SheetPage[] = [{ id: "sheet-1", label: "Sheet 1" }];
+    const nextItems = result.items.map((item) => ({
+      ...item,
+      sheetId: "sheet-1",
+    }));
+    let remainingItems = result.unplacedItems;
 
-    dispatchDocument({
-      type: "items/replace",
-      items: result.items,
-      now: new Date().toISOString(),
-    });
-    dispatchView(
-      result.items[0]
-        ? { type: "selection/select-item", itemId: result.items[0].id }
-        : { type: "selection/clear" },
-    );
-
-    if (result.unplacedAssetIds.length > 0) {
-      toast.error(
-        `${result.unplacedAssetIds.length} artwork item${
-          result.unplacedAssetIds.length === 1 ? "" : "s"
-        } did not fit.`,
+    while (remainingItems.length > 0) {
+      const sheetNumber = nextSheets.length + 1;
+      const shouldAddSheet = window.confirm(
+        `${remainingItems.length} decal${
+          remainingItems.length === 1 ? "" : "s"
+        } don’t fit. Add Sheet ${sheetNumber}?`,
       );
-      return;
+
+      if (!shouldAddSheet) {
+        toast("Auto-arrange cancelled. Your current sheets were not changed.");
+        return;
+      }
+
+      const sheetId = `sheet-${sheetNumber}`;
+      const overflowResult = arrangeItemsOnSheet({
+        document,
+        items: remainingItems,
+      });
+
+      if (overflowResult.items.length === 0) {
+        toast.error("The remaining artwork is too large to fit on a new sheet.");
+        return;
+      }
+
+      nextSheets.push({ id: sheetId, label: `Sheet ${sheetNumber}` });
+      nextItems.push(
+        ...overflowResult.items.map((item) => ({ ...item, sheetId })),
+      );
+      remainingItems = overflowResult.unplacedItems;
     }
 
-    toast.success("Artwork arranged on the sheet.");
+    dispatchDocument({
+      type: "layout/replace",
+      items: nextItems,
+      sheets: nextSheets,
+      now: new Date().toISOString(),
+    });
+    setActiveSheetId(nextSheets[0].id);
+    dispatchView(
+      nextItems[0]
+        ? { type: "selection/select-item", itemId: nextItems[0].id }
+        : { type: "selection/clear" },
+    );
+    toast.success(
+      `Artwork arranged across ${nextSheets.length} sheet${
+        nextSheets.length === 1 ? "" : "s"
+      }.`,
+    );
   };
 
   const updateSelectedItem = (patch: Partial<Omit<SheetItem, "id">>) => {
@@ -1027,24 +1087,81 @@ export default function StickerSheetDesigner() {
           />
         </aside>
 
-        <main className="min-h-[480px] min-w-0 overflow-hidden sm:min-h-[560px] lg:min-h-0">
-          <StickerSheetCanvas
-            ref={canvasRef}
-            document={document}
-            viewState={viewState}
-            onSelectItem={(itemId, append) =>
-              dispatchView({ type: "selection/select-item", itemId, append })
-            }
-            onClearSelection={() => dispatchView({ type: "selection/clear" })}
-            onUpdateItem={(itemId, patch) =>
-              dispatchDocument({
-                type: "item/update",
-                itemId,
-                patch,
-                now: new Date().toISOString(),
-              })
-            }
-          />
+        <main className="min-h-[480px] min-w-0 overflow-auto bg-neutral-200 p-3 sm:min-h-[560px] lg:min-h-0">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {sheetPages.map((page) => {
+              const pageItems = document.items.filter(
+                (item) => (item.sheetId ?? "sheet-1") === page.id,
+              );
+              const pageIssues = preflightIssues.filter(
+                (issue) => !issue.sheetId || issue.sheetId === page.id,
+              );
+              const pageErrorCount = pageIssues.filter(
+                (issue) => issue.severity === "error",
+              ).length;
+              const pageDocument = {
+                ...document,
+                items: pageItems,
+                sheets: [page],
+              };
+
+              return (
+                <section
+                  key={page.id}
+                  aria-label={`${page.label} editor`}
+                  className={`min-w-0 overflow-hidden rounded border bg-white shadow-sm ${
+                    activeSheetId === page.id
+                      ? "border-sky-600 ring-2 ring-sky-200"
+                      : "border-neutral-300"
+                  }`}
+                  onPointerDown={() => setActiveSheetId(page.id)}
+                >
+                  <button
+                    className="flex w-full items-center justify-between gap-3 border-b border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-700"
+                    type="button"
+                    onClick={() => setActiveSheetId(page.id)}
+                  >
+                    <span className="font-semibold text-neutral-950">
+                      {page.label}
+                    </span>
+                    <span className="text-xs text-neutral-600">
+                      {pageItems.length} decal
+                      {pageItems.length === 1 ? "" : "s"} ·{" "}
+                      {pageErrorCount > 0
+                        ? `${pageErrorCount} must fix`
+                        : `${pageIssues.length} to review`}
+                    </span>
+                  </button>
+                  <div className="h-[640px] min-h-0">
+                    <StickerSheetCanvas
+                      ref={activeSheetId === page.id ? canvasRef : undefined}
+                      document={pageDocument}
+                      viewState={viewState}
+                      onSelectItem={(itemId, append) => {
+                        setActiveSheetId(page.id);
+                        dispatchView({
+                          type: "selection/select-item",
+                          itemId,
+                          append,
+                        });
+                      }}
+                      onClearSelection={() =>
+                        dispatchView({ type: "selection/clear" })
+                      }
+                      onUpdateItem={(itemId, patch) =>
+                        dispatchDocument({
+                          type: "item/update",
+                          itemId,
+                          patch,
+                          now: new Date().toISOString(),
+                        })
+                      }
+                    />
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </main>
 
         <aside
@@ -2952,4 +3069,10 @@ function isSheetDocument(value: unknown): value is SheetDocument {
     Array.isArray(candidate.items) &&
     !!candidate.settings
   );
+}
+
+function getDocumentSheetPages(document: SheetDocument): SheetPage[] {
+  return document.sheets && document.sheets.length > 0
+    ? document.sheets
+    : [{ id: "sheet-1", label: "Sheet 1" }];
 }

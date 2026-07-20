@@ -10,6 +10,7 @@ export interface RenderProductionFilesResult {
   widthPx: number;
   heightPx: number;
   previewPngBase64: string;
+  previewPngsBase64?: string[];
   printPdfBase64: string;
 }
 

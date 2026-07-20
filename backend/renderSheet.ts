@@ -11,6 +11,7 @@ export interface RenderSheetDocument {
   };
   assets: RenderSheetAsset[];
   items: RenderSheetItem[];
+  sheets?: Array<{ id: string; label: string }>;
   settings: {
     background: { type: "transparent" } | { type: "solid"; color: string };
   };
@@ -32,6 +33,7 @@ export interface RenderSheetItem {
   rotationDeg: number;
   scaleX: number;
   scaleY: number;
+  sheetId?: string;
 }
 
 export interface RenderSheetAssetFile {
@@ -42,6 +44,7 @@ export interface RenderSheetAssetFile {
 
 export interface RenderSheetResult {
   previewPng: Buffer;
+  previewPngs: Buffer[];
   printPdf: Buffer;
   widthPx: number;
   heightPx: number;
@@ -67,6 +70,54 @@ export async function renderSheetToFiles(
 ): Promise<RenderSheetResult> {
   const widthPx = Math.round(document.sheet.widthIn * document.sheet.dpi);
   const heightPx = Math.round(document.sheet.heightIn * document.sheet.dpi);
+  const sheetIds =
+    document.sheets && document.sheets.length > 0
+      ? document.sheets.map((sheet) => sheet.id)
+      : ["sheet-1"];
+  const previewPngs = await Promise.all(
+    sheetIds.map((sheetId) =>
+      renderSingleSheetPreview(
+        {
+          ...document,
+          items: document.items.filter(
+            (item) => (item.sheetId ?? "sheet-1") === sheetId
+          ),
+        },
+        files,
+        widthPx,
+        heightPx
+      )
+    )
+  );
+  const printPdf = await createPdfFromPngs(
+    previewPngs,
+    widthPx,
+    heightPx,
+    document.sheet.dpi
+  );
+
+  validateProductionPdf(printPdf, {
+    dpi: document.sheet.dpi,
+    heightPx,
+    pageCount: sheetIds.length,
+    widthPx,
+  });
+
+  return {
+    previewPng: previewPngs[0],
+    previewPngs,
+    printPdf,
+    widthPx,
+    heightPx,
+  };
+}
+
+async function renderSingleSheetPreview(
+  document: RenderSheetDocument,
+  files: RenderSheetAssetFile[],
+  widthPx: number,
+  heightPx: number
+): Promise<Buffer> {
   const assetsById = new Map(document.assets.map((asset) => [asset.id, asset]));
   const filesByName = new Map(files.map((file) => [file.originalname, file]));
   const composites = await Promise.all(
@@ -137,25 +188,7 @@ export async function renderSheetToFiles(
     .composite(composites)
     .png()
     .toBuffer();
-  const printPdf = await createPdfFromPng(
-    previewPng,
-    widthPx,
-    heightPx,
-    document.sheet.dpi
-  );
-
-  validateProductionPdf(printPdf, {
-    dpi: document.sheet.dpi,
-    heightPx,
-    widthPx,
-  });
-
-  return {
-    previewPng,
-    printPdf,
-    widthPx,
-    heightPx,
-  };
+  return previewPng;
 }
 
 function getItemBounds(item: RenderSheetItem): Bounds {
@@ -182,59 +215,77 @@ function getItemBounds(item: RenderSheetItem): Bounds {
   };
 }
 
-async function createPdfFromPng(
-  png: Buffer,
+async function createPdfFromPngs(
+  pngs: Buffer[],
   widthPx: number,
   heightPx: number,
   dpi: number
 ): Promise<Buffer> {
-  const { data } = await sharp(png)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const rgb = Buffer.alloc(widthPx * heightPx * 3);
-  const alpha = Buffer.alloc(widthPx * heightPx);
-
-  for (let source = 0, pixel = 0; source < data.length; source += 4, pixel += 1) {
-    const rgbIndex = pixel * 3;
-    rgb[rgbIndex] = data[source];
-    rgb[rgbIndex + 1] = data[source + 1];
-    rgb[rgbIndex + 2] = data[source + 2];
-    alpha[pixel] = data[source + 3];
-  }
-
-  const compressedRgb = zlib.deflateSync(rgb);
-  const compressedAlpha = zlib.deflateSync(alpha);
   const pageWidthPt = (widthPx / dpi) * PDF_POINTS_PER_INCH;
   const pageHeightPt = (heightPx / dpi) * PDF_POINTS_PER_INCH;
-  const content = Buffer.from(
-    `q\n${formatPdfNumber(pageWidthPt)} 0 0 ${formatPdfNumber(
-      pageHeightPt
-    )} 0 0 cm\n/Im0 Do\nQ\n`
+  const pageObjects = await Promise.all(
+    pngs.map(async (png, index) => {
+      const { data } = await sharp(png)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const rgb = Buffer.alloc(widthPx * heightPx * 3);
+      const alpha = Buffer.alloc(widthPx * heightPx);
+
+      for (
+        let source = 0, pixel = 0;
+        source < data.length;
+        source += 4, pixel += 1
+      ) {
+        const rgbIndex = pixel * 3;
+        rgb[rgbIndex] = data[source];
+        rgb[rgbIndex + 1] = data[source + 1];
+        rgb[rgbIndex + 2] = data[source + 2];
+        alpha[pixel] = data[source + 3];
+      }
+
+      const pageId = 3 + index * 4;
+      const contentId = pageId + 1;
+      const imageId = pageId + 2;
+      const alphaId = pageId + 3;
+      const content = Buffer.from(
+        `q\n${formatPdfNumber(pageWidthPt)} 0 0 ${formatPdfNumber(
+          pageHeightPt
+        )} 0 0 cm\n/Im${index} Do\nQ\n`
+      );
+
+      return [
+        pdfObject(
+          pageId,
+          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${formatPdfNumber(
+            pageWidthPt
+          )} ${formatPdfNumber(
+            pageHeightPt
+          )}] /Resources << /XObject << /Im${index} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`
+        ),
+        pdfStreamObject(contentId, "<<", content),
+        pdfStreamObject(
+          imageId,
+          `<< /Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${alphaId} 0 R`,
+          zlib.deflateSync(rgb)
+        ),
+        pdfStreamObject(
+          alphaId,
+          `<< /Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`,
+          zlib.deflateSync(alpha)
+        ),
+      ];
+    })
   );
+  const pageIds = pngs.map((_, index) => `${3 + index * 4} 0 R`).join(" ");
 
   return buildPdf([
     pdfObject(1, "<< /Type /Catalog /Pages 2 0 R >>"),
-    pdfObject(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
     pdfObject(
-      3,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${formatPdfNumber(
-        pageWidthPt
-      )} ${formatPdfNumber(
-        pageHeightPt
-      )}] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`
+      2,
+      `<< /Type /Pages /Kids [${pageIds}] /Count ${pngs.length} >>`
     ),
-    pdfStreamObject(4, "<<", content),
-    pdfStreamObject(
-      5,
-      `<< /Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask 6 0 R`,
-      compressedRgb
-    ),
-    pdfStreamObject(
-      6,
-      `<< /Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`,
-      compressedAlpha
-    ),
+    ...pageObjects.flat(),
   ]);
 }
 
@@ -324,6 +375,7 @@ export function validateProductionPdf(
   expected: {
     dpi: number;
     heightPx: number;
+    pageCount?: number;
     widthPx: number;
   }
 ): void {
@@ -336,8 +388,14 @@ export function validateProductionPdf(
   const expectedHeightPt =
     (expected.heightPx / expected.dpi) * PDF_POINTS_PER_INCH;
 
-  if (info.pageCount !== 1) {
-    throw new Error("Generated print PDF must contain exactly one page.");
+  const expectedPageCount = expected.pageCount ?? 1;
+
+  if (info.pageCount !== expectedPageCount) {
+    throw new Error(
+      expectedPageCount === 1
+        ? "Generated print PDF must contain exactly one page."
+        : `Generated print PDF must contain exactly ${expectedPageCount} pages.`
+    );
   }
 
   if (
@@ -348,7 +406,7 @@ export function validateProductionPdf(
   }
 
   if (
-    info.imageCount < 2 ||
+    info.imageCount < expectedPageCount * 2 ||
     info.imageWidthPx !== expected.widthPx ||
     info.imageHeightPx !== expected.heightPx
   ) {

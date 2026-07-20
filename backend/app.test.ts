@@ -175,6 +175,7 @@ function renderManifest() {
         heightIn: 17,
         dpi: 300,
       },
+      sheets: [{ id: "sheet-1", label: "Sheet 1" }],
       assets: [
         {
           id: "asset-1",
@@ -194,6 +195,7 @@ function renderManifest() {
           rotationDeg: 0,
           scaleX: 1,
           scaleY: 1,
+          sheetId: "sheet-1",
         },
       ],
       settings: {
@@ -340,6 +342,48 @@ describe("backend app", () => {
     ).not.toThrow();
   });
 
+  test("renders multiple sheets as previews and one multi-page PDF", async () => {
+    const manifest = renderManifest();
+    manifest.document.sheet.dpi = 30;
+    manifest.document.sheets = [
+      { id: "sheet-1", label: "Sheet 1" },
+      { id: "sheet-2", label: "Sheet 2" },
+    ];
+    manifest.document.items = [
+      { ...manifest.document.items[0], sheetId: "sheet-1" },
+      {
+        ...manifest.document.items[0],
+        id: "item-2",
+        sheetId: "sheet-2",
+      },
+    ];
+    const response = await request(createApp())
+      .post("/render-sheet")
+      .field("manifest", JSON.stringify(manifest))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+    const printPdf = Buffer.from(response.body.printPdfBase64, "base64");
+
+    expect(response.status).toBe(200);
+    expect(response.body.previewPngsBase64).toHaveLength(2);
+    expect(inspectProductionPdf(printPdf)).toMatchObject({
+      imageCount: 4,
+      pageCount: 2,
+      pageHeightPt: 1224,
+      pageWidthPt: 792,
+    });
+    expect(() =>
+      validateProductionPdf(printPdf, {
+        dpi: 30,
+        heightPx: 510,
+        pageCount: 2,
+        widthPx: 330,
+      })
+    ).not.toThrow();
+  });
+
   test("rejects invalid production PDF structure during validation", () => {
     expect(() =>
       validateProductionPdf(Buffer.from("%PDF-1.4\n%%EOF\n"), {
@@ -450,6 +494,56 @@ describe("backend app", () => {
       history: [],
     });
     expect(originalAsset).toEqual(validPng);
+  });
+
+  test("submits multi-sheet previews and exposes them to admin review", async () => {
+    const manifest = renderManifest();
+    manifest.document.sheet.dpi = 30;
+    manifest.document.sheets = [
+      { id: "sheet-1", label: "Sheet 1" },
+      { id: "sheet-2", label: "Sheet 2" },
+    ];
+    manifest.document.items = [
+      { ...manifest.document.items[0], sheetId: "sheet-1" },
+      {
+        ...manifest.document.items[0],
+        id: "item-2",
+        sheetId: "sheet-2",
+      },
+    ];
+    const app = createApp();
+    const response = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(manifest))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(response.body.projectId);
+    const detailResponse = await request(app).get(
+      `/admin/projects/${response.body.projectId}`
+    );
+    const printPdf = await fs.promises.readFile(
+      path.join(projectsDir, response.body.projectId, "print.pdf")
+    );
+
+    expect(response.status).toBe(201);
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.project).toMatchObject({
+      counts: {
+        assets: 1,
+        items: 2,
+        sheets: 2,
+      },
+      files: {
+        sheetPreviews: [
+          `/projects/${response.body.projectId}/preview-sheet-1.png`,
+          `/projects/${response.body.projectId}/preview-sheet-2.png`,
+        ],
+      },
+    });
+    expect(inspectProductionPdf(printPdf).pageCount).toBe(2);
   });
 
   test("emails print order details when SMTP is configured", async () => {
@@ -636,6 +730,7 @@ describe("backend app", () => {
         counts: {
           assets: 1,
           items: 1,
+          sheets: 1,
         },
         files: expect.objectContaining({
           projectJson: `/projects/${submitResponse.body.projectId}/project.json`,

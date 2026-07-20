@@ -198,6 +198,9 @@ export function createApp() {
             widthPx: result.widthPx,
             heightPx: result.heightPx,
             previewPngBase64: result.previewPng.toString("base64"),
+            previewPngsBase64: result.previewPngs.map((preview) =>
+              preview.toString("base64")
+            ),
             printPdfBase64: result.printPdf.toString("base64"),
           });
         } catch (err) {
@@ -268,6 +271,12 @@ export function createApp() {
             fs.promises.writeFile(
               path.join(projectDir, "preview.png"),
               renderedFiles.previewPng
+            ),
+            ...renderedFiles.previewPngs.map((preview, index) =>
+              fs.promises.writeFile(
+                path.join(projectDir, `preview-sheet-${index + 1}.png`),
+                preview
+              )
             ),
             fs.promises.writeFile(
               path.join(projectDir, "print.pdf"),
@@ -696,6 +705,10 @@ function createPrintOrderRecord({
   const sheet = getRecord(document.sheet);
   const assets = Array.isArray(document.assets) ? document.assets : [];
   const items = Array.isArray(document.items) ? document.items : [];
+  const sheets =
+    Array.isArray(document.sheets) && document.sheets.length > 0
+      ? document.sheets
+      : [{ id: "sheet-1" }];
 
   return {
     orderId: projectId,
@@ -711,11 +724,16 @@ function createPrintOrderRecord({
     counts: {
       assets: assets.length,
       decals: items.length,
+      sheets: sheets.length,
     },
     files: {
       projectJson: `/projects/${projectId}/project.json`,
       orderJson: `/projects/${projectId}/order.json`,
       previewPng: `/projects/${projectId}/preview.png`,
+      sheetPreviews: sheets.map(
+        (_sheet, index) =>
+          `/projects/${projectId}/preview-sheet-${index + 1}.png`
+      ),
       printPdf: `/projects/${projectId}/print.pdf`,
       manifestJson: `/projects/${projectId}/manifest.json`,
       assets: `/projects/${projectId}/assets/`,
@@ -795,7 +813,11 @@ async function sendPrintOrderEmailInBackground({
   orderRecord: PrintOrderRecord;
   projectDir: string;
   projectId: string;
-  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  renderedFiles: {
+    previewPng: Buffer;
+    previewPngs: Buffer[];
+    printPdf: Buffer;
+  };
   timing: SubmitTiming;
 }) {
   const config = getPrintOrderEmailConfig();
@@ -872,7 +894,11 @@ function createPrintOrderEmailMessage({
 }: {
   config: PrintOrderEmailConfig;
   orderRecord: PrintOrderRecord;
-  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  renderedFiles: {
+    previewPng: Buffer;
+    previewPngs: Buffer[];
+    printPdf: Buffer;
+  };
 }): nodemailer.SendMailOptions {
   const text = createPrintOrderEmailText(orderRecord);
 
@@ -886,8 +912,16 @@ function createPrintOrderEmailMessage({
       {
         content: renderedFiles.previewPng,
         contentType: "image/png",
-        filename: `${orderRecord.projectId}-preview.png`,
+        filename:
+          orderRecord.counts.sheets === 1
+            ? `${orderRecord.projectId}-preview.png`
+            : `${orderRecord.projectId}-sheet-1-preview.png`,
       },
+      ...renderedFiles.previewPngs.slice(1).map((preview, index) => ({
+        content: preview,
+        contentType: "image/png",
+        filename: `${orderRecord.projectId}-sheet-${index + 2}-preview.png`,
+      })),
       {
         content: JSON.stringify(orderRecord, null, 2),
         contentType: "application/json",
@@ -927,13 +961,16 @@ function createPrintOrderEmailText(orderRecord: PrintOrderRecord): string {
     )}" at ${formatNullableNumber(orderRecord.sheet.dpi)} DPI`,
     `Artwork assets: ${orderRecord.counts.assets}`,
     `Decals: ${orderRecord.counts.decals}`,
+    `Sheets: ${orderRecord.counts.sheets}`,
     "",
     ...(customerDetails.length > 0
       ? ["Customer details:", ...customerDetails, ""]
       : []),
     "Attached files:",
     "- Print PDF",
-    "- Proof preview PNG",
+    orderRecord.counts.sheets === 1
+      ? "- Proof preview PNG"
+      : `- ${orderRecord.counts.sheets} proof preview PNGs`,
     "- Order JSON",
   ].join("\n");
 }
@@ -982,7 +1019,11 @@ async function persistProductionStorageInBackground({
   projectDir: string;
   projectId: string;
   projectRecord: Record<string, unknown>;
-  renderedFiles: { previewPng: Buffer; printPdf: Buffer };
+  renderedFiles: {
+    previewPng: Buffer;
+    previewPngs: Buffer[];
+    printPdf: Buffer;
+  };
   timing: SubmitTiming;
 }) {
   logSubmitTiming(timing, "postgres r2 storage started", { projectId });
@@ -1000,6 +1041,7 @@ async function persistProductionStorageInBackground({
       files: {
         orderJson: Buffer.from(JSON.stringify(orderRecord, null, 2)),
         previewPng: renderedFiles.previewPng,
+        previewPngs: renderedFiles.previewPngs,
         printPdf: renderedFiles.printPdf,
         projectJson: Buffer.from(JSON.stringify(projectJsonRecord, null, 2)),
       },
@@ -1337,6 +1379,10 @@ async function readLocalSubmittedProject(projectId: string) {
 
     const assets = Array.isArray(document.assets) ? document.assets : [];
     const items = Array.isArray(document.items) ? document.items : [];
+    const sheets =
+      Array.isArray(document.sheets) && document.sheets.length > 0
+        ? document.sheets
+        : [{ id: "sheet-1" }];
     const submittedAt =
       typeof manifest.submittedAt === "string" ? manifest.submittedAt : "";
 
@@ -1356,6 +1402,7 @@ async function readLocalSubmittedProject(projectId: string) {
       counts: {
         assets: assets.length,
         items: items.length,
+        sheets: sheets.length,
       },
       files,
       review,
@@ -1523,6 +1570,7 @@ async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
     manifestJson,
     assets,
     assetFiles,
+    sheetPreviews,
   ] =
     await Promise.all([
       getProjectFileUrl(projectId, projectDir, "project.json"),
@@ -1532,6 +1580,7 @@ async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
       getProjectFileUrl(projectId, projectDir, "manifest.json"),
       getProjectFileUrl(projectId, projectDir, "assets"),
       getSubmittedAssetFiles(projectId, projectDir),
+      getSubmittedSheetPreviews(projectId, projectDir),
     ]);
 
   return {
@@ -1542,7 +1591,24 @@ async function getSubmittedProjectFiles(projectId: string, projectDir: string) {
     manifestJson,
     assets,
     assetFiles,
+    sheetPreviews,
   };
+}
+
+async function getSubmittedSheetPreviews(
+  projectId: string,
+  projectDir: string
+) {
+  try {
+    const entries = await fs.promises.readdir(projectDir);
+
+    return entries
+      .filter((entry) => /^preview-sheet-\d+\.png$/.test(entry))
+      .sort((first, second) => first.localeCompare(second))
+      .map((entry) => `/projects/${projectId}/${entry}`);
+  } catch {
+    return [];
+  }
 }
 
 async function getSubmittedAssetFiles(projectId: string, projectDir: string) {
@@ -1600,11 +1666,13 @@ function getSafeProjectId(projectId: unknown): string | null {
 }
 
 function getDurableFileName(fileName: unknown) {
-  return fileName === "print.pdf" ||
+  return (typeof fileName === "string" &&
+    /^preview-sheet-\d+\.png$/.test(fileName)) ||
+    fileName === "print.pdf" ||
     fileName === "preview.png" ||
     fileName === "order.json" ||
     fileName === "project.json"
-    ? fileName
+    ? (fileName as string)
     : null;
 }
 
@@ -1619,6 +1687,10 @@ function readDurableProject(submission: DurableProductionSubmission) {
 
   const assets = Array.isArray(document.assets) ? document.assets : [];
   const items = Array.isArray(document.items) ? document.items : [];
+  const sheets =
+    Array.isArray(document.sheets) && document.sheets.length > 0
+      ? document.sheets
+      : [{ id: "sheet-1" }];
   const storage =
     getProductionStorageRecord(submission.storageRecord) ?? undefined;
   const storedFiles = new Map(
@@ -1649,12 +1721,17 @@ function readDurableProject(submission: DurableProductionSubmission) {
     counts: {
       assets: assets.length,
       items: items.length,
+      sheets: sheets.length,
     },
     files: {
       projectJson: storedFiles.get("project.json"),
       orderJson: storedFiles.get("order.json"),
       previewPng: storedFiles.get("preview.png"),
       printPdf: storedFiles.get("print.pdf"),
+      sheetPreviews: Array.from(storedFiles.entries())
+        .filter(([filePath]) => /^preview-sheet-\d+\.png$/.test(filePath))
+        .sort(([first], [second]) => first.localeCompare(second))
+        .map(([, fileUrl]) => fileUrl),
       assetFiles: [] as Array<{
         fileName: string;
         path: string;
@@ -1776,11 +1853,13 @@ interface PrintOrderRecord {
   counts: {
     assets: number;
     decals: number;
+    sheets: number;
   };
   files: {
     projectJson: string;
     orderJson: string;
     previewPng: string;
+    sheetPreviews: string[];
     printPdf: string;
     manifestJson: string;
     assets: string;

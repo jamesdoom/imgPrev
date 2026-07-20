@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { createSheetDocument } from "./sheetDocument";
-import { autoArrangeSheetItems, createSheetItemFromAsset } from "./placement";
+import {
+  arrangeItemsOnSheet,
+  autoArrangeSheetItems,
+  createSheetItemFromAsset,
+} from "./placement";
 import { runPreflight } from "./preflight";
 import type { SheetAsset } from "./types";
 
@@ -156,6 +160,48 @@ describe("autoArrangeSheetItems", () => {
 
     expect(result.items.length).toBeLessThan(document.assets.length);
     expect(result.unplacedAssetIds.length).toBeGreaterThan(0);
+    expect(result.unplacedItems).toHaveLength(result.unplacedAssetIds.length);
+  });
+
+  test("packs reported overflow items onto a following sheet", () => {
+    const document = {
+      ...createSheetDocument({
+        id: "project-1",
+        sheetSizeId: "11x17",
+      }),
+      assets: [
+        {
+          id: "asset-1",
+          sourceUrl: "/uploads/one.png",
+          fileName: "one.png",
+          fileType: "image/png",
+          widthPx: 600,
+          heightPx: 600,
+        },
+      ],
+    };
+    const items = Array.from({ length: 4 }, (_, index): SheetItem => ({
+      id: `item-${index + 1}`,
+      assetId: "asset-1",
+      widthIn: 5,
+      heightIn: 5,
+      xIn: 0.25,
+      yIn: 0.25,
+      rotationDeg: 0,
+      scaleX: 1,
+      scaleY: 1,
+    }));
+
+    const firstSheet = arrangeItemsOnSheet({ document, items });
+    const secondSheet = arrangeItemsOnSheet({
+      document,
+      items: firstSheet.unplacedItems,
+    });
+
+    expect(firstSheet.items).toHaveLength(2);
+    expect(firstSheet.unplacedItems).toHaveLength(2);
+    expect(secondSheet.items).toHaveLength(2);
+    expect(secondSheet.unplacedItems).toEqual([]);
   });
 
   test("arranges existing placed copies instead of replacing them with one per asset", () => {

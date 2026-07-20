@@ -23,6 +23,7 @@ export interface AutoArrangeSheetItemsInput {
 export interface AutoArrangeSheetItemsResult {
   items: SheetItem[];
   unplacedAssetIds: string[];
+  unplacedItems: SheetItem[];
 }
 
 interface ArrangeCandidate {
@@ -90,6 +91,7 @@ export function autoArrangeSheetItems({
     .map(createArrangeCandidate);
   const items: SheetItem[] = [];
   const unplacedAssetIds: string[] = [];
+  const unplacedItems: SheetItem[] = [];
   let xIn = sheetEdgeMarginIn;
   let yIn = sheetEdgeMarginIn;
   let rowHeightIn = 0;
@@ -103,6 +105,7 @@ export function autoArrangeSheetItems({
 
     if (yIn + candidate.heightIn > maxY) {
       unplacedAssetIds.push(candidate.item.assetId);
+      unplacedItems.push(candidate.item);
       return;
     }
 
@@ -119,7 +122,53 @@ export function autoArrangeSheetItems({
   return {
     items,
     unplacedAssetIds,
+    unplacedItems,
   };
+}
+
+export function arrangeItemsOnSheet({
+  document,
+  items: candidateItems,
+  profile = STICKER_SHEET_MVP_PROFILE,
+}: {
+  document: SheetDocument;
+  items: SheetItem[];
+  profile?: ProductionProfile;
+}): AutoArrangeSheetItemsResult {
+  const { sheetEdgeMarginIn, stickerSpacingIn } = profile.printRules;
+  const arrangedSpacingIn = stickerSpacingIn + ARRANGE_SPACING_BUFFER_IN;
+  const maxX = document.sheet.widthIn - sheetEdgeMarginIn;
+  const maxY = document.sheet.heightIn - sheetEdgeMarginIn;
+  const items: SheetItem[] = [];
+  const unplacedAssetIds: string[] = [];
+  const unplacedItems: SheetItem[] = [];
+  let xIn = sheetEdgeMarginIn;
+  let yIn = sheetEdgeMarginIn;
+  let rowHeightIn = 0;
+
+  candidateItems.map(createArrangeCandidate).forEach((candidate) => {
+    if (xIn + candidate.widthIn > maxX && xIn > sheetEdgeMarginIn) {
+      xIn = sheetEdgeMarginIn;
+      yIn += rowHeightIn + arrangedSpacingIn;
+      rowHeightIn = 0;
+    }
+
+    if (yIn + candidate.heightIn > maxY) {
+      unplacedAssetIds.push(candidate.item.assetId);
+      unplacedItems.push(candidate.item);
+      return;
+    }
+
+    items.push({
+      ...candidate.item,
+      xIn: roundToThousandth(xIn - candidate.boundsOffset.xIn),
+      yIn: roundToThousandth(yIn - candidate.boundsOffset.yIn),
+    });
+    xIn += candidate.widthIn + arrangedSpacingIn;
+    rowHeightIn = Math.max(rowHeightIn, candidate.heightIn);
+  });
+
+  return { items, unplacedAssetIds, unplacedItems };
 }
 
 function createArrangeCandidate(item: SheetItem): ArrangeCandidate {

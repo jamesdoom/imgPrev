@@ -72,6 +72,7 @@ describe("buildExportBundleManifest", () => {
         widthPx: 3300,
         heightPx: 5100,
         dpi: 300,
+        sheetCount: 1,
       },
       customer: {
         company: "Sticker Co",

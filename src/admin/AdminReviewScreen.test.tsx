@@ -42,7 +42,7 @@ describe("AdminReviewScreen", () => {
         projectId: "project-20260625120000-abc123",
         submittedAt: "2026-06-25T12:00:00.000Z",
         sheet: { sizeId: "11x17", widthIn: 11, heightIn: 17, dpi: 300 },
-        counts: { assets: 2, items: 5 },
+        counts: { assets: 2, items: 5, sheets: 2 },
         files: {
           projectJson: "/projects/project-20260625120000-abc123/project.json",
           orderJson: "/projects/project-20260625120000-abc123/order.json",
@@ -63,13 +63,17 @@ describe("AdminReviewScreen", () => {
       projectId: "project-20260625120000-abc123",
       submittedAt: "2026-06-25T12:00:00.000Z",
       sheet: { sizeId: "11x17", widthIn: 11, heightIn: 17, dpi: 300 },
-      counts: { assets: 2, items: 5 },
+      counts: { assets: 2, items: 5, sheets: 2 },
       files: {
         projectJson: "/projects/project-20260625120000-abc123/project.json",
         orderJson: "/projects/project-20260625120000-abc123/order.json",
         previewPng: "/projects/project-20260625120000-abc123/preview.png",
         printPdf: "/projects/project-20260625120000-abc123/print.pdf",
         manifestJson: "/projects/project-20260625120000-abc123/manifest.json",
+        sheetPreviews: [
+          "/projects/project-20260625120000-abc123/preview-sheet-1.png",
+          "/projects/project-20260625120000-abc123/preview-sheet-2.png",
+        ],
         assetFiles: [
           {
             fileName: "pixel.png",
@@ -125,7 +129,12 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("Ready for print review")).toBeInTheDocument();
     expect(screen.getByText("Primary print file")).toBeInTheDocument();
     expect(screen.getAllByText("Print PDF").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("This is the file to send to production.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/This is the file to send to production\. It contains 2 numbered sheets\./)
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 × 11" x 17"')).toBeInTheDocument();
+    expect(screen.getByText("Sheet 1")).toBeInTheDocument();
+    expect(screen.getByText("Sheet 2")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Download a copy/ })).toHaveAttribute(
       "download",
       "print.pdf"

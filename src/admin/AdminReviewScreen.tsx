@@ -777,7 +777,9 @@ function PrintHandoffPanel({
             Print PDF
           </p>
           <p className="mt-1 text-sm text-neutral-600">
-            This is the file to send to production.
+            This is the file to send to production. It contains{" "}
+            {project.counts.sheets ?? 1} numbered sheet
+            {(project.counts.sheets ?? 1) === 1 ? "" : "s"}.
           </p>
           {printPdf ? (
             <div className="mt-4 flex flex-col gap-2">
@@ -808,7 +810,10 @@ function PrintHandoffPanel({
         </div>
 
         <dl className="grid gap-px overflow-hidden rounded border border-neutral-200 bg-neutral-200 text-sm sm:grid-cols-2 xl:grid-cols-3">
-          <HandoffMetric label="Sheet" value={formatSheet(project.sheet)} />
+          <HandoffMetric
+            label="Sheets"
+            value={`${project.counts.sheets ?? 1} × ${formatSheet(project.sheet)}`}
+          />
           <HandoffMetric label="Decals" value={project.counts.items} />
           <HandoffMetric
             label="Submitted"
@@ -1116,6 +1121,7 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
     ["Manifest", "manifest.json", files.manifestJson, "Download manifest"],
   ] as const;
   const assetFiles = files.assetFiles ?? [];
+  const sheetPreviews = files.sheetPreviews ?? [];
 
   return (
     <div>
@@ -1143,6 +1149,28 @@ function FileLinks({ files }: { files: AdminReviewProjectFiles }) {
           </div>
         ))}
       </div>
+      {sheetPreviews.length > 0 && (
+        <div className="border-t border-neutral-200">
+          <div className="px-3 py-2 text-xs font-semibold uppercase text-neutral-500">
+            Sheet previews
+          </div>
+          <div className="divide-y divide-neutral-200">
+            {sheetPreviews.map((previewPath, index) => (
+              <div
+                key={previewPath}
+                className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
+              >
+                <span className="text-sm font-medium">Sheet {index + 1}</span>
+                <FileActionLinks
+                  fileName={`preview-sheet-${index + 1}.png`}
+                  filePath={previewPath}
+                  downloadLabel={`Download Sheet ${index + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="border-t border-neutral-200">
         <div className="px-3 py-2 text-xs font-semibold uppercase text-neutral-500">
           Original artwork

@@ -34,6 +34,7 @@ export function createSheetDocument({
       heightIn: sheetSize.heightIn,
       dpi: profile.requiredDpi,
     },
+    sheets: [{ id: "sheet-1", label: "Sheet 1" }],
     assets: [],
     items: [],
     settings: {

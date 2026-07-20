@@ -7,6 +7,7 @@ import type {
   SheetDocument,
   SheetDocumentSettings,
   SheetItem,
+  SheetPage,
   SheetSizeId,
 } from "./types";
 
@@ -60,6 +61,13 @@ export type ReplaceItemsCommand = {
   now?: string;
 };
 
+export type ReplaceLayoutCommand = {
+  type: "layout/replace";
+  items: SheetItem[];
+  sheets: SheetPage[];
+  now?: string;
+};
+
 export type DuplicateItemCommand = {
   type: "item/duplicate";
   itemId: string;
@@ -99,6 +107,7 @@ export type SheetDocumentCommand =
   | UpdateItemCommand
   | RemoveItemCommand
   | ReplaceItemsCommand
+  | ReplaceLayoutCommand
   | DuplicateItemCommand
   | SetSheetSizeCommand
   | UpdateSettingsCommand
@@ -199,6 +208,22 @@ export function sheetDocumentReducer(
         {
           ...document,
           items: command.items,
+        },
+        command.now
+      );
+
+    case "layout/replace":
+      assertItemsReferenceExistingAssets(
+        document,
+        command.items,
+        "replace layout"
+      );
+
+      return touch(
+        {
+          ...document,
+          items: command.items,
+          sheets: command.sheets,
         },
         command.now
       );

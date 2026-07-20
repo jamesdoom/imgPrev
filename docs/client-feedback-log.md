@@ -8,7 +8,7 @@ Use this file as the single production-readiness queue after each client test se
 - Client test status: initial live submission proof passed
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
-- Open medium issues: none reported
+- Open medium issues: 1 awaiting deployed retest
 - Open low issues: 1 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
@@ -121,7 +121,23 @@ No open items.
 
 ## Medium
 
-No open items.
+### Auto-arrange should offer another paid sheet for overflow
+
+- ID: CLIENT-20260720-07
+- Status: ready for retest
+- Area: customer editor | proof submit | admin review
+- Browser/device: production browser session
+- Artwork used: a quantity large enough to exceed one sheet
+- Steps to reproduce: place more decals than Sheet 1 can hold and select Auto-arrange
+- Expected: the app reports the exact overflow before increasing cost, adds each confirmed sheet, shows per-sheet preflight and total price, and produces reviewable production output for every sheet
+- Actual: Auto-arrange previously left excess decals unplaced on a single sheet
+- Evidence: client feature request on 2026-07-20
+- Severity: medium
+- Owner: application
+- Regression test: placement, render, submission, admin, and customer browser tests cover confirmed multi-sheet overflow and a multi-page PDF
+- Fix commit: Phase 7 multi-sheet overflow
+- Retest result: pending deployment
+- QA notes: old projects without an explicit sheet list continue to open as one-sheet projects
 
 ## Low
 

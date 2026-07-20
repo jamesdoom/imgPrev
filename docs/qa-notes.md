@@ -381,3 +381,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: changed Auto-arrange from a neutral secondary button to a distinct blue action
 - Regression added: the customer proof workflow verifies the enabled Auto-arrange visual treatment before using it
 - Notes/follow-up: multi-sheet overflow is intentionally separate because it must coordinate layout, pricing, PDFs, persistence, submission, and admin review
+
+## 2026-07-20 - Confirmed Multi-Sheet Overflow
+
+- Automated: placement, document/export, backend render/submission, admin review, and customer browser regressions plus `npm run test:client-ready`
+- Accessibility: overflow confirmation states the exact number of decals and next sheet before price changes; sheet headings and per-sheet preflight remain visible without relying on color
+- Manual: verified Sheet 1 is packed first, cancellation leaves the document and price unchanged, confirmation creates the next numbered sheet, and wide layouts show sheets side by side while smaller layouts stack them
+- Regression added: overflow packing, legacy one-sheet compatibility, multi-page PDF generation, numbered R2 previews, Neon sheet/file metadata, all-sheet admin links, sheet-count pricing, and the customer confirmation workflow
+- Notes/follow-up: CLIENT-20260720-07 remains ready for deployed retest; admin receives one multi-page `print.pdf` plus a numbered preview for every sheet

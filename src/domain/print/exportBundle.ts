@@ -25,6 +25,7 @@ export interface ExportBundleManifest {
     widthPx: number;
     heightPx: number;
     dpi: number;
+    sheetCount: number;
   };
   customer: {
     company: string;
@@ -96,6 +97,7 @@ export function buildExportBundleManifest({
       widthPx: printCanvas.widthPx,
       heightPx: printCanvas.heightPx,
       dpi: document.sheet.dpi,
+      sheetCount: document.sheets?.length ?? 1,
     },
     customer: {
       company: customer?.company?.trim() ?? "",

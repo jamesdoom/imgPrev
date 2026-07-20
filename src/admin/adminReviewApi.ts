@@ -13,6 +13,7 @@ export interface AdminReviewProjectSummary {
   counts: {
     assets: number;
     items: number;
+    sheets?: number;
   };
   files: AdminReviewProjectFiles;
   review: AdminProjectReview;
@@ -32,6 +33,7 @@ export interface AdminReviewProjectFiles {
   manifestJson?: string;
   assets?: string;
   assetFiles?: AdminReviewProjectFile[];
+  sheetPreviews?: string[];
 }
 
 export interface AdminReviewProjectFile {

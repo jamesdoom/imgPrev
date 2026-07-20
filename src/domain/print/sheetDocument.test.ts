@@ -21,6 +21,7 @@ describe("createSheetDocument", () => {
       },
       assets: [],
       items: [],
+      sheets: [{ id: "sheet-1", label: "Sheet 1" }],
       settings: {
         background: {
           type: "transparent",

@@ -69,11 +69,17 @@ export interface SheetDocument {
   version: 1;
   productionProfileId: string;
   sheet: SheetDocumentSheet;
+  sheets?: SheetPage[];
   assets: SheetAsset[];
   items: SheetItem[];
   settings: SheetDocumentSettings;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface SheetPage {
+  id: string;
+  label: string;
 }
 
 export interface SheetDocumentSheet {
@@ -111,6 +117,7 @@ export interface SheetItem {
   rotationDeg: number;
   scaleX: number;
   scaleY: number;
+  sheetId?: string;
   locked?: boolean;
   cutline?: VectorCutline;
 }
@@ -156,4 +163,5 @@ export interface PreflightIssue {
   message: string;
   itemId?: string;
   assetId?: string;
+  sheetId?: string;
 }
