@@ -6,11 +6,11 @@ Use this file as the single production-readiness queue after each client test se
 
 - Review date: 2026-07-17
 - Client test status: initial live submission proof passed
-- Open blockers: none reported
+- Open blockers: 1 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
 - Open low issues: none reported
-- Release status: candidate awaiting the next client feedback cycle
+- Release status: hold until CLIENT-20260720-01 is verified
 
 ## Monitored Observations
 
@@ -25,7 +25,23 @@ Use this file as the single production-readiness queue after each client test se
 
 ## Blockers
 
-No open items.
+### Submitted order disappears from admin after Render local storage resets
+
+- ID: CLIENT-20260720-01
+- Status: ready for retest
+- Area: admin review | storage
+- Browser/device: production browser session
+- Artwork used: realistic client test order
+- Steps to reproduce: submit an order, wait approximately 10 minutes, reopen or refresh the admin panel
+- Expected: the submitted order remains listed and reviewable
+- Actual: admin returned “No submitted projects found.”
+- Evidence: client report on 2026-07-20
+- Severity: blocker
+- Owner: application
+- Regression test: `backend/app.test.ts` keeps Neon-backed projects reviewable after local Render files disappear
+- Fix commit: Phase 7 durable admin recovery change
+- Retest result: pending deployment
+- QA notes: admin list/detail/review now use Neon when Render-local files are absent; stored PDF and preview are served from R2
 
 ## High
 

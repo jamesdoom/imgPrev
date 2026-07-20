@@ -1,4 +1,5 @@
 import {
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
@@ -32,6 +33,16 @@ export interface ProductionStorageInput {
   orderRecord: unknown;
   projectId: string;
   projectRecord: unknown;
+  submittedAt: string;
+}
+
+export interface DurableProductionSubmission {
+  orderRecord: unknown;
+  projectId: string;
+  projectRecord: unknown;
+  review: unknown;
+  status: string;
+  storageRecord: ProductionStorageRecord;
   submittedAt: string;
 }
 
@@ -78,6 +89,118 @@ export function createQueuedProductionStorageRecord(
 
 export function isProductionStorageConfigured(): boolean {
   return getMissingProductionStorageConfig().length === 0;
+}
+
+export function isProductionDatabaseConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL?.trim());
+}
+
+export async function listDurableProductionSubmissions(): Promise<
+  DurableProductionSubmission[]
+> {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (!databaseUrl) {
+    return [];
+  }
+
+  const pool = getPostgresPool(databaseUrl);
+  await ensureProductionSubmissionTable(pool);
+  const result = await pool.query(`
+    SELECT project_id, submitted_at, status, project_json, order_json,
+      storage_json, review_json
+    FROM print_submissions
+    ORDER BY submitted_at DESC
+  `);
+
+  return result.rows.map(parseDurableProductionSubmission);
+}
+
+export async function readDurableProductionSubmission(
+  projectId: string
+): Promise<DurableProductionSubmission | null> {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (!databaseUrl) {
+    return null;
+  }
+
+  const pool = getPostgresPool(databaseUrl);
+  await ensureProductionSubmissionTable(pool);
+  const result = await pool.query(
+    `
+      SELECT project_id, submitted_at, status, project_json, order_json,
+        storage_json, review_json
+      FROM print_submissions
+      WHERE project_id = $1
+    `,
+    [projectId]
+  );
+
+  return result.rows[0]
+    ? parseDurableProductionSubmission(result.rows[0])
+    : null;
+}
+
+export async function updateDurableProductionSubmissionReview(
+  projectId: string,
+  review: { status: string }
+): Promise<boolean> {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (!databaseUrl) {
+    return false;
+  }
+
+  const pool = getPostgresPool(databaseUrl);
+  await ensureProductionSubmissionTable(pool);
+  const result = await pool.query(
+    `
+      UPDATE print_submissions
+      SET review_json = $2, status = $3, updated_at = now()
+      WHERE project_id = $1
+    `,
+    [projectId, review, review.status]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function readDurableProductionFile(
+  projectId: string,
+  filePath: string
+): Promise<{ body: Buffer; contentType: string } | null> {
+  const config = getProductionStorageConfig();
+
+  if (!config) {
+    return null;
+  }
+
+  const submission = await readDurableProductionSubmission(projectId);
+  const file = submission?.storageRecord.files.find(
+    (candidate) => candidate.path === filePath
+  );
+
+  if (!file) {
+    return null;
+  }
+
+  const client = createR2Client(config);
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: config.r2.bucket,
+      Key: file.key,
+    })
+  );
+
+  if (!response.Body) {
+    return null;
+  }
+
+  return {
+    body: Buffer.from(await response.Body.transformToByteArray()),
+    contentType: response.ContentType ?? file.contentType,
+  };
 }
 
 export async function persistProductionSubmissionToStorage({
@@ -179,14 +302,7 @@ async function uploadProductionFilesToR2({
   files: ProductionStorageInput["files"];
   projectId: string;
 }): Promise<ProductionStorageFile[]> {
-  const client = new S3Client({
-    credentials: {
-      accessKeyId: config.r2.accessKeyId,
-      secretAccessKey: config.r2.secretAccessKey,
-    },
-    endpoint: config.r2.endpoint,
-    region: config.r2.region,
-  });
+  const client = createR2Client(config);
   const candidates = [
     {
       buffer: files.printPdf,
@@ -233,6 +349,17 @@ async function uploadProductionFilesToR2({
   );
 }
 
+function createR2Client(config: ProductionStorageConfig) {
+  return new S3Client({
+    credentials: {
+      accessKeyId: config.r2.accessKeyId,
+      secretAccessKey: config.r2.secretAccessKey,
+    },
+    endpoint: config.r2.endpoint,
+    region: config.r2.region,
+  });
+}
+
 async function upsertPostgresSubmission({
   config,
   orderRecord,
@@ -250,17 +377,7 @@ async function upsertPostgresSubmission({
 }) {
   const pool = getPostgresPool(config.databaseUrl);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS print_submissions (
-      project_id text PRIMARY KEY,
-      submitted_at timestamptz NOT NULL,
-      status text NOT NULL,
-      project_json jsonb NOT NULL,
-      order_json jsonb NOT NULL,
-      storage_json jsonb NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
+  await ensureProductionSubmissionTable(pool);
   await pool.query(
     `
       INSERT INTO print_submissions (
@@ -291,6 +408,42 @@ async function upsertPostgresSubmission({
       storageRecord,
     ]
   );
+}
+
+async function ensureProductionSubmissionTable(pool: Pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS print_submissions (
+      project_id text PRIMARY KEY,
+      submitted_at timestamptz NOT NULL,
+      status text NOT NULL,
+      project_json jsonb NOT NULL,
+      order_json jsonb NOT NULL,
+      storage_json jsonb NOT NULL,
+      review_json jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE print_submissions
+    ADD COLUMN IF NOT EXISTS review_json jsonb
+  `);
+}
+
+function parseDurableProductionSubmission(
+  row: Record<string, unknown>
+): DurableProductionSubmission {
+  return {
+    orderRecord: row.order_json,
+    projectId: String(row.project_id),
+    projectRecord: row.project_json,
+    review: row.review_json,
+    status: String(row.status),
+    storageRecord: row.storage_json as ProductionStorageRecord,
+    submittedAt:
+      row.submitted_at instanceof Date
+        ? row.submitted_at.toISOString()
+        : String(row.submitted_at),
+  };
 }
 
 function getPostgresPool(databaseUrl: string): Pool {

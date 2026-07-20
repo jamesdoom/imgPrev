@@ -11,8 +11,14 @@ import nodemailer from "nodemailer";
 import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
 import {
   createQueuedProductionStorageRecord,
+  isProductionDatabaseConfigured,
   isProductionStorageConfigured,
+  listDurableProductionSubmissions,
   persistProductionSubmissionToStorage,
+  readDurableProductionFile,
+  readDurableProductionSubmission,
+  updateDurableProductionSubmissionReview,
+  type DurableProductionSubmission,
   type ProductionStorageRecord,
 } from "./productionStorage";
 
@@ -36,6 +42,7 @@ const storageRoot = path.resolve(__dirname, "storage");
 const uploadsDir = path.join(storageRoot, "uploads");
 const processedDir = path.join(storageRoot, "processed");
 const projectsDir = path.join(storageRoot, "projects");
+const projectRecordWriteQueues = new Map<string, Promise<void>>();
 
 const safeUnlink = (filePath: string, delay = 500) => {
   setTimeout(() => {
@@ -405,6 +412,42 @@ export function createApp() {
         }
 
         res.json({ project });
+      })();
+    }
+  );
+
+  app.get(
+    "/production-files/:projectId/:fileName",
+    (req: Request, res: Response): void => {
+      void (async () => {
+        const projectId = getSafeProjectId(req.params.projectId);
+        const fileName = getDurableFileName(req.params.fileName);
+
+        if (!projectId || !fileName) {
+          res.status(400).json({ error: "Invalid production file path." });
+          return;
+        }
+
+        try {
+          const file = await readDurableProductionFile(projectId, fileName);
+
+          if (!file) {
+            res.status(404).json({ error: "Production file not found." });
+            return;
+          }
+
+          res.setHeader("Content-Type", file.contentType);
+          res.setHeader(
+            "Content-Disposition",
+            `${fileName === "print.pdf" ? "inline" : "attachment"}; filename="${fileName}"`
+          );
+          res.send(file.body);
+        } catch (error) {
+          console.error("[production-file] could not read R2 file", error);
+          res.status(502).json({
+            error: "Could not open the stored production file.",
+          });
+        }
       })();
     }
   );
@@ -908,19 +951,21 @@ async function writePrintOrderEmailRecord({
   orderRecord: PrintOrderRecord;
   projectDir: string;
 }) {
-  const currentOrderRecord = await readCurrentPrintOrderRecord(
-    projectDir,
-    orderRecord
-  );
-  const updatedOrderRecord: PrintOrderRecord = {
-    ...currentOrderRecord,
-    email: emailDelivery,
-  };
+  await withProjectRecordWriteLock(projectDir, async () => {
+    const currentOrderRecord = await readCurrentPrintOrderRecord(
+      projectDir,
+      orderRecord
+    );
+    const updatedOrderRecord: PrintOrderRecord = {
+      ...currentOrderRecord,
+      email: emailDelivery,
+    };
 
-  await fs.promises.writeFile(
-    path.join(projectDir, "order.json"),
-    JSON.stringify(updatedOrderRecord, null, 2)
-  );
+    await writeJsonAtomically(
+      path.join(projectDir, "order.json"),
+      updatedOrderRecord
+    );
+  });
 }
 
 async function persistProductionStorageInBackground({
@@ -1009,36 +1054,64 @@ async function writeProductionStorageRecords({
   projectDir: string;
   projectRecord: Record<string, unknown>;
 }) {
-  const currentProjectRecord = await readCurrentProjectRecord(
-    projectDir,
-    projectRecord
-  );
-  const currentOrderRecord = await readCurrentPrintOrderRecord(
-    projectDir,
-    orderRecord
-  );
-  const updatedOrderRecord: PrintOrderRecord = {
-    ...currentOrderRecord,
-    storage: productionStorage,
-  };
+  await withProjectRecordWriteLock(projectDir, async () => {
+    const currentProjectRecord = await readCurrentProjectRecord(
+      projectDir,
+      projectRecord
+    );
+    const currentOrderRecord = await readCurrentPrintOrderRecord(
+      projectDir,
+      orderRecord
+    );
+    const updatedOrderRecord: PrintOrderRecord = {
+      ...currentOrderRecord,
+      storage: productionStorage,
+    };
 
-  await Promise.all([
-    fs.promises.writeFile(
-      path.join(projectDir, "project.json"),
-      JSON.stringify(
-        {
-          ...currentProjectRecord,
-          storage: productionStorage,
-        },
-        null,
-        2
-      )
-    ),
-    fs.promises.writeFile(
-      path.join(projectDir, "order.json"),
-      JSON.stringify(updatedOrderRecord, null, 2)
-    ),
-  ]);
+    await Promise.all([
+      writeJsonAtomically(path.join(projectDir, "project.json"), {
+        ...currentProjectRecord,
+        storage: productionStorage,
+      }),
+      writeJsonAtomically(
+        path.join(projectDir, "order.json"),
+        updatedOrderRecord
+      ),
+    ]);
+  });
+}
+
+async function withProjectRecordWriteLock(
+  projectDir: string,
+  action: () => Promise<void>
+) {
+  const previous = projectRecordWriteQueues.get(projectDir) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(action);
+
+  projectRecordWriteQueues.set(projectDir, current);
+
+  try {
+    await current;
+  } finally {
+    if (projectRecordWriteQueues.get(projectDir) === current) {
+      projectRecordWriteQueues.delete(projectDir);
+    }
+  }
+}
+
+async function writeJsonAtomically(filePath: string, value: unknown) {
+  const temporaryPath = `${filePath}.${process.pid}.${Math.random()
+    .toString(36)
+    .slice(2)}.tmp`;
+
+  await fs.promises.writeFile(temporaryPath, JSON.stringify(value, null, 2));
+
+  try {
+    await fs.promises.rename(temporaryPath, filePath);
+  } catch (error) {
+    await fs.promises.rm(temporaryPath, { force: true });
+    throw error;
+  }
 }
 
 function createFailedProductionStorageRecord(
@@ -1175,14 +1248,25 @@ async function listSubmittedProjects() {
   const entries = await fs.promises.readdir(projectsDir, {
     withFileTypes: true,
   });
-  const projects = await Promise.all(
+  const localProjects = await Promise.all(
     entries
       .filter((entry) => entry.isDirectory())
-      .map((entry) => readSubmittedProject(entry.name))
+      .map((entry) => readLocalSubmittedProject(entry.name))
+  );
+  const durableProjects = isProductionDatabaseConfigured()
+    ? (await listDurableProductionSubmissions()).map(readDurableProject)
+    : [];
+  const projectsById = new Map(
+    durableProjects
+      .filter((project): project is NonNullable<typeof project> => !!project)
+      .map((project) => [project.projectId, project])
   );
 
-  return projects
+  localProjects
     .filter((project): project is NonNullable<typeof project> => !!project)
+    .forEach((project) => projectsById.set(project.projectId, project));
+
+  return Array.from(projectsById.values())
     .sort((first, second) =>
       second.submittedAt.localeCompare(first.submittedAt)
     )
@@ -1199,6 +1283,17 @@ async function listSubmittedProjects() {
 }
 
 async function readSubmittedProject(projectId: string) {
+  const localProject = await readLocalSubmittedProject(projectId);
+
+  if (localProject || !isProductionDatabaseConfigured()) {
+    return localProject;
+  }
+
+  const durableProject = await readDurableProductionSubmission(projectId);
+  return durableProject ? readDurableProject(durableProject) : null;
+}
+
+async function readLocalSubmittedProject(projectId: string) {
   const safeProjectId = getSafeProjectId(projectId);
 
   if (!safeProjectId) {
@@ -1300,7 +1395,8 @@ async function updateProjectReview(
   }
 ) {
   const projectDir = path.join(projectsDir, projectId);
-  const currentProject = await readSubmittedProject(projectId);
+  const localProject = await readLocalSubmittedProject(projectId);
+  const currentProject = localProject ?? (await readSubmittedProject(projectId));
 
   if (!currentProject) {
     return null;
@@ -1321,12 +1417,20 @@ async function updateProjectReview(
     ],
   };
 
-  await fs.promises.writeFile(
-    path.join(projectDir, "review.json"),
-    JSON.stringify(review, null, 2)
-  );
+  if (localProject) {
+    await fs.promises.writeFile(
+      path.join(projectDir, "review.json"),
+      JSON.stringify(review, null, 2)
+    );
+  }
 
-  return readSubmittedProject(projectId);
+  if (isProductionDatabaseConfigured()) {
+    await updateDurableProductionSubmissionReview(projectId, review);
+  }
+
+  return localProject
+    ? readLocalSubmittedProject(projectId)
+    : readSubmittedProject(projectId);
 }
 
 function createInitialProjectReview(submittedAt: string): ProjectReview {
@@ -1472,6 +1576,119 @@ function getSafeProjectId(projectId: unknown): string | null {
   }
 
   return /^project-\d+-[a-z0-9]+$/.test(projectId) ? projectId : null;
+}
+
+function getDurableFileName(fileName: unknown) {
+  return fileName === "print.pdf" ||
+    fileName === "preview.png" ||
+    fileName === "order.json" ||
+    fileName === "project.json"
+    ? fileName
+    : null;
+}
+
+function readDurableProject(submission: DurableProductionSubmission) {
+  const manifest = getRecord(submission.projectRecord);
+  const document = getRecord(manifest.document);
+  const sheet = getRecord(document.sheet);
+
+  if (!isStoredProjectManifest(manifest, document, sheet)) {
+    return null;
+  }
+
+  const assets = Array.isArray(document.assets) ? document.assets : [];
+  const items = Array.isArray(document.items) ? document.items : [];
+  const storage =
+    getProductionStorageRecord(submission.storageRecord) ?? undefined;
+  const storedFiles = new Map(
+    storage?.files.map((file) => [
+      file.path,
+      file.publicUrl ??
+        `/production-files/${submission.projectId}/${encodeURIComponent(
+          file.path
+        )}`,
+    ])
+  );
+  const order = getRecord(submission.orderRecord);
+  const emailRecord = getRecord(order.email);
+  const emailStatus = emailRecord.status;
+  const review = readDurableProjectReview(
+    submission.review,
+    submission.submittedAt
+  );
+
+  return {
+    projectId: submission.projectId,
+    submittedAt: submission.submittedAt,
+    sheet: {
+      widthIn: sheet.widthIn,
+      heightIn: sheet.heightIn,
+      dpi: sheet.dpi,
+    },
+    counts: {
+      assets: assets.length,
+      items: items.length,
+    },
+    files: {
+      projectJson: storedFiles.get("project.json"),
+      orderJson: storedFiles.get("order.json"),
+      previewPng: storedFiles.get("preview.png"),
+      printPdf: storedFiles.get("print.pdf"),
+      assetFiles: [] as Array<{
+        fileName: string;
+        path: string;
+        sizeBytes?: number;
+      }>,
+    },
+    review,
+    storage,
+    email:
+      emailStatus === "not-configured" ||
+      emailStatus === "queued" ||
+      emailStatus === "sent" ||
+      emailStatus === "failed"
+        ? {
+            status: emailStatus,
+            ...(typeof emailRecord.message === "string"
+              ? { message: emailRecord.message }
+              : {}),
+            ...(typeof emailRecord.error === "string"
+              ? { error: emailRecord.error }
+              : {}),
+            ...(typeof emailRecord.recipient === "string"
+              ? { recipient: emailRecord.recipient }
+              : {}),
+            ...(typeof emailRecord.sentAt === "string"
+              ? { sentAt: emailRecord.sentAt }
+              : {}),
+          }
+        : undefined,
+    manifest,
+  };
+}
+
+function readDurableProjectReview(
+  value: unknown,
+  submittedAt: string
+): ProjectReview {
+  const record = getRecord(value);
+  const status = getReviewStatus(record.status);
+  const history = Array.isArray(record.history)
+    ? record.history
+        .map(readProjectReviewEvent)
+        .filter((event): event is ProjectReviewEvent => !!event)
+    : [];
+
+  return status
+    ? {
+        status,
+        updatedAt:
+          typeof record.updatedAt === "string"
+            ? record.updatedAt
+            : submittedAt,
+        history,
+      }
+    : createInitialProjectReview(submittedAt);
 }
 
 function isStoredProjectManifest(

@@ -5,7 +5,13 @@ import nodemailer from "nodemailer";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
-import { persistProductionSubmissionToStorage } from "./productionStorage";
+import {
+  listDurableProductionSubmissions,
+  persistProductionSubmissionToStorage,
+  readDurableProductionFile,
+  readDurableProductionSubmission,
+  updateDurableProductionSubmissionReview,
+} from "./productionStorage";
 
 vi.mock("./productionStorage", async () => {
   const actual =
@@ -15,8 +21,18 @@ vi.mock("./productionStorage", async () => {
 
   return {
     ...actual,
+    listDurableProductionSubmissions: vi.fn(
+      actual.listDurableProductionSubmissions
+    ),
     persistProductionSubmissionToStorage: vi.fn(
       actual.persistProductionSubmissionToStorage
+    ),
+    readDurableProductionFile: vi.fn(actual.readDurableProductionFile),
+    readDurableProductionSubmission: vi.fn(
+      actual.readDurableProductionSubmission
+    ),
+    updateDurableProductionSubmissionReview: vi.fn(
+      actual.updateDurableProductionSubmissionReview
     ),
   };
 });
@@ -78,7 +94,11 @@ beforeEach(() => {
   delete process.env.SMTP_TIMEOUT_MS;
   delete process.env.SMTP_USER;
   vi.mocked(nodemailer.createTransport).mockReset();
+  vi.mocked(listDurableProductionSubmissions).mockReset();
   vi.mocked(persistProductionSubmissionToStorage).mockReset();
+  vi.mocked(readDurableProductionFile).mockReset();
+  vi.mocked(readDurableProductionSubmission).mockReset();
+  vi.mocked(updateDurableProductionSubmissionReview).mockReset();
 });
 
 afterEach(async () => {
@@ -638,6 +658,118 @@ describe("backend app", () => {
         email: expect.objectContaining({
           status: "not-configured",
         }),
+      })
+    );
+  });
+
+  test("keeps Neon-backed projects reviewable after local Render files disappear", async () => {
+    process.env.DATABASE_URL = "postgres://example.test/print";
+    const projectId = "project-20260720120000-durable";
+    const submittedAt = "2026-07-20T12:00:00.000Z";
+    const manifest = {
+      ...renderManifest(),
+      projectId,
+      submittedAt,
+    };
+    const durableSubmission = {
+      projectId,
+      submittedAt,
+      status: "submitted",
+      projectRecord: manifest,
+      orderRecord: {
+        email: {
+          recipient: "print@example.com",
+          status: "sent",
+        },
+      },
+      review: null,
+      storageRecord: {
+        provider: "postgres+r2" as const,
+        status: "stored" as const,
+        files: [
+          {
+            contentType: "application/pdf",
+            key: `decal-sheet/${projectId}/print.pdf`,
+            path: "print.pdf",
+            sizeBytes: 1234,
+          },
+          {
+            contentType: "image/png",
+            key: `decal-sheet/${projectId}/preview.png`,
+            path: "preview.png",
+            sizeBytes: 456,
+          },
+        ],
+      },
+    };
+
+    vi.mocked(listDurableProductionSubmissions).mockResolvedValue([
+      durableSubmission,
+    ]);
+    vi.mocked(readDurableProductionSubmission).mockResolvedValue(
+      durableSubmission
+    );
+    vi.mocked(updateDurableProductionSubmissionReview).mockResolvedValue(true);
+    vi.mocked(readDurableProductionFile).mockResolvedValue({
+      body: Buffer.from("%PDF durable"),
+      contentType: "application/pdf",
+    });
+
+    const app = createApp();
+    const listResponse = await request(app).get("/admin/projects");
+    const detailResponse = await request(app).get(
+      `/admin/projects/${projectId}`
+    );
+    const reviewResponse = await request(app)
+      .patch(`/admin/projects/${projectId}/review`)
+      .send({
+        note: "Ready for print.",
+        reviewer: "Production",
+        status: "approved",
+      });
+    const printPdfResponse = await request(app).get(
+      `/production-files/${projectId}/print.pdf`
+    );
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.projects).toContainEqual(
+      expect.objectContaining({
+        projectId,
+        files: expect.objectContaining({
+          printPdf: `/production-files/${projectId}/print.pdf`,
+          previewPng: `/production-files/${projectId}/preview.png`,
+        }),
+        storage: expect.objectContaining({ status: "stored" }),
+      })
+    );
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.project.manifest).toMatchObject({
+      document: expect.objectContaining({
+        assets: expect.any(Array),
+        items: expect.any(Array),
+      }),
+    });
+    expect(reviewResponse.status).toBe(200);
+    expect(printPdfResponse.status).toBe(200);
+    expect(printPdfResponse.headers["content-type"]).toContain(
+      "application/pdf"
+    );
+    expect(printPdfResponse.headers["content-disposition"]).toContain("inline");
+    expect(readDurableProductionFile).toHaveBeenCalledWith(
+      projectId,
+      "print.pdf"
+    );
+    expect(updateDurableProductionSubmissionReview).toHaveBeenCalledWith(
+      projectId,
+      expect.objectContaining({
+        status: "approved",
+        history: [
+          expect.objectContaining({
+            note: "Ready for print.",
+            reviewer: "Production",
+            status: "approved",
+          }),
+        ],
       })
     );
   });

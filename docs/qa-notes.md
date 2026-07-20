@@ -333,3 +333,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: reconciled the completed live proof with the feedback queue and confirmed no client defects have been reported
 - Regression added: readiness checks now require the client feedback register and release-candidate gate
 - Notes/follow-up: the approximately 30-second first submission is tracked as a cold-start observation, not a confirmed defect; capture cold and warm timings during the next client session
+
+## 2026-07-20 - Durable Admin Order Recovery
+
+- Automated: focused backend regression plus `npm run test:client-ready`
+- Accessibility: unchanged; admin API persistence and stored-file delivery only
+- Manual: traced the production empty-list report to the admin API reading Render-local project folders even though Neon/R2 held the durable order
+- Regression added: a Neon-backed order remains listed, opens in detail, accepts a review decision, and exposes its R2 print PDF after the local project folder disappears; background JSON status updates are serialized and replaced atomically
+- Notes/follow-up: CLIENT-20260720-01 remains a blocker in ready-for-retest state until the fix is deployed and the client confirms the order survives the original wait/refresh sequence
