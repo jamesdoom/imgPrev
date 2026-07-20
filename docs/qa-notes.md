@@ -397,3 +397,10 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Correction: wait for the selected-item Delete control to become enabled and keep the mocked submission pending long enough to assert the uploading state
 - Automated: both affected Chromium scenarios passed five consecutive parallel repetitions; `npm run test:client-ready` then passed with 160 automated tests and 14 browser tests
 - Notes/follow-up: SMTP, R2, storage-volume, and upload error messages in the archive were expected output from passing failure-path tests, not production-service failures
+
+## 2026-07-20 - Newest-Sheet Upload Destination
+
+- Manual: traced Add more artwork placement to the active sheet and found Auto-arrange explicitly restored Sheet 1 after creating overflow sheets
+- Correction: Auto-arrange now activates its last created sheet, making that newest sheet the destination for the next upload
+- Regression added: the multi-sheet Chromium workflow records Sheet 2's decal count, uploads more artwork, and verifies only the Sheet 2 count increases
+- Notes/follow-up: CLIENT-20260720-08 remains ready for deployed retest

@@ -532,7 +532,7 @@ export default function StickerSheetDesigner() {
       sheets: nextSheets,
       now: new Date().toISOString(),
     });
-    setActiveSheetId(nextSheets[0].id);
+    setActiveSheetId(nextSheets[nextSheets.length - 1].id);
     dispatchView(
       nextItems[0]
         ? { type: "selection/select-item", itemId: nextItems[0].id }

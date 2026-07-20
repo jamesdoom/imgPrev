@@ -529,6 +529,21 @@ test("Auto-arrange confirms overflow and creates a priced second sheet", async (
       exact: true,
     }),
   ).toHaveCount(2);
+
+  const sheetTwo = page.getByLabel("Sheet 2 editor");
+  const sheetTwoHeader = sheetTwo.getByRole("button", { name: /Sheet 2/ });
+  const sheetTwoCountBeforeUpload = Number(
+    (await sheetTwoHeader.textContent())?.match(/(\d+) decals?/)?.[1],
+  );
+
+  expect(sheetTwoCountBeforeUpload).toBeGreaterThan(0);
+  await page
+    .getByText("Add more artwork", { exact: true })
+    .locator('input[type="file"]')
+    .setInputFiles(artworkFile);
+  await expect(sheetTwoHeader).toContainText(
+    `${sheetTwoCountBeforeUpload + 1} decals`,
+  );
 });
 
 test("customer can recover after a failed print submission response", async ({

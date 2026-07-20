@@ -8,7 +8,7 @@ Use this file as the single production-readiness queue after each client test se
 - Client test status: initial live submission proof passed
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
-- Open medium issues: 1 awaiting deployed retest
+- Open medium issues: 2 awaiting deployed retest
 - Open low issues: 1 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
@@ -120,6 +120,24 @@ Use this file as the single production-readiness queue after each client test se
 No open items.
 
 ## Medium
+
+### Add more artwork targets Sheet 1 after overflow creates Sheet 2
+
+- ID: CLIENT-20260720-08
+- Status: ready for retest
+- Area: customer editor
+- Browser/device: production browser session
+- Artwork used: a multi-sheet project
+- Steps to reproduce: create Sheet 2 through confirmed Auto-arrange overflow, then select Add more artwork
+- Expected: newly uploaded artwork is placed on the newest sheet
+- Actual: the artwork was placed on Sheet 1
+- Evidence: client report on 2026-07-20
+- Severity: medium
+- Owner: application
+- Regression test: the multi-sheet customer browser workflow verifies Add more artwork increments Sheet 2 after overflow
+- Fix commit: Phase 7 newest-sheet upload destination
+- Retest result: pending deployment
+- QA notes: Auto-arrange now activates the last sheet it creates; deliberate sheet selection continues to control later placement
 
 ### Auto-arrange should offer another paid sheet for overflow
 
