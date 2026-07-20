@@ -6,7 +6,7 @@ Use this file as the single production-readiness queue after each client test se
 
 - Review date: 2026-07-17
 - Client test status: initial live submission proof passed
-- Open blockers: 3 awaiting deployed retest
+- Open blockers: 4 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
 - Open low issues: none reported
@@ -24,6 +24,24 @@ Use this file as the single production-readiness queue after each client test se
 - Escalate to an issue when: warm submissions remain unusually slow, the UI times out, or the customer cannot tell that submission is still in progress.
 
 ## Blockers
+
+### Delete-key removal leaves stale artwork in the left list
+
+- ID: CLIENT-20260720-04
+- Status: ready for retest
+- Area: customer editor | keyboard
+- Browser/device: production browser session
+- Artwork used: client test artwork
+- Steps to reproduce: select the only placed decal for an artwork file and press Delete
+- Expected: the decal and its now-unused artwork row are removed
+- Actual: the decal disappeared from the sheet but the artwork remained in the left list
+- Evidence: client report on 2026-07-20
+- Severity: blocker
+- Owner: application
+- Regression test: `tests/e2e/customer-editor.spec.ts` verifies Delete removes the artwork row when its last placed decal is selected
+- Fix commit: Phase 7 keyboard deletion correction
+- Retest result: pending deployment
+- QA notes: Delete selected now removes an orphaned artwork source, while preserving the source if another placed copy still uses it
 
 ### Raster DPI warning ignores the decal's placed print size
 

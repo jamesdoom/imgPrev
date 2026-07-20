@@ -92,6 +92,43 @@ test("customer sees empty artwork state after malformed saved project JSON", asy
   ).toBeVisible();
 });
 
+test("Delete removes the artwork row when its last placed decal is selected", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+
+  const artworkRow = page.getByRole("button", {
+    name: /playwright-artwork\.svg Ready/,
+  });
+
+  await expect(artworkRow).toBeVisible();
+  await page.keyboard.press("Delete");
+
+  await expect(artworkRow).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Upload your files once. We will place them automatically, then guide you through checking and submitting the sheet.",
+    ),
+  ).toBeVisible();
+});
+
+test("Delete preserves artwork while another placed copy still uses it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator('input[type="file"]').first().setInputFiles(artworkFile);
+  await page.getByRole("button", { name: "Duplicate" }).click();
+  await page.keyboard.press("Delete");
+
+  await expect(
+    page.getByRole("button", {
+      name: /playwright-artwork\.svg Ready/,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("1 on sheet", { exact: true })).toBeVisible();
+});
+
 test("customer restore filters stale blob-only artwork and keeps durable missing-thumbnail artwork", async ({
   page,
 }) => {

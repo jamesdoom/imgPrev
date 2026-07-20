@@ -377,16 +377,56 @@ export default function StickerSheetDesigner() {
     });
   };
 
-  const removeSelectedItems = () => {
-    viewState.selectedItemIds.forEach((itemId) => {
+  const removeSelectedItems = useCallback(() => {
+    const selectedItemIds = new Set(viewState.selectedItemIds);
+    const orphanedAssetIds = new Set(
+      document.assets
+        .filter((asset) => {
+          const assetItems = document.items.filter(
+            (item) => item.assetId === asset.id,
+          );
+
+          return (
+            assetItems.length > 0 &&
+            assetItems.every((item) => selectedItemIds.has(item.id))
+          );
+        })
+        .map((asset) => asset.id),
+    );
+    const now = new Date().toISOString();
+
+    orphanedAssetIds.forEach((assetId) => {
       dispatchDocument({
-        type: "item/remove",
-        itemId,
-        now: new Date().toISOString(),
+        type: "asset/remove",
+        assetId,
+        now,
       });
     });
+    document.items
+      .filter(
+        (item) =>
+          selectedItemIds.has(item.id) &&
+          !orphanedAssetIds.has(item.assetId),
+      )
+      .forEach((item) => {
+        dispatchDocument({
+          type: "item/remove",
+          itemId: item.id,
+          now,
+        });
+      });
+
+    if (orphanedAssetIds.size > 0) {
+      setAssetFiles((current) =>
+        omitRecordKeys(current, orphanedAssetIds),
+      );
+      setAssetQuantities((current) =>
+        omitRecordKeys(current, orphanedAssetIds),
+      );
+    }
+
     dispatchView({ type: "selection/clear" });
-  };
+  }, [document.assets, document.items, viewState.selectedItemIds]);
 
   const removeAsset = (assetId: string) => {
     dispatchDocument({
@@ -623,14 +663,7 @@ export default function StickerSheetDesigner() {
             return false;
           }
 
-          viewState.selectedItemIds.forEach((itemId) => {
-            dispatchDocument({
-              type: "item/remove",
-              itemId,
-              now,
-            });
-          });
-          dispatchView({ type: "selection/clear" });
+          removeSelectedItems();
           return true;
 
         case "duplicate": {
@@ -733,8 +766,8 @@ export default function StickerSheetDesigner() {
       hasSelection,
       history.future.length,
       history.past.length,
+      removeSelectedItems,
       selectedItem,
-      viewState.selectedItemIds,
     ],
   );
 
@@ -2467,6 +2500,15 @@ function isSvgArtwork(asset: SheetAsset): boolean {
   return (
     asset.fileType.toLowerCase() === "image/svg+xml" ||
     asset.fileName.trim().toLowerCase().endsWith(".svg")
+  );
+}
+
+function omitRecordKeys<T>(
+  record: Record<string, T>,
+  keys: ReadonlySet<string>,
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => !keys.has(key)),
   );
 }
 

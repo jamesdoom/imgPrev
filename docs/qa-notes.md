@@ -357,3 +357,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: inspected `arizona_diamondbacks.png` as 905 × 720 px with embedded 72 DPI and confirmed that its actual print DPI varies with placed size
 - Regression added: the reported image calculates to approximately 181 effective DPI at 5 inches wide and approximately 148 effective DPI at 6.1 inches wide
 - Notes/follow-up: CLIENT-20260720-03 remains a blocker in ready-for-retest state until resizing the deployed decal updates or clears its DPI issue correctly; the full gate also verified Windows-safe atomic status-file replacement from the preceding admin durability fix
+
+## 2026-07-20 - Keyboard Delete Artwork Cleanup
+
+- Automated: focused Chromium deletion regression plus `npm run test:client-ready`
+- Accessibility: Delete and the visible Delete selected control now share the same cleanup behavior
+- Manual: confirmed the old shortcut removed only the placed item and deliberately retained its source in the artwork library
+- Regression added: deleting the last placed decal removes its unused artwork row; deleting one of multiple placed copies preserves the reusable source
+- Notes/follow-up: CLIENT-20260720-04 remains a blocker in ready-for-retest state until the deployed keyboard workflow removes the reported stale row
