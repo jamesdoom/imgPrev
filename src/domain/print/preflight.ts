@@ -15,6 +15,7 @@ interface Bounds {
 }
 
 const MEASUREMENT_EPSILON_IN = 0.000001;
+const DPI_ROUNDING_TOLERANCE = 0.5;
 
 export function runPreflight(
   document: SheetDocument,
@@ -26,7 +27,7 @@ export function runPreflight(
   );
 
   for (const asset of document.assets) {
-    issues.push(...preflightAsset(asset, profile));
+    issues.push(...preflightAsset(asset));
   }
 
   const itemBounds = document.items.map((item) => ({
@@ -86,8 +87,7 @@ export function getItemBounds(item: SheetItem): Bounds {
 }
 
 function preflightAsset(
-  asset: SheetAsset,
-  profile: ProductionProfile
+  asset: SheetAsset
 ): PreflightIssue[] {
   if (asset.fileType === "application/pdf") {
     return [
@@ -97,38 +97,6 @@ function preflightAsset(
         code: "unsupported-production-asset",
         assetId: asset.id,
         message: `${asset.fileName} must be converted to PNG, JPG, WebP, or SVG before production export.`,
-      },
-    ];
-  }
-
-  if (isSvgAsset(asset)) {
-    return [];
-  }
-
-  if (!asset.dpi) {
-    return [];
-  }
-
-  if (profile.rejectBelowDpi && asset.dpi < profile.rejectBelowDpi) {
-    return [
-      {
-        id: `${asset.id}:dpi-below-rejection`,
-        severity: "error",
-        code: "dpi-below-rejection",
-        assetId: asset.id,
-        message: `${asset.fileName} is below ${profile.rejectBelowDpi} DPI.`,
-      },
-    ];
-  }
-
-  if (asset.dpi < profile.warnBelowDpi) {
-    return [
-      {
-        id: `${asset.id}:dpi-below-warning`,
-        severity: "warning",
-        code: "dpi-below-warning",
-        assetId: asset.id,
-        message: `${asset.fileName} is below the recommended ${profile.warnBelowDpi} DPI.`,
       },
     ];
   }
@@ -154,6 +122,13 @@ function preflightItem(
   const minSizeIn = profile.printRules.minStickerSizeIn;
   const width = item.widthIn * Math.abs(item.scaleX);
   const height = item.heightIn * Math.abs(item.scaleY);
+  const dpiIssue = asset
+    ? getEffectiveDpiIssue(asset, item, width, height, profile)
+    : null;
+
+  if (dpiIssue) {
+    issues.push(dpiIssue);
+  }
 
   if (width < minSizeIn || height < minSizeIn) {
     issues.push({
@@ -185,6 +160,57 @@ function preflightItem(
   }
 
   return issues;
+}
+
+function getEffectiveDpiIssue(
+  asset: SheetAsset,
+  item: SheetItem,
+  widthIn: number,
+  heightIn: number,
+  profile: ProductionProfile
+): PreflightIssue | null {
+  if (
+    isSvgAsset(asset) ||
+    !asset.widthPx ||
+    !asset.heightPx ||
+    widthIn <= 0 ||
+    heightIn <= 0
+  ) {
+    return null;
+  }
+
+  const effectiveDpi = Math.min(
+    asset.widthPx / widthIn,
+    asset.heightPx / heightIn
+  );
+  const roundedDpi = Math.round(effectiveDpi);
+
+  if (
+    profile.rejectBelowDpi &&
+    effectiveDpi + DPI_ROUNDING_TOLERANCE < profile.rejectBelowDpi
+  ) {
+    return {
+      id: `${item.id}:dpi-below-rejection`,
+      severity: "error",
+      code: "dpi-below-rejection",
+      itemId: item.id,
+      assetId: asset.id,
+      message: `${asset.fileName} is approximately ${roundedDpi} effective DPI at its placed size, below the ${profile.rejectBelowDpi} DPI minimum. Make the decal smaller or use a larger image.`,
+    };
+  }
+
+  if (effectiveDpi + DPI_ROUNDING_TOLERANCE < profile.warnBelowDpi) {
+    return {
+      id: `${item.id}:dpi-below-warning`,
+      severity: "warning",
+      code: "dpi-below-warning",
+      itemId: item.id,
+      assetId: asset.id,
+      message: `${asset.fileName} is approximately ${roundedDpi} effective DPI at its placed size; ${profile.warnBelowDpi} DPI is preferred. Making the decal smaller will improve resolution.`,
+    };
+  }
+
+  return null;
 }
 
 function preflightItemSpacing(

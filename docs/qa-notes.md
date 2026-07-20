@@ -349,3 +349,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: traced the below-150-DPI message to raster DPI validation running before robust SVG classification
 - Regression added: SVG artwork is exempt from raster DPI thresholds when identified by MIME type or `.svg` filename, even if stale DPI metadata is present
 - Notes/follow-up: CLIENT-20260720-02 remains a blocker in ready-for-retest state until the deployed app identifies the reported SVG as vector artwork
+
+## 2026-07-20 - Placed-Size Effective DPI
+
+- Automated: focused effective-DPI and editor accessibility tests plus `npm run test:client-ready`
+- Accessibility: preflight retains explicit warning/error language and suggests making the decal smaller
+- Manual: inspected `arizona_diamondbacks.png` as 905 × 720 px with embedded 72 DPI and confirmed that its actual print DPI varies with placed size
+- Regression added: the reported image calculates to approximately 181 effective DPI at 5 inches wide and approximately 148 effective DPI at 6.1 inches wide
+- Notes/follow-up: CLIENT-20260720-03 remains a blocker in ready-for-retest state until resizing the deployed decal updates or clears its DPI issue correctly; the full gate also verified Windows-safe atomic status-file replacement from the preceding admin durability fix

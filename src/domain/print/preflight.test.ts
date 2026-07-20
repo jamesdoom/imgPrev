@@ -49,13 +49,17 @@ describe("runPreflight", () => {
     expect(runPreflight(document)).toEqual([]);
   });
 
-  test("warns when an asset is below recommended DPI", () => {
-    const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
-      {
-        ...asset,
-        dpi: 240,
-      }
+  test("warns when placed artwork is below recommended effective DPI", () => {
+    const document = addItem(
+      addAsset(
+        createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
+        {
+          ...asset,
+          widthPx: 240,
+          heightPx: 240,
+          dpi: 72,
+        }
+      )
     );
 
     expect(runPreflight(document)).toEqual([
@@ -67,13 +71,17 @@ describe("runPreflight", () => {
     ]);
   });
 
-  test("errors when an asset is below rejection DPI", () => {
-    const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
-      {
-        ...asset,
-        dpi: 120,
-      }
+  test("errors when placed artwork is below rejection effective DPI", () => {
+    const document = addItem(
+      addAsset(
+        createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
+        {
+          ...asset,
+          widthPx: 120,
+          heightPx: 120,
+          dpi: 300,
+        }
+      )
     );
 
     expect(runPreflight(document)).toEqual([
@@ -86,17 +94,60 @@ describe("runPreflight", () => {
   });
 
   test("does not apply raster DPI limits to SVG artwork", () => {
-    const document = addAsset(
-      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
-      {
-        ...asset,
-        fileName: "vector-artwork.svg",
-        fileType: "application/octet-stream",
-        dpi: 72,
-      }
+    const document = addItem(
+      addAsset(
+        createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
+        {
+          ...asset,
+          fileName: "vector-artwork.svg",
+          fileType: "application/octet-stream",
+          widthPx: 72,
+          heightPx: 72,
+          dpi: 72,
+        }
+      )
     );
 
     expect(runPreflight(document)).toEqual([]);
+  });
+
+  test("uses placed size instead of embedded DPI for 905 by 720 artwork", () => {
+    const arizonaAsset: SheetAsset = {
+      ...asset,
+      fileName: "arizona_diamondbacks.png",
+      widthPx: 905,
+      heightPx: 720,
+      dpi: 72,
+    };
+    const fiveInchItem: SheetItem = {
+      ...item,
+      widthIn: 5,
+      heightIn: (720 / 905) * 5,
+    };
+    const sixPointOneInchItem: SheetItem = {
+      ...item,
+      widthIn: 6.1,
+      heightIn: (720 / 905) * 6.1,
+    };
+    const baseDocument = addAsset(
+      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
+      arizonaAsset
+    );
+
+    expect(runPreflight(addItem(baseDocument, fiveInchItem))).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        code: "dpi-below-warning",
+        message: expect.stringContaining("181 effective DPI"),
+      }),
+    ]);
+    expect(runPreflight(addItem(baseDocument, sixPointOneInchItem))).toEqual([
+      expect.objectContaining({
+        severity: "error",
+        code: "dpi-below-rejection",
+        message: expect.stringContaining("148 effective DPI"),
+      }),
+    ]);
   });
 
   test("errors when a PDF asset is used for production export", () => {

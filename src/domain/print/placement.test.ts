@@ -299,8 +299,8 @@ describe("autoArrangeSheetItems", () => {
           sourceUrl: "/uploads/one.png",
           fileName: "one.png",
           fileType: "image/png",
-          widthPx: 600,
-          heightPx: 300,
+          widthPx: 1200,
+          heightPx: 600,
         },
       ],
       items: [

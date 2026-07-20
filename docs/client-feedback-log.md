@@ -6,7 +6,7 @@ Use this file as the single production-readiness queue after each client test se
 
 - Review date: 2026-07-17
 - Client test status: initial live submission proof passed
-- Open blockers: 2 awaiting deployed retest
+- Open blockers: 3 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
 - Open low issues: none reported
@@ -24,6 +24,24 @@ Use this file as the single production-readiness queue after each client test se
 - Escalate to an issue when: warm submissions remain unusually slow, the UI times out, or the customer cannot tell that submission is still in progress.
 
 ## Blockers
+
+### Raster DPI warning ignores the decal's placed print size
+
+- ID: CLIENT-20260720-03
+- Status: ready for retest
+- Area: customer editor | preflight
+- Browser/device: production browser session
+- Artwork used: `arizona_diamondbacks.png` (905 × 720 px, embedded 72 DPI)
+- Steps to reproduce: upload the PNG, place it below approximately 6 inches wide, and review preflight
+- Expected: effective DPI is calculated from pixels divided by placed inches
+- Actual: the embedded 72 DPI value triggered a below-150-DPI error even at a print size above 150 effective DPI
+- Evidence: client report and source artwork inspected on 2026-07-20
+- Severity: blocker
+- Owner: application
+- Regression test: `src/domain/print/preflight.test.ts` verifies this 905 × 720 image at 5 inches is approximately 181 effective DPI and at 6.1 inches is approximately 148 effective DPI
+- Fix commit: Phase 7 effective-DPI correction
+- Retest result: pending deployment
+- QA notes: raster resolution now updates from each decal's actual placed width, height, and scale instead of trusting embedded DPI metadata
 
 ### SVG artwork incorrectly receives a below-150-DPI error
 

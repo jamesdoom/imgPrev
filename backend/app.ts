@@ -1109,8 +1109,29 @@ async function writeJsonAtomically(filePath: string, value: unknown) {
   try {
     await fs.promises.rename(temporaryPath, filePath);
   } catch (error) {
-    await fs.promises.rm(temporaryPath, { force: true });
-    throw error;
+    const errorCode =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+
+    if (process.platform !== "win32" || !["EEXIST", "EPERM"].includes(errorCode)) {
+      await fs.promises.rm(temporaryPath, { force: true });
+      throw error;
+    }
+
+    const backupPath = `${temporaryPath}.previous`;
+
+    try {
+      await fs.promises.rename(filePath, backupPath);
+      await fs.promises.rename(temporaryPath, filePath);
+      await fs.promises.rm(backupPath, { force: true });
+    } catch (replacementError) {
+      await fs.promises
+        .rename(backupPath, filePath)
+        .catch(() => undefined);
+      await fs.promises.rm(temporaryPath, { force: true });
+      throw replacementError;
+    }
   }
 }
 

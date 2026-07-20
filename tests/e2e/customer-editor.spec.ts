@@ -46,17 +46,21 @@ test("customer can upload artwork and reload the saved project preview", async (
   await page.locator('input[type="file"]').first().setInputFiles(pngWithoutDpiFile);
 
   await expect(
-    page.getByRole("button", { name: /playwright-no-dpi\.png Ready/ }),
+    page.getByRole("button", {
+      name: /playwright-no-dpi\.png Needs attention/,
+    }),
   ).toBeVisible();
   await expect(page.getByText("1 x 1px")).toBeVisible();
-  await expect(page.getByText("DPI metadata unavailable; using 300 DPI")).toBeVisible();
+  await expect(page.getByText(/approximately 1 effective DPI/).first()).toBeVisible();
   await expect(page.getByLabel("Rotation")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Order Summary" })).toBeVisible();
 
   await page.reload();
 
   await expect(
-    page.getByRole("button", { name: /playwright-no-dpi\.png Ready/ }),
+    page.getByRole("button", {
+      name: /playwright-no-dpi\.png Needs attention/,
+    }),
   ).toBeVisible();
   await expect(page.getByText("1 x 1px")).toBeVisible();
   await expect(page.getByRole("button", { name: /Place 1/ })).toBeVisible();

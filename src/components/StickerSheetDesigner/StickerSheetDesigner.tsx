@@ -2439,7 +2439,10 @@ function getArtworkReadiness(
 
   if (asset.dpi) {
     return {
-      detail: `${asset.dpi} DPI artwork`,
+      detail:
+        asset.widthPx && asset.heightPx
+          ? `${asset.widthPx} × ${asset.heightPx} px; resolution checked at placed size`
+          : `${asset.dpi} DPI metadata; placed-size resolution unavailable`,
       label: "Ready",
       tone: "ready",
     };
