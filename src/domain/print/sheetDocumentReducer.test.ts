@@ -143,6 +143,47 @@ describe("sheetDocumentReducer", () => {
     expect(arranged.updatedAt).toBe("2026-06-25T12:00:00.000Z");
   });
 
+  test("removes an empty overflow sheet with its last decal", () => {
+    const withLayout = sheetDocumentReducer(documentWithAsset(), {
+      type: "layout/replace",
+      sheets: [
+        { id: "sheet-1", label: "Sheet 1" },
+        { id: "sheet-2", label: "Sheet 2" },
+      ],
+      items: [
+        { ...item, sheetId: "sheet-1" },
+        { ...item, id: "item-2", sheetId: "sheet-2" },
+      ],
+    });
+
+    const removed = sheetDocumentReducer(withLayout, {
+      type: "item/remove",
+      itemId: "item-2",
+    });
+
+    expect(removed.items).toEqual([{ ...item, sheetId: "sheet-1" }]);
+    expect(removed.sheets).toEqual([{ id: "sheet-1", label: "Sheet 1" }]);
+  });
+
+  test("removes an empty overflow sheet when its last artwork is removed", () => {
+    const withLayout = sheetDocumentReducer(documentWithAsset(), {
+      type: "layout/replace",
+      sheets: [
+        { id: "sheet-1", label: "Sheet 1" },
+        { id: "sheet-2", label: "Sheet 2" },
+      ],
+      items: [{ ...item, sheetId: "sheet-2" }],
+    });
+
+    const removed = sheetDocumentReducer(withLayout, {
+      type: "asset/remove",
+      assetId: asset.id,
+    });
+
+    expect(removed.items).toEqual([]);
+    expect(removed.sheets).toEqual([{ id: "sheet-1", label: "Sheet 1" }]);
+  });
+
   test("places multiple sticker items in one document update", () => {
     const secondItem: SheetItem = {
       ...item,

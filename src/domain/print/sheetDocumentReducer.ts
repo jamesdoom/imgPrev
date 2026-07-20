@@ -138,17 +138,21 @@ export function sheetDocumentReducer(
         command.now
       );
 
-    case "asset/remove":
+    case "asset/remove": {
+      const items = document.items.filter(
+        (item) => item.assetId !== command.assetId
+      );
+
       return touch(
         {
           ...document,
           assets: document.assets.filter((asset) => asset.id !== command.assetId),
-          items: document.items.filter(
-            (item) => item.assetId !== command.assetId
-          ),
+          items,
+          sheets: pruneEmptyOverflowSheets(document.sheets, items),
         },
         command.now
       );
+    }
 
     case "item/place":
       if (!document.assets.some((asset) => asset.id === command.item.assetId)) {
@@ -188,14 +192,20 @@ export function sheetDocumentReducer(
         command.now
       );
 
-    case "item/remove":
+    case "item/remove": {
+      const items = document.items.filter(
+        (item) => item.id !== command.itemId
+      );
+
       return touch(
         {
           ...document,
-          items: document.items.filter((item) => item.id !== command.itemId),
+          items,
+          sheets: pruneEmptyOverflowSheets(document.sheets, items),
         },
         command.now
       );
+    }
 
     case "items/replace":
       assertItemsReferenceExistingAssets(
@@ -339,4 +349,26 @@ function touch(document: SheetDocument, now?: string): SheetDocument {
     ...document,
     updatedAt: now,
   };
+}
+
+function pruneEmptyOverflowSheets(
+  sheets: SheetPage[] | undefined,
+  items: SheetItem[]
+): SheetPage[] {
+  const documentSheets =
+    sheets && sheets.length > 0
+      ? sheets
+      : [{ id: "sheet-1", label: "Sheet 1" }];
+  const occupiedSheetIds = new Set(
+    items.map((item) => item.sheetId ?? "sheet-1")
+  );
+
+  return documentSheets
+    .filter(
+      (sheet, index) => index === 0 || occupiedSheetIds.has(sheet.id)
+    )
+    .map((sheet, index) => ({
+      ...sheet,
+      label: `Sheet ${index + 1}`,
+    }));
 }

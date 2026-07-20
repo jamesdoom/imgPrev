@@ -404,3 +404,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Correction: Auto-arrange now activates its last created sheet, making that newest sheet the destination for the next upload
 - Regression added: the multi-sheet Chromium workflow records Sheet 2's decal count, uploads more artwork, and verifies only the Sheet 2 count increases
 - Notes/follow-up: CLIENT-20260720-08 remains ready for deployed retest
+
+## 2026-07-20 - Immediate Empty-Sheet Cleanup
+
+- Evidence: client screenshot showed Sheet 1 still occupying half of the wide-screen sheet grid after Sheet 2 was emptied
+- Cause: sheet metadata was only rebuilt by Auto-arrange, and the responsive grid always enabled two desktop columns
+- Correction: both placed-item deletion and last-artwork deletion prune empty overflow sheets in the same undoable document update; a one-sheet project uses a single full-width grid column
+- Regression added: reducer tests cover both deletion routes and preserve Sheet 1 as the permanent base sheet
+- Notes/follow-up: CLIENT-20260720-09 remains ready for deployed retest

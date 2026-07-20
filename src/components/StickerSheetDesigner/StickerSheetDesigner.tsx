@@ -1088,7 +1088,11 @@ export default function StickerSheetDesigner() {
         </aside>
 
         <main className="min-h-[480px] min-w-0 overflow-auto bg-neutral-200 p-3 sm:min-h-[560px] lg:min-h-0">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              sheetPages.length > 1 ? "xl:grid-cols-2" : ""
+            }`}
+          >
             {sheetPages.map((page) => {
               const pageItems = document.items.filter(
                 (item) => (item.sheetId ?? "sheet-1") === page.id,

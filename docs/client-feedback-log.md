@@ -8,7 +8,7 @@ Use this file as the single production-readiness queue after each client test se
 - Client test status: initial live submission proof passed
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
-- Open medium issues: 2 awaiting deployed retest
+- Open medium issues: 3 awaiting deployed retest
 - Open low issues: 1 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
@@ -120,6 +120,24 @@ Use this file as the single production-readiness queue after each client test se
 No open items.
 
 ## Medium
+
+### Empty overflow sheet persists and leaves Sheet 1 half width
+
+- ID: CLIENT-20260720-09
+- Status: ready for retest
+- Area: customer editor
+- Browser/device: production browser session
+- Artwork used: a two-sheet project
+- Steps to reproduce: delete every decal from Sheet 2 without running Auto-arrange
+- Expected: the empty overflow sheet disappears immediately and Sheet 1 expands into the available editor width
+- Actual: Sheet 2 remained until Auto-arrange, after which the desktop grid still reserved its empty column
+- Evidence: client report and screenshot on 2026-07-20
+- Severity: medium
+- Owner: application
+- Regression test: reducer coverage verifies both decal-only and last-artwork deletion prune an empty overflow sheet
+- Fix commit: Phase 7 empty-sheet cleanup
+- Retest result: pending deployment
+- QA notes: Sheet 1 remains the permanent base sheet; empty overflow sheets are removed and remaining sheet labels are compacted
 
 ### Add more artwork targets Sheet 1 after overflow creates Sheet 2
 
