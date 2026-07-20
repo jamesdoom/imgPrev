@@ -341,3 +341,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: traced the production empty-list report to the admin API reading Render-local project folders even though Neon/R2 held the durable order
 - Regression added: a Neon-backed order remains listed, opens in detail, accepts a review decision, and exposes its R2 print PDF after the local project folder disappears; background JSON status updates are serialized and replaced atomically
 - Notes/follow-up: CLIENT-20260720-01 remains a blocker in ready-for-retest state until the fix is deployed and the client confirms the order survives the original wait/refresh sequence
+
+## 2026-07-20 - SVG Preflight DPI Classification
+
+- Automated: focused preflight regression plus `npm run test:client-ready`
+- Accessibility: customer artwork readiness language remains covered by the existing editor accessibility and browser suites
+- Manual: traced the below-150-DPI message to raster DPI validation running before robust SVG classification
+- Regression added: SVG artwork is exempt from raster DPI thresholds when identified by MIME type or `.svg` filename, even if stale DPI metadata is present
+- Notes/follow-up: CLIENT-20260720-02 remains a blocker in ready-for-retest state until the deployed app identifies the reported SVG as vector artwork

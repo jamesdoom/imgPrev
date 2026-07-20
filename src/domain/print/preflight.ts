@@ -101,6 +101,10 @@ function preflightAsset(
     ];
   }
 
+  if (isSvgAsset(asset)) {
+    return [];
+  }
+
   if (!asset.dpi) {
     return [];
   }
@@ -130,6 +134,13 @@ function preflightAsset(
   }
 
   return [];
+}
+
+function isSvgAsset(asset: SheetAsset): boolean {
+  return (
+    asset.fileType.toLowerCase() === "image/svg+xml" ||
+    asset.fileName.trim().toLowerCase().endsWith(".svg")
+  );
 }
 
 function preflightItem(

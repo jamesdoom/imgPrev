@@ -25,11 +25,11 @@ Medium and low issues may remain only when they are explicitly accepted, have an
 ## Current Gate Record
 
 - Date: 2026-07-17
-- Automated gate: passed (`npm run test:client-ready`; 153 automated tests and 11 browser tests)
+- Automated gate: passed (`npm run test:client-ready`; 154 automated tests and 11 browser tests)
 - Live submission proof: passed
-- Reported client defects: CLIENT-20260720-01 ready for deployed retest
+- Reported client defects: CLIENT-20260720-01 and CLIENT-20260720-02 ready for deployed retest
 - Performance observation: cold-start submission latency remains under monitoring
-- Decision: hold until the durable admin-list retest passes
+- Decision: hold until the durable admin-list and SVG preflight retests pass
 
 ## Release Record Template
 

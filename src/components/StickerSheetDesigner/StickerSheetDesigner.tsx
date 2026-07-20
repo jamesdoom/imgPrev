@@ -2429,17 +2429,17 @@ function getArtworkReadiness(
     };
   }
 
-  if (asset.dpi) {
+  if (isSvgArtwork(asset)) {
     return {
-      detail: `${asset.dpi} DPI artwork`,
+      detail: "Vector artwork; DPI metadata is not required",
       label: "Ready",
       tone: "ready",
     };
   }
 
-  if (asset.fileType === "image/svg+xml") {
+  if (asset.dpi) {
     return {
-      detail: "Vector artwork; DPI metadata is not required",
+      detail: `${asset.dpi} DPI artwork`,
       label: "Ready",
       tone: "ready",
     };
@@ -2458,6 +2458,13 @@ function getArtworkReadiness(
     label: "Check",
     tone: "warning",
   };
+}
+
+function isSvgArtwork(asset: SheetAsset): boolean {
+  return (
+    asset.fileType.toLowerCase() === "image/svg+xml" ||
+    asset.fileName.trim().toLowerCase().endsWith(".svg")
+  );
 }
 
 function ArtworkReadinessBadge({ readiness }: { readiness: ArtworkReadiness }) {

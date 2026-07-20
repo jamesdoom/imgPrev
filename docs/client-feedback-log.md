@@ -6,7 +6,7 @@ Use this file as the single production-readiness queue after each client test se
 
 - Review date: 2026-07-17
 - Client test status: initial live submission proof passed
-- Open blockers: 1 awaiting deployed retest
+- Open blockers: 2 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
 - Open low issues: none reported
@@ -24,6 +24,24 @@ Use this file as the single production-readiness queue after each client test se
 - Escalate to an issue when: warm submissions remain unusually slow, the UI times out, or the customer cannot tell that submission is still in progress.
 
 ## Blockers
+
+### SVG artwork incorrectly receives a below-150-DPI error
+
+- ID: CLIENT-20260720-02
+- Status: ready for retest
+- Area: customer editor | preflight
+- Browser/device: production browser session
+- Artwork used: client SVG artwork
+- Steps to reproduce: upload the SVG and review its artwork/preflight status
+- Expected: SVG artwork is identified as vector and is not evaluated using raster DPI thresholds
+- Actual: the SVG displayed a below-150-DPI message
+- Evidence: client report on 2026-07-20
+- Severity: blocker
+- Owner: application
+- Regression test: `src/domain/print/preflight.test.ts` does not apply raster DPI limits to SVG artwork, including extension-based SVG detection with a stale DPI value
+- Fix commit: Phase 7 SVG preflight correction
+- Retest result: pending deployment
+- QA notes: preflight and artwork readiness now identify SVG before evaluating DPI
 
 ### Submitted order disappears from admin after Render local storage resets
 

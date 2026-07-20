@@ -85,6 +85,20 @@ describe("runPreflight", () => {
     ]);
   });
 
+  test("does not apply raster DPI limits to SVG artwork", () => {
+    const document = addAsset(
+      createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
+      {
+        ...asset,
+        fileName: "vector-artwork.svg",
+        fileType: "application/octet-stream",
+        dpi: 72,
+      }
+    );
+
+    expect(runPreflight(document)).toEqual([]);
+  });
+
   test("errors when a PDF asset is used for production export", () => {
     const document = addAsset(
       createSheetDocument({ id: "project-1", sheetSizeId: "11x17" }),
