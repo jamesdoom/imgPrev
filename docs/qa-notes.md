@@ -389,3 +389,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: verified Sheet 1 is packed first, cancellation leaves the document and price unchanged, confirmation creates the next numbered sheet, and wide layouts show sheets side by side while smaller layouts stack them
 - Regression added: overflow packing, legacy one-sheet compatibility, multi-page PDF generation, numbered R2 previews, Neon sheet/file metadata, all-sheet admin links, sheet-count pricing, and the customer confirmation workflow
 - Notes/follow-up: CLIENT-20260720-07 remains ready for deployed retest; admin receives one multi-page `print.pdf` plus a numbered preview for every sheet
+
+## 2026-07-20 - CI Browser Timing Stabilization
+
+- Evidence: GitHub Actions run log archive `logs_80577952876.zip`
+- Cause: the Delete regression sent its shortcut before the asynchronously placed decal was selectable, while the submission regression allowed its mocked response to replace the transient progress panel before a loaded CI worker observed it
+- Correction: wait for the selected-item Delete control to become enabled and keep the mocked submission pending long enough to assert the uploading state
+- Automated: both affected Chromium scenarios passed five consecutive parallel repetitions; `npm run test:client-ready` then passed with 160 automated tests and 14 browser tests
+- Notes/follow-up: SMTP, R2, storage-volume, and upload error messages in the archive were expected output from passing failure-path tests, not production-service failures

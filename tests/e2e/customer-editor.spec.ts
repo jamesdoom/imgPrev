@@ -103,6 +103,9 @@ test("Delete removes the artwork row when its last placed decal is selected", as
   });
 
   await expect(artworkRow).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Delete selected" }),
+  ).toBeEnabled();
   await page.keyboard.press("Delete");
 
   await expect(artworkRow).toHaveCount(0);
@@ -278,7 +281,9 @@ test("customer can reach print readiness and submit a print order", async ({
   page,
 }) => {
   await page.route("http://localhost:4000/submit-project", async (route) => {
-    await delay(300);
+    // Keep the mocked request pending long enough for a loaded CI worker to
+    // observe the uploading state before the receipt replaces it.
+    await delay(1_000);
     await route.fulfill({
       contentType: "application/json",
       json: {
