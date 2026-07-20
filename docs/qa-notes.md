@@ -373,3 +373,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Manual: traced intermittent resize jumps to Konva retaining imperative scale after the app had already absorbed that scale into stored width and height
 - Regression added: resize commit resets node scale to one, preserves center/minimum size, and guarantees a following inward transform decreases dimensions
 - Notes/follow-up: CLIENT-20260720-05 remains a blocker in ready-for-retest state until repeated small inward/outward handle drags behave consistently in production
+
+## 2026-07-20 - Auto-Arrange Action Emphasis
+
+- Automated: customer browser workflow plus `npm run test:client-ready`
+- Accessibility: enabled state keeps high-contrast text and existing focus treatment; disabled state remains visually subdued with explanatory copy
+- Manual: changed Auto-arrange from a neutral secondary button to a distinct blue action
+- Regression added: the customer proof workflow verifies the enabled Auto-arrange visual treatment before using it
+- Notes/follow-up: multi-sheet overflow is intentionally separate because it must coordinate layout, pricing, PDFs, persistence, submission, and admin review

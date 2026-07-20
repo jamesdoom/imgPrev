@@ -938,7 +938,7 @@ export default function StickerSheetDesigner() {
             ) : (
               <>
                 <button
-                  className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-white text-sm font-medium hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400 ${FOCUS_RING_CLASS}`}
+                  className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-sky-700 bg-sky-700 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-100 disabled:text-neutral-400 disabled:shadow-none ${FOCUS_RING_CLASS}`}
                   aria-describedby={
                     document.items.length < 2
                       ? "auto-arrange-disabled-reason"

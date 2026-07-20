@@ -413,7 +413,11 @@ test("customer main proof path preserves layout, order summary, submit payload, 
   ).not.toBeChecked();
 
   await page.getByRole("button", { name: "Duplicate" }).click();
-  await page.getByRole("button", { name: "Auto-arrange sheet" }).click();
+  const autoArrangeButton = page.getByRole("button", {
+    name: "Auto-arrange sheet",
+  });
+  await expect(autoArrangeButton).toHaveClass(/bg-sky-700/);
+  await autoArrangeButton.click();
 
   const editorSummary = page.getByLabel("Editor controls and order summary");
 

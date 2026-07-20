@@ -9,7 +9,7 @@ Use this file as the single production-readiness queue after each client test se
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: none reported
-- Open low issues: none reported
+- Open low issues: 1 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
 ## Monitored Observations
@@ -125,7 +125,23 @@ No open items.
 
 ## Low
 
-No open items.
+### Auto-arrange action needs stronger visual emphasis
+
+- ID: CLIENT-20260720-06
+- Status: ready for retest
+- Area: customer editor
+- Browser/device: production browser session
+- Artwork used: any multi-decal project
+- Steps to reproduce: prepare multiple decals and locate Auto-arrange in the artwork panel
+- Expected: the frequently used Auto-arrange action is easy to find without competing with submission
+- Actual: the neutral button blended into secondary controls
+- Evidence: client feedback on 2026-07-20
+- Severity: low
+- Owner: application
+- Regression test: customer browser workflow verifies the enabled action uses its distinct blue treatment before arranging
+- Fix commit: Phase 7 Auto-arrange emphasis
+- Retest result: pending deployment
+- QA notes: disabled Auto-arrange remains neutral and explanatory; enabled Auto-arrange is blue with white text
 
 ## Issue Entry Template
 
