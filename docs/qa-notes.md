@@ -419,3 +419,10 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Storage behavior: deletes every recorded R2 production object, then the Neon submission row and Render-local project directory; any R2 object error stops the database/local deletion and is reported to the admin
 - Regression added: backend tests verify rejected deletion and HTTP 409 for other statuses; API and component tests verify the DELETE request, confirmation, and immediate admin-list removal
 - Notes/follow-up: CLIENT-20260721-10 remains ready for deployed retest; permanent deletion cannot be undone
+
+## 2026-07-21 - Admin Email-Status Cleanup
+
+- Evidence: client confirmed email forwarding is working and requested removal of the large print-order email panel
+- Correction: removed the email-delivery panel from admin review while retaining delivery status, recipient, timestamps, and errors in backend/order records
+- Regression added: admin screen coverage supplies a successful email record and verifies the panel is absent
+- Notes/follow-up: CLIENT-20260721-11 remains ready for deployed retest

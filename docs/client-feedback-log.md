@@ -9,7 +9,7 @@ Use this file as the single production-readiness queue after each client test se
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: 4 awaiting deployed retest
-- Open low issues: 1 awaiting deployed retest
+- Open low issues: 2 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
 ## Monitored Observations
@@ -194,6 +194,24 @@ No open items.
 - QA notes: old projects without an explicit sheet list continue to open as one-sheet projects
 
 ## Low
+
+### Email-delivery panel adds noise after forwarding is proven
+
+- ID: CLIENT-20260721-11
+- Status: ready for retest
+- Area: admin review | email
+- Browser/device: production admin panel
+- Artwork used: any submitted order
+- Steps to reproduce: open an order after email forwarding is configured and working
+- Expected: production review stays focused on print files, storage, and review decisions
+- Actual: a large print-order email status panel repeated operational information on every order
+- Evidence: client report and screenshot on 2026-07-21
+- Severity: low
+- Owner: application
+- Regression test: admin screen coverage verifies email delivery data does not render the removed panel
+- Fix commit: Phase 7 admin email-status cleanup
+- Retest result: pending deployment
+- QA notes: email status remains in backend and order records for diagnostics; only the admin presentation was removed
 
 ### Auto-arrange action needs stronger visual emphasis
 

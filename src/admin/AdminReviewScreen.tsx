@@ -17,7 +17,6 @@ import {
   updateAdminProjectReview,
   type AdminProjectReviewStatus,
   type AdminReviewProjectDetail,
-  type AdminReviewEmailDelivery,
   type AdminReviewProjectFiles,
   type AdminReviewProjectSummary,
   type AdminReviewProductionStorage,
@@ -530,7 +529,6 @@ function ProjectDetail({
       </div>
 
       <ProductionStoragePanel storage={project.storage} />
-      <EmailDeliveryPanel email={project.email} />
 
       {project.manifest.preflight?.issues?.length ? (
         <div className="rounded border border-neutral-300 bg-white">
@@ -1025,69 +1023,6 @@ function ProductionStoragePanel({
           ))}
         </div>
       ) : null}
-    </section>
-  );
-}
-
-function EmailDeliveryPanel({
-  email,
-}: {
-  email?: AdminReviewEmailDelivery;
-}) {
-  const isSent = email?.status === "sent";
-  const isFailed = email?.status === "failed";
-  const statusLabel =
-    email?.status === "sent"
-      ? "Email sent"
-      : email?.status === "queued"
-        ? "Email queued"
-        : email?.status === "failed"
-          ? "Email failed"
-          : "Email not configured";
-
-  return (
-    <section
-      aria-labelledby="email-delivery-heading"
-      className={`rounded border ${
-        isSent
-          ? "border-emerald-200 bg-emerald-50"
-          : isFailed
-            ? "border-red-200 bg-red-50"
-            : "border-amber-200 bg-amber-50"
-      }`}
-    >
-      <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 id="email-delivery-heading" className="text-sm font-semibold">
-            Print-order email
-          </h3>
-          <p className="mt-1 text-sm text-neutral-700">
-            {email?.message ??
-              "No confirmed email delivery record is available for this order."}
-          </p>
-          {email?.recipient && (
-            <p className="mt-1 text-xs text-neutral-600">
-              Recipient: {email.recipient}
-              {email.sentAt ? ` · Sent ${formatDateTime(email.sentAt)}` : ""}
-            </p>
-          )}
-          {email?.error && (
-            <p className="mt-1 text-xs font-medium text-red-800">
-              Delivery error: {email.error}
-            </p>
-          )}
-        </div>
-        <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-current px-2 text-xs font-semibold">
-          {isSent ? (
-            <CheckCircleIcon className="h-4 w-4" />
-          ) : isFailed ? (
-            <XCircleIcon className="h-4 w-4" />
-          ) : (
-            <ExclamationTriangleIcon className="h-4 w-4" />
-          )}
-          {statusLabel}
-        </span>
-      </div>
     </section>
   );
 }

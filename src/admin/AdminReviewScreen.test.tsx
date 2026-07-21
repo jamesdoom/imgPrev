@@ -159,10 +159,8 @@ describe("AdminReviewScreen", () => {
     expect(screen.getByText("proofs/project-20260625120000-abc123/print.pdf | 1.4 MB")).toBeInTheDocument();
     expect(screen.getAllByText("Stored").length).toBeGreaterThanOrEqual(5);
     expect(
-      screen.getByRole("heading", { name: "Print-order email" })
-    ).toBeInTheDocument();
-    expect(screen.getByText("Email sent")).toBeInTheDocument();
-    expect(screen.getByText(/Recipient: print@example.com/)).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Print-order email" })
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("Submitted").length).toBeGreaterThan(0);
     expect(screen.getByText("Current status")).toBeInTheDocument();
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
