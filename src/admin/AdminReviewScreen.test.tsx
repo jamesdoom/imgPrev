@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import AdminReviewScreen from "./AdminReviewScreen";
 import {
+  deleteAdminProject,
   fetchAdminProjectDetail,
   fetchAdminProjects,
   updateAdminProjectReview,
@@ -16,6 +17,7 @@ vi.mock("./adminReviewApi", async () => {
 
   return {
     ...actual,
+    deleteAdminProject: vi.fn(),
     fetchAdminProjectDetail: vi.fn(),
     fetchAdminProjects: vi.fn(),
     getAdminFileUrl: (filePath: string) => `http://localhost:4000${filePath}`,
@@ -25,6 +27,7 @@ vi.mock("./adminReviewApi", async () => {
 
 const fetchAdminProjectsMock = vi.mocked(fetchAdminProjects);
 const fetchAdminProjectDetailMock = vi.mocked(fetchAdminProjectDetail);
+const deleteAdminProjectMock = vi.mocked(deleteAdminProject);
 const updateAdminProjectReviewMock = vi.mocked(updateAdminProjectReview);
 
 beforeEach(() => {
@@ -270,6 +273,50 @@ describe("AdminReviewScreen", () => {
     expect(screen.getAllByText("Reviewer").length).toBeGreaterThan(0);
     expect(screen.getByText("Latest reviewer")).toBeInTheDocument();
     expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
+  });
+
+  test("permanently deletes a rejected order after confirmation", async () => {
+    const rejectedProject = {
+      projectId: "project-20260625120000-rejected",
+      submittedAt: "2026-06-25T12:00:00.000Z",
+      sheet: { sizeId: "11x17", widthIn: 11, heightIn: 17, dpi: 300 },
+      counts: { assets: 1, items: 1 },
+      files: {},
+      review: {
+        status: "rejected" as const,
+        updatedAt: "2026-06-25T13:00:00.000Z",
+        history: [],
+      },
+    };
+
+    fetchAdminProjectsMock.mockResolvedValue([rejectedProject]);
+    fetchAdminProjectDetailMock.mockResolvedValue({
+      ...rejectedProject,
+      manifest: {
+        document: {
+          settings: { background: { type: "transparent" as const } },
+        },
+      },
+    });
+    deleteAdminProjectMock.mockResolvedValue();
+    const confirmMock = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<AdminReviewScreen />);
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Delete order permanently",
+    });
+    await userEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(deleteAdminProjectMock).toHaveBeenCalledWith(
+        "project-20260625120000-rejected"
+      );
+    });
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.stringContaining("cannot be undone")
+    );
+    expect(await screen.findByText("No submitted projects found.")).toBeInTheDocument();
   });
 
   test("shows actionable review update errors and keeps entered notes", async () => {

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createApp } from "./app";
 import { inspectProductionPdf, validateProductionPdf } from "./renderSheet";
 import {
+  deleteDurableProductionSubmission,
   listDurableProductionSubmissions,
   persistProductionSubmissionToStorage,
   readDurableProductionFile,
@@ -21,6 +22,9 @@ vi.mock("./productionStorage", async () => {
 
   return {
     ...actual,
+    deleteDurableProductionSubmission: vi.fn(
+      actual.deleteDurableProductionSubmission
+    ),
     listDurableProductionSubmissions: vi.fn(
       actual.listDurableProductionSubmissions
     ),
@@ -94,6 +98,7 @@ beforeEach(() => {
   delete process.env.SMTP_TIMEOUT_MS;
   delete process.env.SMTP_USER;
   vi.mocked(nodemailer.createTransport).mockReset();
+  vi.mocked(deleteDurableProductionSubmission).mockReset();
   vi.mocked(listDurableProductionSubmissions).mockReset();
   vi.mocked(persistProductionSubmissionToStorage).mockReset();
   vi.mocked(readDurableProductionFile).mockReset();
@@ -1064,6 +1069,54 @@ describe("backend app", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: "Invalid review status." });
+  });
+
+  test("permanently deletes a rejected project", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+    const projectId = submitResponse.body.projectId;
+
+    submittedProjectIds.push(projectId);
+    await request(app)
+      .patch(`/admin/projects/${projectId}/review`)
+      .send({ status: "rejected", note: "Do not print." });
+
+    const response = await request(app).delete(`/admin/projects/${projectId}`);
+    const detailResponse = await request(app).get(`/admin/projects/${projectId}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ deleted: true, projectId });
+    expect(detailResponse.status).toBe(404);
+    expect(fs.existsSync(path.join(projectsDir, projectId))).toBe(false);
+    expect(deleteDurableProductionSubmission).toHaveBeenCalledWith(projectId);
+  });
+
+  test("refuses to delete a project that is not rejected", async () => {
+    const app = createApp();
+    const submitResponse = await request(app)
+      .post("/submit-project")
+      .field("manifest", JSON.stringify(renderManifest()))
+      .attach("assets", validPng, {
+        filename: "pixel.png",
+        contentType: "image/png",
+      });
+
+    submittedProjectIds.push(submitResponse.body.projectId);
+    const response = await request(app).delete(
+      `/admin/projects/${submitResponse.body.projectId}`
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error: "Only rejected projects can be permanently deleted.",
+    });
+    expect(deleteDurableProductionSubmission).not.toHaveBeenCalled();
   });
 });
 

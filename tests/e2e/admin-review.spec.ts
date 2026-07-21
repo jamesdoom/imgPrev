@@ -91,6 +91,14 @@ test("admin can review downloadable previews and approve a project", async ({
   await page.route(
     `http://localhost:4000/admin/projects/${projectId}`,
     async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({
+          contentType: "application/json",
+          json: { deleted: true, projectId },
+        });
+        return;
+      }
+
       await route.fulfill({
         contentType: "application/json",
         json: { project: submittedProject },
@@ -265,4 +273,13 @@ test("admin can inspect downloadable project files and reject a submitted proof"
     page.getByText("Artwork edge is too close to the cutline."),
   ).toBeVisible();
   await expect(page.getByText("Print Desk").first()).toBeVisible();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("cannot be undone");
+    await dialog.accept();
+  });
+  await page
+    .getByRole("button", { name: "Delete order permanently" })
+    .click();
+  await expect(page.getByText("No submitted projects found.")).toBeVisible();
 });

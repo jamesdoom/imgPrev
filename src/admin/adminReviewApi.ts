@@ -152,6 +152,14 @@ export async function updateAdminProjectReview(
   return payload.project;
 }
 
+export async function deleteAdminProject(projectId: string): Promise<void> {
+  await requestJson<{ deleted?: boolean }>(
+    `/admin/projects/${encodeURIComponent(projectId)}`,
+    "Could not permanently delete project.",
+    { method: "DELETE" }
+  );
+}
+
 export function getAdminFileUrl(filePath: string): string {
   if (/^https?:\/\//.test(filePath)) {
     return filePath;

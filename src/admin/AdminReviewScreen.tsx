@@ -6,9 +6,11 @@ import {
   CheckCircleIcon,
   DocumentTextIcon,
   ExclamationTriangleIcon,
+  TrashIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import {
+  deleteAdminProject,
   fetchAdminProjectDetail,
   fetchAdminProjects,
   getAdminFileUrl,
@@ -40,6 +42,8 @@ export default function AdminReviewScreen() {
   const [reviewNote, setReviewNote] = useState("");
   const [reviewerName, setReviewerName] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [savingReviewStatus, setSavingReviewStatus] = useState<
     Exclude<AdminProjectReviewStatus, "submitted"> | null
   >(null);
@@ -92,6 +96,7 @@ export default function AdminReviewScreen() {
     setReviewNote("");
     setReviewerName("");
     setReviewError(null);
+    setDeleteError(null);
 
     void fetchAdminProjectDetail(selectedProjectId)
       .then((project) => {
@@ -154,6 +159,42 @@ export default function AdminReviewScreen() {
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!selectedProjectId || selectedProject?.review.status !== "rejected") {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Permanently delete ${selectedProjectId}? This removes its order record, artwork, previews, and print PDF and cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await deleteAdminProject(selectedProjectId);
+      const remainingProjects = projects.filter(
+        (project) => project.projectId !== selectedProjectId
+      );
+
+      setProjects(remainingProjects);
+      setSelectedProject(null);
+      setSelectedProjectId(remainingProjects[0]?.projectId ?? null);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Could not permanently delete project."
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-950">
       <header className="border-b border-neutral-300 bg-white px-4 py-4 sm:px-6">
@@ -205,6 +246,8 @@ export default function AdminReviewScreen() {
         <section aria-label="Submission detail" className="min-w-0">
           <ProjectDetail
             error={detailError}
+            deleteError={deleteError}
+            isDeleting={isDeleting}
             project={selectedProject}
             reviewError={reviewError}
             reviewNote={reviewNote}
@@ -213,6 +256,7 @@ export default function AdminReviewScreen() {
             state={detailState}
             onChangeReviewNote={setReviewNote}
             onChangeReviewerName={setReviewerName}
+            onDeleteProject={handleDeleteProject}
             onUpdateReview={handleReviewUpdate}
           />
         </section>
@@ -299,7 +343,9 @@ function SubmissionList({
 }
 
 function ProjectDetail({
+  deleteError,
   error,
+  isDeleting,
   project,
   reviewError,
   reviewNote,
@@ -308,9 +354,12 @@ function ProjectDetail({
   state,
   onChangeReviewNote,
   onChangeReviewerName,
+  onDeleteProject,
   onUpdateReview,
 }: {
+  deleteError: string | null;
   error: string | null;
+  isDeleting: boolean;
   project: AdminReviewProjectDetail | null;
   reviewError: string | null;
   reviewNote: string;
@@ -319,6 +368,7 @@ function ProjectDetail({
   state: LoadState;
   onChangeReviewNote: (note: string) => void;
   onChangeReviewerName: (reviewerName: string) => void;
+  onDeleteProject: () => void;
   onUpdateReview: (
     status: Exclude<AdminProjectReviewStatus, "submitted">
   ) => void;
@@ -414,7 +464,7 @@ function ProjectDetail({
 
           <div className="rounded border border-neutral-300 bg-white">
             <SectionTitle title="Review decision" />
-            <ReviewDecisionPanel
+          <ReviewDecisionPanel
               note={reviewNote}
               reviewerName={reviewerName}
               savingStatus={savingReviewStatus}
@@ -423,6 +473,31 @@ function ProjectDetail({
               onChangeReviewerName={onChangeReviewerName}
               onUpdateReview={onUpdateReview}
             />
+            {project.review.status === "rejected" && (
+              <div className="border-t border-red-200 bg-red-50 p-3">
+                <p className="text-sm font-semibold text-red-950">
+                  Permanently delete rejected order
+                </p>
+                <p className="mt-1 text-xs leading-5 text-red-800">
+                  Removes the order record, uploaded artwork, previews, and
+                  print PDF. This cannot be undone.
+                </p>
+                {deleteError && (
+                  <p className="mt-2 text-sm text-red-900" role="alert">
+                    {deleteError}
+                  </p>
+                )}
+                <button
+                  className={`mt-3 inline-flex h-10 items-center justify-center gap-2 rounded border border-red-700 bg-white px-3 text-sm font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 ${focusRingClass}`}
+                  disabled={isDeleting || savingReviewStatus !== null}
+                  type="button"
+                  onClick={onDeleteProject}
+                >
+                  <TrashIcon className="h-5 w-5" />
+                  {isDeleting ? "Deleting permanently..." : "Delete order permanently"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

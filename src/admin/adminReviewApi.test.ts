@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  deleteAdminProject,
   fetchAdminProjectDetail,
   fetchAdminProjects,
   getAdminFileUrl,
@@ -170,6 +171,21 @@ describe("adminReviewApi", () => {
         },
         method: "PATCH",
       }
+    );
+  });
+
+  test("permanently deletes a rejected project", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ deleted: true }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    await deleteAdminProject("project-20260625120000-abc123");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4000/admin/projects/project-20260625120000-abc123",
+      { method: "DELETE" }
     );
   });
 

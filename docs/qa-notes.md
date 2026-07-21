@@ -412,3 +412,10 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Correction: both placed-item deletion and last-artwork deletion prune empty overflow sheets in the same undoable document update; a one-sheet project uses a single full-width grid column
 - Regression added: reducer tests cover both deletion routes and preserve Sheet 1 as the permanent base sheet
 - Notes/follow-up: CLIENT-20260720-09 remains ready for deployed retest
+
+## 2026-07-21 - Rejected-Order Permanent Deletion
+
+- Safety: the destructive action is shown only for rejected orders, requires explicit confirmation, and is visually separated from approve/reject/needs-changes controls
+- Storage behavior: deletes every recorded R2 production object, then the Neon submission row and Render-local project directory; any R2 object error stops the database/local deletion and is reported to the admin
+- Regression added: backend tests verify rejected deletion and HTTP 409 for other statuses; API and component tests verify the DELETE request, confirmation, and immediate admin-list removal
+- Notes/follow-up: CLIENT-20260721-10 remains ready for deployed retest; permanent deletion cannot be undone

@@ -1,4 +1,5 @@
 import {
+  DeleteObjectsCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -162,6 +163,60 @@ export async function updateDurableProductionSubmissionReview(
       WHERE project_id = $1
     `,
     [projectId, review, review.status]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function deleteDurableProductionSubmission(
+  projectId: string
+): Promise<boolean> {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (!databaseUrl) {
+    return false;
+  }
+
+  const pool = getPostgresPool(databaseUrl);
+  await ensureProductionSubmissionTable(pool);
+  const submission = await readDurableProductionSubmission(projectId);
+
+  if (!submission) {
+    return false;
+  }
+
+  if (submission.storageRecord.files.length > 0) {
+    const config = getProductionStorageConfig();
+
+    if (!config) {
+      throw new Error(
+        "R2 configuration is required to delete stored production files."
+      );
+    }
+
+    const client = createR2Client(config);
+    const response = await client.send(
+      new DeleteObjectsCommand({
+        Bucket: config.r2.bucket,
+        Delete: {
+          Objects: submission.storageRecord.files.map((file) => ({
+            Key: file.key,
+          })),
+          Quiet: true,
+        },
+      })
+    );
+
+    if (response.Errors?.length) {
+      throw new Error(
+        `R2 could not delete ${response.Errors.length} production file(s).`
+      );
+    }
+  }
+
+  const result = await pool.query(
+    "DELETE FROM print_submissions WHERE project_id = $1",
+    [projectId]
   );
 
   return (result.rowCount ?? 0) > 0;

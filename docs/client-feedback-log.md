@@ -8,7 +8,7 @@ Use this file as the single production-readiness queue after each client test se
 - Client test status: initial live submission proof passed
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
-- Open medium issues: 3 awaiting deployed retest
+- Open medium issues: 4 awaiting deployed retest
 - Open low issues: 1 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
@@ -120,6 +120,24 @@ Use this file as the single production-readiness queue after each client test se
 No open items.
 
 ## Medium
+
+### Rejected orders cannot be permanently removed
+
+- ID: CLIENT-20260721-10
+- Status: ready for retest
+- Area: admin review | storage
+- Browser/device: production admin panel
+- Artwork used: any rejected order
+- Steps to reproduce: reject an order and attempt to remove its obsolete production records
+- Expected: a guarded action permanently deletes a rejected order and all associated stored files
+- Actual: rejected orders remained in the admin list indefinitely
+- Evidence: client report on 2026-07-21
+- Severity: medium
+- Owner: application
+- Regression test: backend, admin API, and admin screen tests cover the rejected-only rule, confirmation, deletion, and list update
+- Fix commit: Phase 7 rejected-order cleanup
+- Retest result: pending deployment
+- QA notes: deletion removes local files, the Neon record, and every recorded R2 object; non-rejected orders receive HTTP 409
 
 ### Empty overflow sheet persists and leaves Sheet 1 half width
 

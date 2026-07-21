@@ -11,6 +11,7 @@ import nodemailer from "nodemailer";
 import { renderSheetToFiles, type RenderSheetDocument } from "./renderSheet";
 import {
   createQueuedProductionStorageRecord,
+  deleteDurableProductionSubmission,
   isProductionDatabaseConfigured,
   isProductionStorageConfigured,
   listDurableProductionSubmissions,
@@ -421,6 +422,48 @@ export function createApp() {
         }
 
         res.json({ project });
+      })();
+    }
+  );
+
+  app.delete(
+    "/admin/projects/:projectId",
+    (req: Request, res: Response): void => {
+      void (async () => {
+        const projectId = getSafeProjectId(req.params.projectId);
+
+        if (!projectId) {
+          res.status(400).json({ error: "Invalid project id." });
+          return;
+        }
+
+        const project = await readSubmittedProject(projectId);
+
+        if (!project) {
+          res.status(404).json({ error: "Project not found." });
+          return;
+        }
+
+        if (project.review.status !== "rejected") {
+          res.status(409).json({
+            error: "Only rejected projects can be permanently deleted.",
+          });
+          return;
+        }
+
+        try {
+          await deleteDurableProductionSubmission(projectId);
+          await fs.promises.rm(path.join(projectsDir, projectId), {
+            force: true,
+            recursive: true,
+          });
+          res.json({ deleted: true, projectId });
+        } catch (error) {
+          console.error("[admin-project-delete] could not delete project", error);
+          res.status(500).json({
+            error: "Could not permanently delete the rejected project.",
+          });
+        }
       })();
     }
   );
