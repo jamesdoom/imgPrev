@@ -46,13 +46,14 @@ SMTP_TIMEOUT_MS=15000
 SMTP_USER=your-smtp-user
 SMTP_PASS=your-smtp-password
 PRINT_ORDER_EMAIL_FROM=orders@example.com
-PRINT_ORDER_EMAIL_TO=print-shop@example.com
+PRINT_ORDER_EMAIL_TO=orders@palmercodeworks.com,magicdecals@sunsignfactory.com
 PRINT_ORDER_EMAIL_SUBJECT_PREFIX=New decal sheet order
+ADMIN_REVIEW_URL=https://your-vercel-project.vercel.app/admin
 ```
 
 `R2_ENDPOINT` can be used instead of `R2_ACCOUNT_ID` when you want to provide the full S3-compatible endpoint. `R2_PUBLIC_BASE_URL` is optional; omit it if the bucket is private and admins should access files through internal tooling.
 
-When the SMTP and `PRINT_ORDER_EMAIL_*` variables are configured, submitted print orders are also emailed in the background with the print PDF, proof preview PNG, and order JSON attached. `SMTP_USER` and `SMTP_PASS` can be omitted only when your SMTP relay does not require authentication. `SMTP_TIMEOUT_MS` is optional and defaults to 15000 so failed SMTP connections do not remain queued forever.
+When the SMTP and `PRINT_ORDER_EMAIL_*` variables are configured, submitted print orders are also emailed in the background with the print PDF, proof preview PNG, order JSON, and a direct admin-review link. `PRINT_ORDER_EMAIL_TO` accepts comma-separated recipients. `ADMIN_REVIEW_URL` is optional when `CORS_ORIGIN` is the frontend origin; otherwise set it to the full `/admin` URL. `SMTP_USER` and `SMTP_PASS` can be omitted only when your SMTP relay does not require authentication. `SMTP_TIMEOUT_MS` is optional and defaults to 15000 so failed SMTP connections do not remain queued forever.
 
 ## Development
 

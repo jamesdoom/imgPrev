@@ -82,8 +82,9 @@ Objects are written under `<R2_PREFIX>/<projectId>/` as `print.pdf`, `preview.pn
 | `PRINT_ORDER_EMAIL_FROM` | Yes | Sender address |
 | `PRINT_ORDER_EMAIL_TO` | Yes | Comma-separated production recipients |
 | `PRINT_ORDER_EMAIL_SUBJECT_PREFIX` | Optional | Defaults to `New decal sheet order` |
+| `ADMIN_REVIEW_URL` | Recommended | Full admin URL included in order emails; defaults to the first `CORS_ORIGIN` plus `/admin` |
 
-If the relay requires authentication, configure both `SMTP_USER` and `SMTP_PASS`. A failed email must appear as `failed` in admin while the local and durable print package remain available.
+Set production `PRINT_ORDER_EMAIL_TO` to `orders@palmercodeworks.com,magicdecals@sunsignfactory.com`. If the relay requires authentication, configure both `SMTP_USER` and `SMTP_PASS`. Email status remains recorded in the order data while the local and durable print package remain available if delivery fails.
 
 ## Optional Cleanup
 

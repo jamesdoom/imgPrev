@@ -66,6 +66,7 @@ const originalProductionStorageEnv = {
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
 };
 const originalEmailEnv = {
+  ADMIN_REVIEW_URL: process.env.ADMIN_REVIEW_URL,
   PRINT_ORDER_EMAIL_FROM: process.env.PRINT_ORDER_EMAIL_FROM,
   PRINT_ORDER_EMAIL_SUBJECT_PREFIX: process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX,
   PRINT_ORDER_EMAIL_TO: process.env.PRINT_ORDER_EMAIL_TO,
@@ -78,6 +79,7 @@ const originalEmailEnv = {
 };
 
 beforeEach(() => {
+  delete process.env.ADMIN_REVIEW_URL;
   delete process.env.DATABASE_URL;
   delete process.env.POSTGRES_SSL;
   delete process.env.R2_ACCESS_KEY_ID;
@@ -556,7 +558,9 @@ describe("backend app", () => {
 
     process.env.PRINT_ORDER_EMAIL_FROM = "orders@example.com";
     process.env.PRINT_ORDER_EMAIL_SUBJECT_PREFIX = "Print-ready decal sheet";
-    process.env.PRINT_ORDER_EMAIL_TO = "print@example.com, owner@example.com";
+    process.env.ADMIN_REVIEW_URL = "https://decals.example.com/admin";
+    process.env.PRINT_ORDER_EMAIL_TO =
+      "orders@palmercodeworks.com, magicdecals@sunsignfactory.com";
     process.env.SMTP_HOST = "smtp.example.com";
     process.env.SMTP_PASS = "smtp-pass";
     process.env.SMTP_PORT = "2525";
@@ -579,7 +583,8 @@ describe("backend app", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.email).toMatchObject({
-      recipient: "print@example.com, owner@example.com",
+      recipient:
+        "orders@palmercodeworks.com, magicdecals@sunsignfactory.com",
       status: "queued",
     });
 
@@ -618,11 +623,18 @@ describe("backend app", () => {
         ]),
         from: "orders@example.com",
         subject: `Print-ready decal sheet: ${response.body.projectId}`,
-        to: ["print@example.com", "owner@example.com"],
+        text: expect.stringContaining(
+          "Review this order: https://decals.example.com/admin"
+        ),
+        to: [
+          "orders@palmercodeworks.com",
+          "magicdecals@sunsignfactory.com",
+        ],
       })
     );
     expect(orderJson.email).toMatchObject({
-      recipient: "print@example.com, owner@example.com",
+      recipient:
+        "orders@palmercodeworks.com, magicdecals@sunsignfactory.com",
       sentAt: expect.any(String),
       status: "sent",
     });
@@ -1143,6 +1155,7 @@ function restoreProductionStorageEnv() {
 }
 
 function restoreEmailEnv() {
+  restoreEnvValue("ADMIN_REVIEW_URL", originalEmailEnv.ADMIN_REVIEW_URL);
   restoreEnvValue(
     "PRINT_ORDER_EMAIL_FROM",
     originalEmailEnv.PRINT_ORDER_EMAIL_FROM

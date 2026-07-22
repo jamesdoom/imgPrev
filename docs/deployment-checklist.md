@@ -15,6 +15,8 @@ Use this checklist for every production update.
 ## Environment Review
 
 - Vercel `VITE_API_BASE_URL` points to the intended Render production service.
+- Render `PRINT_ORDER_EMAIL_TO` contains both `orders@palmercodeworks.com` and `magicdecals@sunsignfactory.com`.
+- Render `ADMIN_REVIEW_URL` points to the production frontend `/admin` page, or `CORS_ORIGIN` can supply that origin.
 - Render `CORS_ORIGIN` includes the intended Vercel production origin and no obsolete preview origins.
 - Render has the Neon, R2, and SMTP variables listed in `docs/deployment-environment.md`.
 - Render start command is `npm start`, root directory is `backend`, and health path is `/`.

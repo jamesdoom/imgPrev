@@ -8,7 +8,7 @@ Use this file as the single production-readiness queue after each client test se
 - Client test status: initial live submission proof passed
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
-- Open medium issues: 4 awaiting deployed retest
+- Open medium issues: 5 awaiting deployed retest
 - Open low issues: 2 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
@@ -120,6 +120,24 @@ Use this file as the single production-readiness queue after each client test se
 No open items.
 
 ## Medium
+
+### Add client order recipient and admin link to notification email
+
+- ID: CLIENT-20260722-12
+- Status: ready for retest
+- Area: email | admin review | deployment
+- Browser/device: production email client
+- Artwork used: any submitted order
+- Steps to reproduce: submit an order and inspect the production notification email
+- Expected: both production recipients receive the order and the message includes a direct admin-review link
+- Actual: the new client recipient was not configured and the message did not provide an admin shortcut
+- Evidence: client onboarding request on 2026-07-22
+- Severity: medium
+- Owner: application | deployment
+- Regression test: backend email coverage verifies both recipients and the admin-review URL in the message text
+- Fix commit: Phase 7 client email onboarding
+- Retest result: pending deployment and live submission
+- QA notes: production `PRINT_ORDER_EMAIL_TO` must contain `orders@palmercodeworks.com,magicdecals@sunsignfactory.com`; `ADMIN_REVIEW_URL` can override the automatic `CORS_ORIGIN/admin` link
 
 ### Rejected orders cannot be permanently removed
 

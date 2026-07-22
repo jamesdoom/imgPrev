@@ -426,3 +426,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Correction: removed the email-delivery panel from admin review while retaining delivery status, recipient, timestamps, and errors in backend/order records
 - Regression added: admin screen coverage supplies a successful email record and verifies the panel is absent
 - Notes/follow-up: CLIENT-20260721-11 remains ready for deployed retest
+
+## 2026-07-22 - Client Email Recipient And Admin Link
+
+- Recipient configuration: documented `PRINT_ORDER_EMAIL_TO=orders@palmercodeworks.com,magicdecals@sunsignfactory.com` for Render production
+- Email content: adds a direct admin-review URL, preferring `ADMIN_REVIEW_URL` and otherwise deriving the frontend origin from `CORS_ORIGIN`
+- Regression added: SMTP delivery coverage verifies both recipients and the admin link in the outgoing message
+- Automated: focused backend email tests, lint, and production build passed
+- Notes/follow-up: CLIENT-20260722-12 needs a deployed live-order retest after the Render recipient variable is updated

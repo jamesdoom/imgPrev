@@ -648,6 +648,7 @@ function getPrintOrderEmailConfig(): PrintOrderEmailConfig | null {
   }
 
   return {
+    adminReviewUrl: getAdminReviewUrl(),
     auth:
       process.env.SMTP_USER && process.env.SMTP_PASS
         ? {
@@ -726,6 +727,22 @@ function getEmailRecipients(value: string | undefined): string[] {
 
 function formatEmailRecipients(recipients: string[]): string {
   return recipients.join(", ");
+}
+
+function getAdminReviewUrl(): string | undefined {
+  const configuredUrl = process.env.ADMIN_REVIEW_URL?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const frontendOrigin = process.env.CORS_ORIGIN?.split(",")[0]?.trim();
+
+  if (!frontendOrigin || frontendOrigin === "*") {
+    return undefined;
+  }
+
+  return `${frontendOrigin.replace(/\/$/, "")}/admin`;
 }
 
 function createPrintOrderRecord({
@@ -943,7 +960,7 @@ function createPrintOrderEmailMessage({
     printPdf: Buffer;
   };
 }): nodemailer.SendMailOptions {
-  const text = createPrintOrderEmailText(orderRecord);
+  const text = createPrintOrderEmailText(orderRecord, config.adminReviewUrl);
 
   return {
     attachments: [
@@ -978,7 +995,10 @@ function createPrintOrderEmailMessage({
   };
 }
 
-function createPrintOrderEmailText(orderRecord: PrintOrderRecord): string {
+function createPrintOrderEmailText(
+  orderRecord: PrintOrderRecord,
+  adminReviewUrl?: string
+): string {
   const customerDetails = [
     orderRecord.customer.name
       ? `Customer name: ${orderRecord.customer.name}`
@@ -1005,6 +1025,7 @@ function createPrintOrderEmailText(orderRecord: PrintOrderRecord): string {
     `Artwork assets: ${orderRecord.counts.assets}`,
     `Decals: ${orderRecord.counts.decals}`,
     `Sheets: ${orderRecord.counts.sheets}`,
+    ...(adminReviewUrl ? ["", `Review this order: ${adminReviewUrl}`] : []),
     "",
     ...(customerDetails.length > 0
       ? ["Customer details:", ...customerDetails, ""]
@@ -1921,6 +1942,7 @@ interface PrintOrderEmailDelivery {
 }
 
 interface PrintOrderEmailConfig {
+  adminReviewUrl?: string;
   auth?: {
     pass: string;
     user: string;
