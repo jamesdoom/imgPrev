@@ -277,6 +277,32 @@ test("customer editor remains reachable without page-level horizontal overflow o
   await expect(submitButton).toBeEnabled();
 });
 
+test("desktop sheet workspace reaches the viewport bottom and scrolls to the sheet edge", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/");
+
+  const canvas = page.getByRole("region", { name: "Sticker sheet canvas" });
+  const bounds = await canvas.boundingBox();
+
+  expect(bounds).not.toBeNull();
+  expect(1000 - ((bounds?.y ?? 0) + (bounds?.height ?? 0))).toBeLessThan(20);
+
+  const scrollPosition = await canvas.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+
+    return {
+      remaining:
+        element.scrollHeight - element.clientHeight - element.scrollTop,
+      scrollTop: element.scrollTop,
+    };
+  });
+
+  expect(scrollPosition.scrollTop).toBeGreaterThan(0);
+  expect(scrollPosition.remaining).toBeLessThanOrEqual(1);
+});
+
 test("customer can reach print readiness and submit a print order", async ({
   page,
 }) => {

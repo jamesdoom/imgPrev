@@ -9,7 +9,7 @@ Use this file as the single production-readiness queue after each client test se
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: 5 awaiting deployed retest
-- Open low issues: 2 awaiting deployed retest
+- Open low issues: 3 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
 ## Monitored Observations
@@ -212,6 +212,24 @@ No open items.
 - QA notes: old projects without an explicit sheet list continue to open as one-sheet projects
 
 ## Low
+
+### Desktop sheet workspace stops above the bottom of the screen
+
+- ID: CLIENT-20260722-13
+- Status: ready for retest
+- Area: customer editor | responsive layout
+- Browser/device: wide desktop viewport
+- Artwork used: any populated sheet
+- Steps to reproduce: open the editor on a tall desktop display and scroll within the center sheet workspace
+- Expected: the workspace uses all remaining screen height and can scroll through the sheet's bottom edge with comfortable padding
+- Actual: a fixed 640px viewport left unused space below the sheet panel
+- Evidence: client report and screenshot on 2026-07-22
+- Severity: low
+- Owner: application
+- Regression test: desktop Chromium coverage verifies the canvas reaches the viewport bottom and can scroll completely to its lower boundary
+- Fix commit: Phase 7 full-height sheet workspace
+- Retest result: pending deployment
+- QA notes: mobile retains its stable 640px sheet viewport; desktop uses the available application height
 
 ### Email-delivery panel adds noise after forwarding is proven
 

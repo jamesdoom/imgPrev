@@ -434,3 +434,11 @@ Keep this file short. Add one entry per meaningful change so future work can see
 - Regression added: SMTP delivery coverage verifies both recipients and the admin link in the outgoing message
 - Automated: focused backend email tests, lint, and production build passed
 - Notes/follow-up: CLIENT-20260722-12 needs a deployed live-order retest after the Render recipient variable is updated
+
+## 2026-07-22 - Full-Height Desktop Sheet Workspace
+
+- Evidence: client screenshot showed the fixed-height canvas ending above the browser's lower edge on a tall display
+- Correction: the desktop center grid, sheet card, and canvas now flex through all remaining application height while retaining independent sheet scrolling and bottom padding
+- Responsive behavior: mobile/tablet keeps the existing predictable 640px canvas height; desktop consumes the available viewport
+- Regression added: a 1600 × 1000 Chromium check verifies the workspace reaches within 20px of the viewport bottom and can scroll to zero remaining distance
+- Notes/follow-up: CLIENT-20260722-13 remains ready for deployed retest

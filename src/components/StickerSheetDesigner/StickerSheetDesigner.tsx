@@ -1087,9 +1087,9 @@ export default function StickerSheetDesigner() {
           />
         </aside>
 
-        <main className="min-h-[480px] min-w-0 overflow-auto bg-neutral-200 p-3 sm:min-h-[560px] lg:min-h-0">
+        <main className="min-h-[480px] min-w-0 overflow-auto bg-neutral-200 p-3 sm:min-h-[560px] lg:h-full lg:min-h-0">
           <div
-            className={`grid grid-cols-1 gap-4 ${
+            className={`grid grid-cols-1 gap-4 lg:h-full ${
               sheetPages.length > 1 ? "xl:grid-cols-2" : ""
             }`}
           >
@@ -1113,7 +1113,7 @@ export default function StickerSheetDesigner() {
                 <section
                   key={page.id}
                   aria-label={`${page.label} editor`}
-                  className={`min-w-0 overflow-hidden rounded border bg-white shadow-sm ${
+                  className={`min-w-0 overflow-hidden rounded border bg-white shadow-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col ${
                     activeSheetId === page.id
                       ? "border-sky-600 ring-2 ring-sky-200"
                       : "border-neutral-300"
@@ -1136,7 +1136,7 @@ export default function StickerSheetDesigner() {
                         : `${pageIssues.length} to review`}
                     </span>
                   </button>
-                  <div className="h-[640px] min-h-0">
+                  <div className="h-[640px] min-h-0 lg:h-auto lg:flex-1">
                     <StickerSheetCanvas
                       ref={activeSheetId === page.id ? canvasRef : undefined}
                       document={pageDocument}
