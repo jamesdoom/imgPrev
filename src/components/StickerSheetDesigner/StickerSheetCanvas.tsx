@@ -33,6 +33,7 @@ import type {
 import { commitCanvasTransform } from "./canvasTransform";
 
 const PREVIEW_PIXELS_PER_INCH = 96;
+const GUIDE_STATUS_VISIBLE_MS = 2_400;
 const CHECKER_SIZE = 24;
 const MIN_ITEM_SIZE_PX = 24;
 const CUTLINE_PADDING_PX = 6;
@@ -562,15 +563,35 @@ function getBestSnap(
 }
 
 function GuideStatusChip({ viewState }: { viewState: SheetViewState }) {
+  const [isVisible, setIsVisible] = useState(true);
+  const statusKey = [
+    viewState.snapToGrid,
+    viewState.snapToItems,
+    viewState.showSpacingGuides,
+  ].join(":");
   const snapTargets = [
     viewState.snapToGrid ? "grid" : null,
     viewState.snapToItems ? "decals" : null,
   ].filter(Boolean);
 
+  useEffect(() => {
+    setIsVisible(true);
+    const timeoutId = window.setTimeout(
+      () => setIsVisible(false),
+      GUIDE_STATUS_VISIBLE_MS
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [statusKey]);
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none absolute left-3 top-3 z-10 rounded border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm"
+      className="pointer-events-none absolute left-3 top-3 z-10 rounded border border-neutral-200 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm transition-opacity motion-reduce:transition-none"
       role="status"
     >
       <span className="text-neutral-900">

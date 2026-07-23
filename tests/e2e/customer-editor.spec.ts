@@ -303,6 +303,17 @@ test("desktop sheet workspace reaches the viewport bottom and scrolls to the she
   expect(scrollPosition.remaining).toBeLessThanOrEqual(1);
 });
 
+test("canvas snap status clears after its brief settings confirmation", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const snapStatus = page.getByText("Snap grid + decals", { exact: true });
+
+  await expect(snapStatus).toBeVisible();
+  await expect(snapStatus).toHaveCount(0, { timeout: 4_000 });
+});
+
 test("customer can reach print readiness and submit a print order", async ({
   page,
 }) => {

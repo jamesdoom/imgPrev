@@ -9,7 +9,7 @@ Use this file as the single production-readiness queue after each client test se
 - Open blockers: 5 awaiting deployed retest
 - Open high issues: none reported
 - Open medium issues: 5 awaiting deployed retest
-- Open low issues: 3 awaiting deployed retest
+- Open low issues: 4 awaiting deployed retest
 - Release status: hold until CLIENT-20260720-01 is verified
 
 ## Monitored Observations
@@ -212,6 +212,24 @@ No open items.
 - QA notes: old projects without an explicit sheet list continue to open as one-sheet projects
 
 ## Low
+
+### Snap and spacing status overlay never dismisses
+
+- ID: CLIENT-20260723-14
+- Status: ready for retest
+- Area: customer editor | canvas
+- Browser/device: production browser session
+- Artwork used: any sheet
+- Steps to reproduce: open a sheet and observe the “Snap grid + decals | Spacing on” overlay
+- Expected: the overlay briefly confirms the active settings and then clears from the artwork area
+- Actual: the overlay remained indefinitely and obscured part of the sheet
+- Evidence: client report and screenshot on 2026-07-23
+- Severity: low
+- Owner: application
+- Regression test: Chromium coverage verifies the status appears initially and is removed within four seconds
+- Fix commit: Phase 7 transient canvas status
+- Retest result: pending deployment
+- QA notes: the overlay reappears briefly whenever grid snap, decal snap, or spacing-guide settings change
 
 ### Desktop sheet workspace stops above the bottom of the screen
 
